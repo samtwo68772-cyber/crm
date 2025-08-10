@@ -16,11 +16,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from './ui/input';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, BarChart, HardHat, Workflow, User } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 
 const navItems = [
@@ -111,6 +112,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           </Button>
                       </SheetTrigger>
                       <SheetContent side="left" className="p-0 w-[280px]">
+                        <VisuallyHidden><SheetTitle>Mobile Navigation Menu</SheetTitle></VisuallyHidden>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
