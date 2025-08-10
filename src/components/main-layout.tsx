@@ -15,28 +15,26 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover"
 import { Input } from './ui/input';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, PlusCircle, Search, User as UserIcon } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, BarChart, HardHat, Workflow, User } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const navItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/cases', label: 'Cases', icon: Briefcase },
-    { href: '/tasks', label: 'Tasks', icon: ListTodo },
-    { href: '/contacts', label: 'Contacts', icon: Contact },
-    { href: '/accounts', label: 'Accounts', icon: Building },
-    { href: '/documents', label: 'Documents', icon: FileText },
-    { href: '/calendar', label: 'Calendar', icon: Calendar },
-    { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, count: null },
+    { href: '/cases', label: 'Cases', icon: Briefcase, count: 24 },
+    { href: '/tasks', label: 'Tasks', icon: ListTodo, count: 18 },
+    { href: '/contacts', label: 'Contacts', icon: Contact, count: 156 },
+    { href: '/calendar', label: 'Meetings', icon: Calendar, count: 5 },
+    { href: '/documents', label: 'Documents', icon: FileText, count: 89 },
+    { href: '/emails', label: 'Emails', icon: Mail, count: 7 },
+    { href: '/reports', label: 'Reports', icon: BarChart, count: null },
+    { href: '/users', label: 'Users', icon: Users, count: null },
+    { href: '/workflows', label: 'Workflows', icon: Workflow, count: null },
+    { href: '/settings', label: 'Settings', icon: Settings, count: null, adminOnly: true },
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +42,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
-    const [isSidebarOpen, setSidebarOpen] = useState(isMobile ? false : true);
+    const [isSidebarOpen, setSidebarOpen] = useState(!isMobile);
 
     useEffect(() => {
         if (!user) {
@@ -73,11 +71,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const filteredNavItems = navItems.filter(item => !item.adminOnly || user.role === 'admin');
 
     const sidebarContent = (
-      <div className="flex flex-col h-full bg-muted/40 text-card-foreground backdrop-blur-md border-r">
-        <div className="flex h-16 items-center border-b px-6 shrink-0">
+      <div className="flex flex-col h-full bg-card text-card-foreground border-r">
+        <div className="flex h-20 items-center border-b px-6 shrink-0">
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
-              <Logo className="h-7 w-7 text-primary" />
-              <span className={`font-headline text-xl ${!isSidebarOpen && "hidden"}`}>MintCRM</span>
+              <Logo className="h-8 w-8 text-primary" />
+              <div className="flex flex-col">
+                <span className={`font-headline text-xl`}>MinT CRM</span>
+                <span className="text-xs text-muted-foreground">Customer Relations</span>
+              </div>
             </Link>
         </div>
         <nav className="flex-1 space-y-2 p-4">
@@ -85,11 +86,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <Link key={item.href} href={item.href} onClick={handleLinkClick}>
                 <Button
                     variant={pathname === item.href ? 'secondary' : 'ghost'}
-                    className={`w-full justify-start gap-3 text-base h-11 ${!isSidebarOpen && "w-11 px-0"}`}
+                    className="w-full justify-start gap-3 text-base h-11"
                     title={item.label}
                 >
                     <item.icon className="h-5 w-5" />
-                    <span className={`${!isSidebarOpen && "hidden"}`}>{item.label}</span>
+                    <span>{item.label}</span>
+                    {item.count && <Badge className="ml-auto bg-primary/20 text-primary hover:bg-primary/30">{item.count}</Badge>}
                 </Button>
               </Link>
             ))}
@@ -99,13 +101,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className={`grid min-h-screen w-full bg-muted/40 ${isSidebarOpen ? 'lg:grid-cols-[280px_1fr]' : 'lg:grid-cols-[88px_1fr]'}`}>
-            <div className="hidden lg:block">
+        <div className={`grid min-h-screen w-full bg-muted/40 ${isSidebarOpen && !isMobile ? 'grid-cols-[280px_1fr]' : 'grid-cols-[88px_1fr]'}`}>
+            <div className="hidden lg:block bg-card">
                 {sidebarContent}
             </div>
 
             <div className="flex flex-col">
-                <header className="flex h-16 items-center gap-4 border-b bg-card px-6">
+                <header className="flex h-20 items-center gap-4 border-b bg-card px-6">
                   <Sheet open={isMobile && isSidebarOpen} onOpenChange={setSidebarOpen}>
                       <SheetTrigger asChild>
                           <Button variant="outline" size="icon" className="lg:hidden">
@@ -114,13 +116,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           </Button>
                       </SheetTrigger>
                       <SheetContent side="left" className="p-0 w-[280px]">
-                        <SheetHeader>
-                          <SheetTitle className="sr-only">Menu</SheetTitle>
-                        </SheetHeader>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
-                  <Button variant="outline" size="icon" className="hidden lg:inline-flex" onClick={() => setSidebarOpen(!isSidebarOpen)}>
+                  <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={() => setSidebarOpen(!isSidebarOpen)}>
                       <Menu className="h-6 w-6" />
                       <span className="sr-only">Toggle navigation menu</span>
                   </Button>
@@ -128,33 +127,24 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   <div className="flex-1">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input placeholder="Search cases, contacts..." className="pl-10 w-full max-w-md bg-background" />
+                        <Input placeholder="Search cases, contacts..." className="pl-10 w-full max-w-md bg-muted/40" />
                     </div>
                   </div>
                   
-                  <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="ghost" size="icon" className="relative">
-                          <Bell className="h-5 w-5" />
-                           <Badge className="absolute -top-1 -right-1 h-4 w-4 justify-center p-1" variant="destructive">3</Badge>
-                          <span className="sr-only">Toggle notifications</span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-80">
-                         <div className="grid gap-4">
-                          <div className="space-y-2">
-                            <h4 className="font-medium leading-none">Notifications</h4>
-                            <p className="text-sm text-muted-foreground">You have 3 new messages.</p>
-                          </div>
-                          {/* Notifications list */}
-                         </div>
-                      </PopoverContent>
-                  </Popover>
+                  <Button variant="ghost" size="icon">
+                    <Bell className="h-5 w-5" />
+                    <span className="sr-only">Toggle notifications</span>
+                  </Button>
+                  <Button variant="ghost" size="icon">
+                    <User className="h-5 w-5" />
+                    <span className="sr-only">User settings</span>
+                  </Button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                                <Avatar className="h-10 w-10">
+                            <Button variant="ghost" className="flex items-center gap-2">
+                                <span>{user.name}</span>
+                                <Avatar className="h-8 w-8">
                                     <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="user avatar" alt={user.name} />
                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
@@ -178,7 +168,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </header>
-                <main className="flex-1 bg-muted/40 overflow-auto">{children}</main>
+                <main className="flex-1 overflow-auto p-4 md:p-8">{children}</main>
             </div>
         </div>
     );

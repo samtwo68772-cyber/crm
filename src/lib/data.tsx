@@ -1,4 +1,4 @@
-import type { Case, Task, Contact, User, Team, Account, Document } from './types';
+import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
@@ -49,6 +49,12 @@ export const documents: Document[] = [
     { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', linkedTo: 'Case #case-104' },
     { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', linkedTo: 'Case #case-101' },
 ];
+
+export const meetings: Meeting[] = [
+    { id: 'meet-1', title: 'Client Review Meeting', status: 'Scheduled', type: 'Client Meeting', description: 'Quarterly review with TechCorp Inc.', date: '2024-01-18T10:00:00', duration: 60, location: 'Conference Room A', organizer: 'John Smith', attendees: 2 },
+    { id: 'meet-2', title: 'Team Standup', status: 'Completed', type: 'Team Meeting', description: 'Daily team synchronization', date: '2024-01-18T09:00:00', duration: 15, location: 'Online', organizer: 'Alex Johnson', attendees: 4 },
+];
+
 
 export const recentActivities = [
   { id: 1, user: 'Maria Garcia', action: 'Updated', details: 'Case #case-102 to "In Progress"', timestamp: '2 hours ago' },

@@ -58,3 +58,16 @@ export type Document = {
     uploadedAt: string;
     linkedTo: string;
 };
+
+export type Meeting = {
+  id: string;
+  title: string;
+  status: 'Scheduled' | 'Completed' | 'Canceled';
+  type: 'Client Meeting' | 'Team Meeting';
+  description: string;
+  date: string;
+  duration: number;
+  location: string;
+  organizer: string;
+  attendees: number;
+}
