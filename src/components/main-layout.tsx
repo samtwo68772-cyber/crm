@@ -73,7 +73,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const filteredNavItems = navItems.filter(item => !item.adminOnly || user.role === 'admin');
 
     const sidebarContent = (
-      <div className="flex flex-col h-full bg-card text-card-foreground backdrop-blur-md border-r">
+      <div className="flex flex-col h-full bg-muted/40 text-card-foreground backdrop-blur-md border-r">
         <div className="flex h-16 items-center border-b px-6 shrink-0">
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
               <Logo className="h-7 w-7 text-primary" />
@@ -183,4 +183,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
-
