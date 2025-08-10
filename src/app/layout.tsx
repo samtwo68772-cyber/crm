@@ -7,6 +7,9 @@ import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
 import MainLayout from '@/components/main-layout';
 import { Toaster } from "@/components/ui/toaster"
+import { Inter } from 'next/font/google'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export default function RootLayout({
   children,
@@ -21,11 +24,8 @@ export default function RootLayout({
       <head>
         <title>Caseflow CRM</title>
         <meta name="description" content="A web-based Customer Relationship Management (CRM) system." />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet" />
       </head>
-      <body className="font-body antialiased">
+      <body className={`${inter.className} antialiased`}>
         <AuthProvider>
           {isLoginPage ? children : <MainLayout>{children}</MainLayout>}
           <Toaster />

@@ -73,10 +73,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const filteredNavItems = navItems.filter(item => !item.adminOnly || user.role === 'admin');
 
     const sidebarContent = (
-      <div className="flex flex-col h-full bg-primary/95 text-primary-foreground backdrop-blur-md">
-        <div className="flex h-16 items-center border-b border-primary/20 px-6 shrink-0">
-            <Link href="/" className="flex items-center gap-3 font-semibold text-primary-foreground">
-              <Logo className="h-7 w-7" />
+      <div className="flex flex-col h-full bg-card text-card-foreground backdrop-blur-md border-r">
+        <div className="flex h-16 items-center border-b px-6 shrink-0">
+            <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
+              <Logo className="h-7 w-7 text-primary" />
               <span className={`font-headline text-xl ${!isSidebarOpen && "hidden"}`}>Caseflow</span>
             </Link>
         </div>
@@ -94,23 +94,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               </Link>
             ))}
         </nav>
-        <div className={`p-4 border-t border-primary/20 ${!isSidebarOpen && "hidden"}`}>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Upgrade to Pro</CardTitle>
-                    <CardDescription>Unlock all features and get unlimited support.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Button size="sm" className="w-full">Upgrade</Button>
-                </CardContent>
-            </Card>
-        </div>
       </div>
     );
 
 
     return (
-        <div className="grid min-h-screen w-full" style={{gridTemplateColumns: isSidebarOpen && !isMobile ? '280px 1fr' : 'auto 1fr'}}>
+        <div className="grid min-h-screen w-full bg-muted/40" style={{gridTemplateColumns: isSidebarOpen && !isMobile ? '280px 1fr' : 'auto 1fr'}}>
             <div className={`hidden lg:block transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-[280px]' : 'w-[88px]'}`}>
                 {sidebarContent}
             </div>
@@ -125,6 +114,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           </Button>
                       </SheetTrigger>
                       <SheetContent side="left" className="p-0 w-[280px]">
+                        <SheetHeader>
+                          <SheetTitle className="sr-only">Menu</SheetTitle>
+                        </SheetHeader>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
@@ -191,7 +183,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </header>
-                <main className="flex-1 bg-background overflow-auto">{children}</main>
+                <main className="flex-1 bg-muted/40 overflow-auto">{children}</main>
             </div>
         </div>
     );
