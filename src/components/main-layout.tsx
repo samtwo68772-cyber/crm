@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/popover"
 import { Input } from './ui/input';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, PlusCircle, Search } from "lucide-react";
+import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, PlusCircle, Search, User as UserIcon } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -131,11 +131,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         <Input placeholder="Search cases, contacts..." className="pl-10 w-full max-w-md bg-background" />
                     </div>
                   </div>
-
-                  <Button>
-                    <PlusCircle className="mr-2 h-5 w-5" />
-                    Create
-                  </Button>
                   
                   <Popover>
                       <PopoverTrigger asChild>
@@ -159,6 +154,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                                <UserIcon className="h-5 w-5 mr-2" />
                                 <Avatar className="h-10 w-10">
                                     <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="user avatar" alt={user.name} />
                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
