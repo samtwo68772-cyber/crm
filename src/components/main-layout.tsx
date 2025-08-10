@@ -19,7 +19,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
@@ -54,34 +54,62 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const filteredNavItems = navItems.filter(item => !item.adminOnly || user.role === 'admin');
 
     const sidebarContent = (
-      <div className="flex flex-col">
-        <div className="flex h-16 items-center border-b px-6 shrink-0">
-          <Link href="/" className="flex items-center gap-2 font-semibold">
-            <Logo className="h-6 w-6 text-primary" />
-            <span className="font-headline">Caseflow CRM</span>
-          </Link>
-        </div>
-        <nav className="flex-1 space-y-2 p-4">
-          {filteredNavItems.map((item) => (
-            <Link key={item.href} href={item.href}>
-              <Button
-                variant={pathname === item.href ? 'secondary' : 'ghost'}
-                className="w-full justify-start gap-2"
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Button>
+      <>
+        <SheetHeader className="border-b p-4">
+          <SheetTitle>
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <Logo className="h-6 w-6 text-primary" />
+              <span className="font-headline">Caseflow CRM</span>
             </Link>
-          ))}
-        </nav>
-      </div>
+          </SheetTitle>
+        </SheetHeader>
+        <div className="flex flex-col">
+            <nav className="flex-1 space-y-2 p-4">
+            {filteredNavItems.map((item) => (
+                <Link key={item.href} href={item.href}>
+                <Button
+                    variant={pathname === item.href ? 'secondary' : 'ghost'}
+                    className="w-full justify-start gap-2"
+                >
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                </Button>
+                </Link>
+            ))}
+            </nav>
+        </div>
+      </>
     );
+
+    const desktopSidebarContent = (
+        <div className="flex flex-col">
+          <div className="flex h-16 items-center border-b px-6 shrink-0">
+            <Link href="/" className="flex items-center gap-2 font-semibold">
+              <Logo className="h-6 w-6 text-primary" />
+              <span className="font-headline">Caseflow CRM</span>
+            </Link>
+          </div>
+          <nav className="flex-1 space-y-2 p-4">
+            {filteredNavItems.map((item) => (
+              <Link key={item.href} href={item.href}>
+                <Button
+                  variant={pathname === item.href ? 'secondary' : 'ghost'}
+                  className="w-full justify-start gap-2"
+                >
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                </Button>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      );
 
 
     return (
         <div className="grid min-h-screen w-full lg:grid-cols-[280px_1fr]">
             <div className="hidden border-r bg-card lg:block">
-                {sidebarContent}
+                {desktopSidebarContent}
             </div>
             <div className="flex flex-col">
                 <header className="flex h-16 items-center gap-4 border-b bg-card px-6">
