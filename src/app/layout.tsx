@@ -9,7 +9,7 @@ import MainLayout from '@/components/main-layout';
 import { Toaster } from "@/components/ui/toaster"
 import { Inter } from 'next/font/google'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export default function RootLayout({
   children,
@@ -22,10 +22,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>Caseflow CRM</title>
+        <title>Mint CRM</title>
         <meta name="description" content="A web-based Customer Relationship Management (CRM) system." />
       </head>
-      <body className={`${inter.className} antialiased`}>
+      <body className={`${inter.variable} font-sans antialiased`}>
         <AuthProvider>
           {isLoginPage ? children : <MainLayout>{children}</MainLayout>}
           <Toaster />

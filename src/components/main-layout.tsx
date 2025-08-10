@@ -77,7 +77,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <div className="flex h-16 items-center border-b px-6 shrink-0">
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
               <Logo className="h-7 w-7 text-primary" />
-              <span className={`font-headline text-xl ${!isSidebarOpen && "hidden"}`}>Caseflow</span>
+              <span className={`font-headline text-xl ${!isSidebarOpen && "hidden"}`}>MintCRM</span>
             </Link>
         </div>
         <nav className="flex-1 space-y-2 p-4">
@@ -188,10 +188,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
-
-// Dummy components to avoid errors
-const Card = ({ children, className }: {children: React.ReactNode, className?: string}) => <div className={className}>{children}</div>
-const CardHeader = ({ children, className }: {children: React.ReactNode, className?: string}) => <div className={className}>{children}</div>
-const CardTitle = ({ children, className }: {children: React.ReactNode, className?: string}) => <div className={className}>{children}</div>
-const CardDescription = ({ children, className }: {children: React.ReactNode, className?: string}) => <div className={className}>{children}</div>
-const CardContent = ({ children, className }: {children: React.ReactNode, className?: string}) => <div className={className}>{children}</div>
