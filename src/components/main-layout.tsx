@@ -115,7 +115,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           </Button>
                       </SheetTrigger>
                       <SheetContent side="left" className="p-0 w-[280px]">
-                        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
