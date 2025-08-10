@@ -24,22 +24,35 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 
-const navItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
-    { href: '/cases', label: 'Cases', icon: Briefcase, adminOnly: false },
-    { href: '/tasks', label: 'Tasks', icon: ListTodo, adminOnly: false },
-    { href: '/meetings', label: 'Meetings', icon: Calendar, adminOnly: false },
-    { href: '/contacts', label: 'Contacts', icon: Contact, adminOnly: false },
-    { href: '/accounts', label: 'Accounts', icon: Building, adminOnly: false },
-    { href: '/documents', label: 'Documents', icon: FileText, adminOnly: false },
-    { href: '/calendar', label: 'Calendar', icon: Calendar, adminOnly: false },
-    { href: '/emails', label: 'Emails', icon: Mail, adminOnly: false },
-    { href: '/reports', label: 'Reports', icon: BarChart, adminOnly: true },
-    { href: '/admin', label: 'Users & Roles', icon: Users, adminOnly: true },
-    { href: '/settings', label: 'System Settings', icon: Settings, adminOnly: true },
-    { href: '/audit-logs', label: 'Audit Logs', icon: Shield, adminOnly: true },
-    { href: '/notifications-settings', label: 'Notifications Settings', icon: Bell, adminOnly: true },
-    { href: '/profile', label: 'Profile & Settings', icon: User, adminOnly: false },
+const navItemsAdmin = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/cases', label: 'Cases Management', icon: Briefcase },
+    { href: '/tasks', label: 'Tasks Management', icon: ListTodo },
+    { href: '/meetings', label: 'Meetings Management', icon: Calendar },
+    { href: '/contacts', label: 'Contacts', icon: Contact },
+    { href: '/accounts', label: 'Accounts', icon: Building },
+    { href: '/documents', label: 'Documents', icon: FileText },
+    { href: '/emails', label: 'Emails / Communication', icon: Mail },
+    { href: '/reports', label: 'Reports', icon: BarChart },
+    { href: '/admin', label: 'Users & Roles', icon: Users },
+    { href: '/settings', label: 'System Settings', icon: Settings },
+    { href: '/audit-logs', label: 'Audit Logs', icon: Shield },
+    { href: '/notifications-settings', label: 'Notifications Settings', icon: Bell },
+    { href: '/profile', label: 'Profile & Settings', icon: User },
+];
+
+const navItemsStaff = [
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/cases', label: 'Cases', icon: Briefcase },
+    { href: '/tasks', label: 'Tasks', icon: ListTodo },
+    { href: '/meetings', label: 'Meetings', icon: Calendar },
+    { href: '/contacts', label: 'Contacts', icon: Contact },
+    { href: '/accounts', label: 'Accounts', icon: Building },
+    { href: '/documents', label: 'Documents', icon: FileText },
+    { href: '/calendar', label: 'Calendar', icon: Calendar },
+    { href: '/emails', label: 'Emails / Messages', icon: Mail },
+    { href: '/notifications-settings', label: 'Notifications', icon: Bell },
+    { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
 
 
@@ -70,7 +83,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         )
     }
 
-    const filteredNavItems = navItems.filter(item => !item.adminOnly || user.role === 'admin');
+    const navItems = user.role === 'admin' ? navItemsAdmin : navItemsStaff;
 
     const sidebarContent = (
       <div className="flex flex-col h-full bg-card text-card-foreground border-r">
@@ -78,21 +91,21 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
               <Logo className="h-8 w-8 text-primary" />
               <div className="flex flex-col">
-                <span className={`font-headline text-xl`}>MinT CRM</span>
+                <span className={`font-headline text-xl`}>Caseflow CRM</span>
               </div>
             </Link>
         </div>
-        <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
-            {filteredNavItems.map((item) => (
-              <Link key={item.href} href={item.href} onClick={handleLinkClick}>
-                <Button
-                    variant={pathname === item.href ? 'secondary' : 'ghost'}
-                    className="w-full justify-start gap-3 text-base h-11"
-                    title={item.label}
+        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+            {navItems.map((item) => (
+               <Link key={item.href} href={item.href} onClick={handleLinkClick}
+                  className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
+                    ${pathname === item.href 
+                        ? 'bg-primary/10 text-primary border-l-4 border-primary' 
+                        : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
+                  `}
                 >
-                    <item.icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                </Button>
+                  <item.icon className={`h-5 w-5 mr-3 transition-colors duration-200 ease-in-out ${pathname === item.href ? 'text-primary' : 'group-hover:text-primary'}`} />
+                  <span className="truncate">{item.label}</span>
               </Link>
             ))}
         </nav>
@@ -101,7 +114,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className="grid min-h-screen w-full bg-muted/40 lg:grid-cols-[280px_1fr]">
+        <div className="grid min-h-screen w-full bg-background lg:grid-cols-[280px_1fr]">
             <div className="hidden border-r bg-card lg:block">
                 {sidebarContent}
             </div>

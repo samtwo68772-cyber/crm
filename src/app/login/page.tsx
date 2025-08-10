@@ -27,7 +27,7 @@ export default function LoginPage() {
             <div className="flex justify-center mb-4">
               <Logo className="h-10 w-10 text-primary" />
             </div>
-            <CardTitle className="text-2xl font-headline">Welcome to MinT</CardTitle>
+            <CardTitle className="text-2xl font-headline">Welcome to Caseflow CRM</CardTitle>
             <CardDescription>Enter your credentials to access your account.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
