@@ -101,13 +101,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className={`grid min-h-screen w-full bg-muted/40 ${isSidebarOpen && !isMobile ? 'grid-cols-[280px_1fr]' : 'grid-cols-[88px_1fr]'}`}>
+        <div className={`grid min-h-screen w-full bg-muted/40 ${isSidebarOpen && !isMobile ? 'lg:grid-cols-[280px_1fr]' : 'lg:grid-cols-[88px_1fr]'}`}>
             <div className="hidden lg:block bg-card">
                 {sidebarContent}
             </div>
 
             <div className="flex flex-col">
-                <header className="flex h-20 items-center gap-4 border-b bg-card px-6">
+                <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
                   <Sheet open={isMobile && isSidebarOpen} onOpenChange={setSidebarOpen}>
                       <SheetTrigger asChild>
                           <Button variant="outline" size="icon" className="lg:hidden">
@@ -135,15 +135,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     <Bell className="h-5 w-5" />
                     <span className="sr-only">Toggle notifications</span>
                   </Button>
-                  <Button variant="ghost" size="icon">
-                    <User className="h-5 w-5" />
-                    <span className="sr-only">User settings</span>
-                  </Button>
-
+                
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="flex items-center gap-2">
-                                <span>{user.name}</span>
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="user avatar" alt={user.name} />
                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
