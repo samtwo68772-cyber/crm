@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from './ui/input';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, BarChart, HardHat, Workflow, User } from "lucide-react";
+import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, User } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -25,17 +25,16 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 
 const navItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard, count: null },
-    { href: '/cases', label: 'Cases', icon: Briefcase, count: 24 },
-    { href: '/tasks', label: 'Tasks', icon: ListTodo, count: 18 },
-    { href: '/contacts', label: 'Contacts', icon: Contact, count: 156 },
-    { href: '/calendar', label: 'Meetings', icon: Calendar, count: 5 },
-    { href: '/documents', label: 'Documents', icon: FileText, count: 89 },
-    { href: '/emails', label: 'Emails', icon: Mail, count: 7 },
-    { href: '/reports', label: 'Reports', icon: BarChart, count: null },
-    { href: '/users', label: 'Users', icon: Users, count: null },
-    { href: '/workflows', label: 'Workflows', icon: Workflow, count: null },
-    { href: '/settings', label: 'Settings', icon: Settings, count: null, adminOnly: true },
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, count: null, adminOnly: false },
+    { href: '/cases', label: 'Cases', icon: Briefcase, count: 24, adminOnly: false },
+    { href: '/tasks', label: 'Tasks', icon: ListTodo, count: 18, adminOnly: false },
+    { href: '/meetings', label: 'Meetings', icon: Calendar, count: 5, adminOnly: false },
+    { href: '/contacts', label: 'Contacts', icon: Contact, count: 156, adminOnly: false },
+    { href: '/accounts', label: 'Accounts', icon: Building, count: null, adminOnly: false },
+    { href: '/documents', label: 'Documents', icon: FileText, count: 89, adminOnly: false },
+    { href: '/calendar', label: 'Calendar', icon: Calendar, count: null, adminOnly: false },
+    { href: '/emails', label: 'Emails', icon: Mail, count: 7, adminOnly: false },
+    { href: '/admin', label: 'Admin', icon: Users, count: null, adminOnly: true },
 ];
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
@@ -73,8 +72,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
               <Logo className="h-8 w-8 text-primary" />
               <div className="flex flex-col">
-                <span className={`font-headline text-xl`}>MinT CRM</span>
-                <span className="text-xs text-muted-foreground">Customer Relations</span>
+                <span className={`font-headline text-xl`}>Caseflow CRM</span>
               </div>
             </Link>
         </div>
@@ -146,8 +144,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>Profile</DropdownMenuItem>
-                            <DropdownMenuItem>Settings</DropdownMenuItem>
+                            <DropdownMenuItem>
+                               <User className="mr-2 h-4 w-4" />
+                               <span>Profile</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                               <Settings className="mr-2 h-4 w-4" />
+                               <span>Settings</span>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                                 <LogOut className="mr-2 h-4 w-4" />
