@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from './ui/input';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, User } from "lucide-react";
+import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, User, BarChart, Shield } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -25,17 +25,23 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 
 const navItems = [
-    { href: '/', label: 'Dashboard', icon: LayoutDashboard, count: null, adminOnly: false },
-    { href: '/cases', label: 'Cases', icon: Briefcase, count: 24, adminOnly: false },
-    { href: '/tasks', label: 'Tasks', icon: ListTodo, count: 18, adminOnly: false },
-    { href: '/meetings', label: 'Meetings', icon: Calendar, count: 5, adminOnly: false },
-    { href: '/contacts', label: 'Contacts', icon: Contact, count: 156, adminOnly: false },
-    { href: '/accounts', label: 'Accounts', icon: Building, count: null, adminOnly: false },
-    { href: '/documents', label: 'Documents', icon: FileText, count: 89, adminOnly: false },
-    { href: '/calendar', label: 'Calendar', icon: Calendar, count: null, adminOnly: false },
-    { href: '/emails', label: 'Emails', icon: Mail, count: 7, adminOnly: false },
-    { href: '/admin', label: 'Admin', icon: Users, count: null, adminOnly: true },
+    { href: '/', label: 'Dashboard', icon: LayoutDashboard, adminOnly: false },
+    { href: '/cases', label: 'Cases', icon: Briefcase, adminOnly: false },
+    { href: '/tasks', label: 'Tasks', icon: ListTodo, adminOnly: false },
+    { href: '/meetings', label: 'Meetings', icon: Calendar, adminOnly: false },
+    { href: '/contacts', label: 'Contacts', icon: Contact, adminOnly: false },
+    { href: '/accounts', label: 'Accounts', icon: Building, adminOnly: false },
+    { href: '/documents', label: 'Documents', icon: FileText, adminOnly: false },
+    { href: '/calendar', label: 'Calendar', icon: Calendar, adminOnly: false },
+    { href: '/emails', label: 'Emails', icon: Mail, adminOnly: false },
+    { href: '/reports', label: 'Reports', icon: BarChart, adminOnly: true },
+    { href: '/admin', label: 'Users & Roles', icon: Users, adminOnly: true },
+    { href: '/settings', label: 'System Settings', icon: Settings, adminOnly: true },
+    { href: '/audit-logs', label: 'Audit Logs', icon: Shield, adminOnly: true },
+    { href: '/notifications-settings', label: 'Notifications Settings', icon: Bell, adminOnly: true },
+    { href: '/profile', label: 'Profile & Settings', icon: User, adminOnly: false },
 ];
+
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, logout } = useAuth();
@@ -72,7 +78,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
               <Logo className="h-8 w-8 text-primary" />
               <div className="flex flex-col">
-                <span className={`font-headline text-xl`}>Caseflow CRM</span>
+                <span className={`font-headline text-xl`}>MinT CRM</span>
               </div>
             </Link>
         </div>
@@ -86,7 +92,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 >
                     <item.icon className="h-5 w-5" />
                     <span>{item.label}</span>
-                    {item.count && <Badge className="ml-auto bg-primary/20 text-primary hover:bg-primary/30">{item.count}</Badge>}
                 </Button>
               </Link>
             ))}
