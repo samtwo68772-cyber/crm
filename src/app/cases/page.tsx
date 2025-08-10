@@ -17,6 +17,19 @@ import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageS
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
+function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
+  switch (priority) {
+    case 'High':
+      return 'high';
+    case 'Medium':
+      return 'medium';
+    case 'Low':
+      return 'low';
+    default:
+      return 'default';
+  }
+}
+
 export default function CasesPage() {
   const [cases, setCases] = useState<Case[]>(mockCases);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
@@ -89,7 +102,7 @@ export default function CasesPage() {
               <TableRow key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
                 <TableCell>{caseItem.customer}</TableCell>
-                <TableCell><Badge variant={caseItem.priority === 'High' ? 'destructive' : caseItem.priority === 'Medium' ? 'secondary' : 'default'} className={caseItem.priority === 'Medium' ? 'bg-accent text-accent-foreground' : ''}>{caseItem.priority}</Badge></TableCell>
+                <TableCell><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
                 <TableCell><Badge variant="outline">{caseItem.status}</Badge></TableCell>
                 <TableCell>{caseItem.assignedTo}</TableCell>
                 <TableCell>
@@ -154,7 +167,7 @@ function CaseDetailPanel({ caseItem }: { caseItem: Case }) {
                     <div className="flex items-center gap-2 text-muted-foreground">Status:</div>
                     <div><Badge variant="outline">{caseItem.status}</Badge></div>
                     <div className="flex items-center gap-2 text-muted-foreground">Priority:</div>
-                    <div><Badge variant={caseItem.priority === 'High' ? 'destructive' : 'default'} className={caseItem.priority === 'Medium' ? 'bg-accent text-accent-foreground' : ''}>{caseItem.priority}</Badge></div>
+                    <div><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></div>
                 </div>
             </div>
             <div className="space-y-4">
@@ -239,5 +252,3 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
-
-    

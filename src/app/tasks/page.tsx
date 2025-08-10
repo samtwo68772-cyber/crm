@@ -12,6 +12,19 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 type TaskStatus = 'To Do' | 'In Progress' | 'Done';
 const columns: TaskStatus[] = ['To Do', 'In Progress', 'Done'];
 
+function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
+  switch (priority) {
+    case 'High':
+      return 'high';
+    case 'Medium':
+      return 'medium';
+    case 'Low':
+      return 'low';
+    default:
+      return 'default';
+  }
+}
+
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
 
@@ -45,7 +58,7 @@ export default function TasksPage() {
 
 function TaskCard({ task, onMove }: { task: Task; onMove: (taskId: string, newStatus: TaskStatus) => void }) {
   return (
-    <Card className="bg-card shadow-sm hover:shadow-md transition-shadow cursor-grab">
+    <Card className="bg-card shadow-sm hover:shadow-lg transition-shadow cursor-grab">
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
           <p className="font-semibold text-base flex-1 pr-2">{task.title}</p>
@@ -64,7 +77,7 @@ function TaskCard({ task, onMove }: { task: Task; onMove: (taskId: string, newSt
         </div>
         <div className="flex items-center justify-between mt-2 text-sm text-muted-foreground">
           <span>Due: {task.dueDate}</span>
-          <Badge variant={task.priority === 'High' ? 'destructive' : task.priority === 'Medium' ? 'secondary' : 'default'} className={task.priority === 'Medium' ? 'bg-accent text-accent-foreground' : ''}>
+          <Badge variant={getPriorityVariant(task.priority)}>
             {task.priority}
           </Badge>
         </div>

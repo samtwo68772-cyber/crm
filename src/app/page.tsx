@@ -6,6 +6,21 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import { recentActivities, userCases, adminStats } from '@/lib/data.tsx';
+import type { Case } from '@/lib/types';
+
+
+function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
+  switch (priority) {
+    case 'High':
+      return 'high';
+    case 'Medium':
+      return 'medium';
+    case 'Low':
+      return 'low';
+    default:
+      return 'default';
+  }
+}
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -115,7 +130,7 @@ function StaffDashboard() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {userCases.map((caseItem) => (
+              {userCases.map((caseItem: Case) => (
                 <TableRow key={caseItem.id}>
                   <TableCell className="font-medium">{caseItem.subject}</TableCell>
                   <TableCell>{caseItem.customer}</TableCell>
@@ -123,8 +138,7 @@ function StaffDashboard() {
                     <Badge variant="outline">{caseItem.status}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={caseItem.priority === 'High' ? 'destructive' : caseItem.priority === 'Medium' ? 'secondary' : 'default'}
-                      className={caseItem.priority === 'Medium' ? 'bg-accent text-accent-foreground' : ''}>
+                    <Badge variant={getPriorityVariant(caseItem.priority)}>
                       {caseItem.priority}
                     </Badge>
                   </TableCell>
