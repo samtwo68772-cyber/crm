@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from './ui/input';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, BarChart, HardHat, Workflow, User } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
@@ -107,7 +107,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </div>
             <div className="flex flex-col">
                 <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
-                  <Sheet>
+                  <Sheet open={isSidebarOpen && isMobile} onOpenChange={setSidebarOpen}>
                       <SheetTrigger asChild>
                           <Button variant="outline" size="icon" className="lg:hidden">
                               <Menu className="h-6 w-6" />
@@ -115,6 +115,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           </Button>
                       </SheetTrigger>
                       <SheetContent side="left" className="p-0 w-[280px]">
+                        <SheetTitle className="sr-only">Navigation Menu</SheetTitle>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
