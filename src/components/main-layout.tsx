@@ -99,8 +99,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className="grid min-h-screen w-full bg-muted/40">
-            <div className={`hidden lg:block transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-[280px]' : 'w-[88px]'}`}>
+        <div className="grid min-h-screen w-full bg-muted/40 lg:grid-cols-[280px_1fr]">
+            <div className={`hidden lg:block transition-all duration-300 ease-in-out ${isSidebarOpen ? 'lg:w-[280px]' : 'lg:w-[88px]'}`}>
                 {sidebarContent}
             </div>
 
