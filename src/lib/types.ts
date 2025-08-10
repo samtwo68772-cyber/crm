@@ -41,3 +41,20 @@ export type Team = {
   name: string;
   memberCount: number;
 };
+
+export type Account = {
+  id: string;
+  name: string;
+  industry: string;
+  owner: string;
+  createdAt: string;
+};
+
+export type Document = {
+    id: string;
+    name: string;
+    type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image';
+    size: string;
+    uploadedAt: string;
+    linkedTo: string;
+};

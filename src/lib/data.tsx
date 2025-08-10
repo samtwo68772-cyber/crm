@@ -1,4 +1,4 @@
-import type { Case, Task, Contact, User, Team } from './types';
+import type { Case, Task, Contact, User, Team, Account, Document } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
@@ -35,6 +35,19 @@ export const teams: Team[] = [
     { id: 'team-1', name: 'Support Tier 1', memberCount: 2 },
     { id: 'team-2', name: 'Support Tier 2', memberCount: 1 },
     { id: 'team-3', name: 'Management', memberCount: 1 },
+];
+
+export const accounts: Account[] = [
+    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15' },
+    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20' },
+    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10' },
+];
+
+export const documents: Document[] = [
+    { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', linkedTo: 'Case #case-101' },
+    { id: 'doc-2', name: 'Invoice_Q2_2024.docx', type: 'Document', size: '780 KB', uploadedAt: '2024-05-19', linkedTo: 'Case #case-102' },
+    { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', linkedTo: 'Case #case-104' },
+    { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', linkedTo: 'Case #case-101' },
 ];
 
 export const recentActivities = [

@@ -20,7 +20,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact } from "lucide-react";
+import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 
@@ -29,6 +29,9 @@ const navItems = [
     { href: '/cases', label: 'Cases', icon: Briefcase },
     { href: '/tasks', label: 'Tasks', icon: ListTodo },
     { href: '/contacts', label: 'Contacts', icon: Contact },
+    { href: '/accounts', label: 'Accounts', icon: Building },
+    { href: '/documents', label: 'Documents', icon: FileText },
+    { href: '/calendar', label: 'Calendar', icon: Calendar },
     { href: '/admin', label: 'Admin', icon: Settings, adminOnly: true },
 ];
 
@@ -121,6 +124,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                           </Button>
                       </SheetTrigger>
                       <SheetContent side="left" className="p-0">
+                        <SheetHeader className="border-b p-4">
+                          <SheetTitle className="sr-only">Menu</SheetTitle>
+                        </SheetHeader>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
