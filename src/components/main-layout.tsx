@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from './ui/input';
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, BarChart, HardHat, Workflow, User } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
@@ -42,7 +42,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
-    const [isSidebarOpen, setSidebarOpen] = useState(!isMobile);
+    const [isSidebarOpen, setSidebarOpen] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -50,10 +50,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
     }, [user, router]);
     
-    useEffect(() => {
-        setSidebarOpen(!isMobile);
-    }, [isMobile]);
-
     const handleLinkClick = () => {
         if (isMobile) {
             setSidebarOpen(false);
@@ -81,7 +77,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               </div>
             </Link>
         </div>
-        <nav className="flex-1 space-y-2 p-4">
+        <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
             {filteredNavItems.map((item) => (
               <Link key={item.href} href={item.href} onClick={handleLinkClick}>
                 <Button
@@ -107,7 +103,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             </div>
             <div className="flex flex-col">
                 <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
-                  <Sheet open={isSidebarOpen && isMobile} onOpenChange={setSidebarOpen}>
+                  <Sheet open={isSidebarOpen} onOpenChange={setSidebarOpen}>
                       <SheetTrigger asChild>
                           <Button variant="outline" size="icon" className="lg:hidden">
                               <Menu className="h-6 w-6" />
