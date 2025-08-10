@@ -99,7 +99,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className="grid min-h-screen w-full bg-muted/40" style={{gridTemplateColumns: isSidebarOpen && !isMobile ? '280px 1fr' : 'auto 1fr'}}>
+        <div className="grid min-h-screen w-full bg-muted/40">
             <div className={`hidden lg:block transition-all duration-300 ease-in-out ${isSidebarOpen ? 'w-[280px]' : 'w-[88px]'}`}>
                 {sidebarContent}
             </div>
@@ -154,7 +154,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                                <UserIcon className="h-5 w-5 mr-2" />
                                 <Avatar className="h-10 w-10">
                                     <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="user avatar" alt={user.name} />
                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
