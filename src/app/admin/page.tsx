@@ -1,16 +1,18 @@
+
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
 import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
 import type { User, Team } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function AdminPage() {
     const { user } = useAuth();
@@ -47,6 +49,11 @@ export default function AdminPage() {
 
 function UserManagement() {
     const [users, setUsers] = React.useState<User[]>(mockUsers);
+
+    const handleTeamChange = (userId: string, teamName: string) => {
+        setUsers(users.map(u => u.id === userId ? {...u, team: teamName} : u));
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-end">
@@ -83,7 +90,18 @@ function UserManagement() {
                                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem>Edit role</DropdownMenuItem>
-                                            <DropdownMenuItem>Change team</DropdownMenuItem>
+                                             <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger>Change team</DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                <DropdownMenuSubContent>
+                                                    {mockTeams.map(team => (
+                                                        <DropdownMenuItem key={team.id} onClick={() => handleTeamChange(user.id, team.name)}>
+                                                            {team.name}
+                                                        </DropdownMenuItem>
+                                                    ))}
+                                                </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -116,7 +134,7 @@ function TeamManagement() {
                         {teams.map((team) => (
                             <TableRow key={team.id}>
                                 <TableCell className="font-medium">{team.name}</TableCell>
-                                <TableCell>{team.memberCount}</TableCell>
+                                <TableCell>{mockUsers.filter(u => u.team === team.name).length}</TableCell>
                                 <TableCell className="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
@@ -134,3 +152,5 @@ function TeamManagement() {
         </div>
     );
 }
+
+    

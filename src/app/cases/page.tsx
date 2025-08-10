@@ -1,17 +1,19 @@
+
 "use client";
 
 import React, { useState } from 'react';
-import { cases as mockCases, users } from '@/lib/data.tsx';
-import type { Case } from '@/lib/types';
+import { cases as mockCases, users as mockUsers } from '@/lib/data.tsx';
+import type { Case, User } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuPortal } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -19,6 +21,7 @@ export default function CasesPage() {
   const [cases, setCases] = useState<Case[]>(mockCases);
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+  const { user } = useAuth();
 
   const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt'>) => {
     const newCase: Case = {
@@ -29,6 +32,14 @@ export default function CasesPage() {
     setCases([newCase, ...cases]);
     setCreateDialogOpen(false);
   };
+  
+  const handleAssignCase = (caseId: string, userId: string) => {
+    const assignedUser = mockUsers.find(u => u.id === userId);
+    if (!assignedUser) return;
+    setCases(cases.map(c => c.id === caseId ? { ...c, assignedTo: assignedUser.name } : c));
+  };
+  
+  const displayedCases = user?.role === 'admin' ? cases : cases.filter(c => c.assignedTo === user?.name);
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -74,7 +85,7 @@ export default function CasesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {cases.map((caseItem) => (
+            {displayedCases.map((caseItem) => (
               <TableRow key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
                 <TableCell>{caseItem.customer}</TableCell>
@@ -84,12 +95,25 @@ export default function CasesPage() {
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button>
+                      <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => setSelectedCase(caseItem)}>View details</DropdownMenuItem>
-                      <DropdownMenuItem>Assign case</DropdownMenuItem>
+                       {user?.role === 'admin' && (
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger>Assign to</DropdownMenuSubTrigger>
+                          <DropdownMenuPortal>
+                            <DropdownMenuSubContent>
+                              {mockUsers.filter(u => u.role === 'staff').map(staff => (
+                                <DropdownMenuItem key={staff.id} onClick={() => handleAssignCase(caseItem.id, staff.id)}>
+                                  {staff.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuPortal>
+                        </DropdownMenuSub>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -125,7 +149,7 @@ function CaseDetailPanel({ caseItem }: { caseItem: Case }) {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" /> Created:</div>
                     <div>{caseItem.createdAt}</div>
-                    <div className="flex items-center gap-2 text-muted-foreground"><User className="h-4 w-4" /> Assigned to:</div>
+                    <div className="flex items-center gap-2 text-muted-foreground"><UserIcon className="h-4 w-4" /> Assigned to:</div>
                     <div>{caseItem.assignedTo}</div>
                     <div className="flex items-center gap-2 text-muted-foreground">Status:</div>
                     <div><Badge variant="outline">{caseItem.status}</Badge></div>
@@ -215,3 +239,5 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
+
+    
