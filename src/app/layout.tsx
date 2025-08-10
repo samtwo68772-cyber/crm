@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <title>Caseflow CRM</title>
+        <title>MinT CRM</title>
         <meta name="description" content="A web-based Customer Relationship Management (CRM) system." />
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>

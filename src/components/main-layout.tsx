@@ -91,7 +91,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
               <Logo className="h-8 w-8 text-primary" />
               <div className="flex flex-col">
-                <span className={`font-headline text-xl`}>Caseflow CRM</span>
+                <span className={`font-headline text-xl`}>MinT CRM</span>
               </div>
             </Link>
         </div>
