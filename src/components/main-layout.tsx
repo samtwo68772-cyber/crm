@@ -138,7 +138,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="flex items-center gap-2">
+                            <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                                 <Avatar className="h-8 w-8">
                                     <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="user avatar" alt={user.name} />
                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
