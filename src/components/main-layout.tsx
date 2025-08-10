@@ -101,14 +101,13 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className={`grid min-h-screen w-full bg-muted/40 ${isSidebarOpen && !isMobile ? 'lg:grid-cols-[280px_1fr]' : 'lg:grid-cols-[88px_1fr]'}`}>
-            <div className="hidden lg:block bg-card">
+        <div className="grid min-h-screen w-full bg-muted/40 lg:grid-cols-[280px_1fr]">
+            <div className="hidden border-r bg-card lg:block">
                 {sidebarContent}
             </div>
-
             <div className="flex flex-col">
                 <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
-                  <Sheet open={isMobile && isSidebarOpen} onOpenChange={setSidebarOpen}>
+                  <Sheet>
                       <SheetTrigger asChild>
                           <Button variant="outline" size="icon" className="lg:hidden">
                               <Menu className="h-6 w-6" />
@@ -119,10 +118,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
-                  <Button variant="ghost" size="icon" className="hidden lg:inline-flex" onClick={() => setSidebarOpen(!isSidebarOpen)}>
-                      <Menu className="h-6 w-6" />
-                      <span className="sr-only">Toggle navigation menu</span>
-                  </Button>
                   
                   <div className="flex-1">
                     <div className="relative">
