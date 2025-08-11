@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MultiSelect } from '@/components/ui/multi-select';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import { format, isThisMonth, isSameDay } from 'date-fns';
@@ -97,7 +98,7 @@ export default function MeetingsPage() {
 
 
   return (
-    <div className="flex-1 space-y-6">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight font-headline">Meetings</h1>
@@ -107,10 +108,10 @@ export default function MeetingsPage() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card><CardHeader><CardTitle>Total Meetings (Month)</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.total}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle>Upcoming</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.upcoming}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle>Completed</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.completed}</div></CardContent></Card>
-        <Card><CardHeader><CardTitle>Canceled</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.canceled}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Meetings (Month)</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.total}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Upcoming</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.upcoming}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Completed</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.completed}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Canceled</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.canceled}</div></CardContent></Card>
       </div>
 
       <div className="grid gap-8 md:grid-cols-3">
@@ -126,8 +127,6 @@ export default function MeetingsPage() {
                     }}
                     modifiersStyles={{
                         meeting: {
-                            // This is a simple way to indicate meetings.
-                            // For color coding per status we'd need to customize the component more deeply
                            textDecoration: 'underline',
                            textDecorationColor: 'hsl(var(--primary))'
                         }
@@ -194,6 +193,8 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
   const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);
 
   const linkedCase = useMemo(() => mockCases.find(c => c.id === meeting.linkedRecord), [meeting]);
+  const participantOptions = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
+
 
   const handleFieldChange = (field: keyof Meeting, value: any) => {
     setEditedMeeting(prev => ({ ...prev, [field]: value }));
@@ -223,10 +224,13 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
                         </Select>
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="participants" className="text-right">Participants</Label>
-                        <Select onValueChange={(v: string[]) => handleFieldChange('participants', v)} value={editedMeeting.participants} multiple>
-                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select participants" /></SelectTrigger>
-                            <SelectContent>{mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                        <MultiSelect
+                            className="col-span-3"
+                            options={participantOptions}
+                            selected={editedMeeting.participants}
+                            onChange={(selected) => handleFieldChange('participants', selected)}
+                            placeholder="Select participants"
+                        />
                     </div>
                 </div>
             ) : (
@@ -259,13 +263,13 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
             
             <DialogFooter className="justify-between">
                 <div>
-                     {isAdmin && isEditing && <Button variant="destructive" onClick={() => onDelete(meeting.id)}>Delete Meeting</Button>}
+                     {isAdmin && isEditing && <Button variant="destructive" onClick={() => onDelete(meeting.id)}><Trash2 className="mr-2 h-4 w-4" />Delete Meeting</Button>}
                 </div>
                 <div>
                 {isAdmin && !isEditing && <Button variant="outline" onClick={() => setIsEditing(true)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>}
                 {isAdmin && isEditing && (
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setIsEditing(false)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => { setIsEditing(false); setEditedMeeting(meeting); }}>Cancel</Button>
                         <Button onClick={handleSave}>Save Changes</Button>
                     </div>
                 )}
@@ -284,6 +288,8 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, 
   const [participants, setParticipants] = useState<string[]>([]);
   const [linkedRecord, setLinkedRecord] = useState('');
 
+  const participantOptions = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
+
   const handleSubmit = () => {
     onCreate({ title, description, date, participants, linkedRecord, status: 'Upcoming' });
     setTitle(''); setDescription(''); setDate(''); setParticipants([]); setLinkedRecord('');
@@ -299,10 +305,13 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, 
           <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date & Time</Label><Input id="date" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className="col-span-3" /></div>
           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="participants" className="text-right">Participants</Label>
-            <Select onValueChange={setParticipants} value={participants} multiple>
-                <SelectTrigger className="col-span-3"><SelectValue placeholder="Select participants" /></SelectTrigger>
-                <SelectContent>{mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}</SelectContent>
-            </Select>
+             <MultiSelect
+                className="col-span-3"
+                options={participantOptions}
+                selected={participants}
+                onChange={setParticipants}
+                placeholder="Select participants"
+            />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
