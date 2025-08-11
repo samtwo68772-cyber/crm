@@ -1,3 +1,4 @@
+
 export type User = {
   id: string;
   name: string;
@@ -25,6 +26,7 @@ export type Communication = {
   type: 'Finding' | 'Note' | 'Email';
   content: string;
   author: string;
+  authorRole: 'admin' | 'staff';
   timestamp: string;
 };
 
@@ -80,3 +82,5 @@ export type Meeting = {
   organizer: string;
   attendees: number;
 }
+
+    

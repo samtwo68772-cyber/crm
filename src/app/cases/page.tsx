@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { cases as mockCases, users as mockUsers } from '@/lib/data.tsx';
-import type { Case, User } from '@/lib/types';
+import type { Case, User, Communication } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -12,11 +12,13 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast"
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -212,6 +214,10 @@ export default function CasesPage() {
 
       <Dialog open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
         <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl">
+           <VisuallyHidden>
+            <DialogTitle>Case Details</DialogTitle>
+            <DialogDescription>Detailed view of a customer case.</DialogDescription>
+          </VisuallyHidden>
           {selectedCase && <CaseDetailPanel caseItem={selectedCase} onUpdateCase={handleUpdateCase} />}
         </DialogContent>
       </Dialog>
@@ -231,11 +237,12 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
 
   const handleAddCommunication = (type: 'Finding' | 'Note' | 'Email', content: string) => {
     if (content.trim()) {
-      const newComm = {
+      const newComm: Communication = {
         id: `comm-${Date.now()}`,
         type,
         content,
         author: user?.name || 'System',
+        authorRole: user?.role || 'staff',
         timestamp: new Date().toLocaleString(),
       };
       const updatedComms = [...communications, newComm];
@@ -263,6 +270,9 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
     }
   };
   
+  const staffStatusOptions: Case['status'][] = ['In Progress', 'Resolved', 'Investigated', 'Completed'];
+  const adminStatusOptions: Case['status'][] = ['New', 'Under Review', 'In Progress', 'Investigated', 'Resolved', 'Completed', 'Declined', 'Closed'];
+
   return (
     <div className="flex flex-col h-full max-h-[85vh]">
         <DialogHeader className="p-6 border-b">
@@ -282,21 +292,25 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                     <div className="flex items-center gap-2 text-muted-foreground">Priority:</div>
                     <div><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></div>
                     <div className="flex items-center gap-2 text-muted-foreground">Status:</div>
-                    <Select onValueChange={(value: Case['status']) => handleStatusChange(value)} defaultValue={caseItem.status}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="New">New</SelectItem>
-                          <SelectItem value="Under Review">Under Review</SelectItem>
-                          <SelectItem value="In Progress">In Progress</SelectItem>
-                          <SelectItem value="Investigated">Investigated</SelectItem>
-                          <SelectItem value="Resolved">Resolved</SelectItem>
-                           <SelectItem value="Completed">Completed</SelectItem>
-                           <SelectItem value="Declined">Declined</SelectItem>
-                           <SelectItem value="Closed">Closed</SelectItem>
-                        </SelectContent>
-                      </Select>
+                     {user?.role === 'admin' ? (
+                        <Select onValueChange={(value: Case['status']) => handleStatusChange(value)} defaultValue={caseItem.status}>
+                            <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {adminStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                     ) : (
+                        <Select onValueChange={(value: Case['status']) => handleStatusChange(value)} defaultValue={caseItem.status}>
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {staffStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                     )}
                 </div>
                  <div className="space-y-2">
                     <h4 className="font-semibold">Description</h4>
@@ -304,7 +318,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                 </div>
                 
                 {user?.role === 'staff' && (
-                    <Button className="w-full" onClick={() => handleStatusChange('Completed')}>
+                    <Button className="w-full" onClick={() => handleStatusChange('Completed')} disabled={!staffStatusOptions.includes(caseItem.status)}>
                         <CheckCircle className="mr-2 h-4 w-4" /> Mark Case as Completed
                     </Button>
                 )}
@@ -339,19 +353,22 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                 <Tabs defaultValue="communication">
                     <TabsList className="mb-4">
                         <TabsTrigger value="communication">Internal Communications</TabsTrigger>
-                        <TabsTrigger value="findings">Key Findings</TabsTrigger>
                         <TabsTrigger value="attachments">Attachments</TabsTrigger>
                         <TabsTrigger value="customer">Customer Communication</TabsTrigger>
                     </TabsList>
                     <TabsContent value="communication">
                         <div className="space-y-4">
                             <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
-                                {communications.filter(c => c.type === 'Note').map((n, i) => (
+                                {communications.map((comm, i) => (
                                   <div key={i} className="flex items-start gap-4">
-                                    <MessageSquare className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
+                                    <div className="mt-1 shrink-0">
+                                      {comm.type === 'Finding' && <FileText className="h-5 w-5 text-muted-foreground" />}
+                                      {comm.type === 'Note' && comm.authorRole === 'admin' && <Shield className="h-5 w-5 text-muted-foreground" />}
+                                      {comm.type === 'Note' && comm.authorRole === 'staff' && <PenSquare className="h-5 w-5 text-muted-foreground" />}
+                                    </div>
                                     <div className="w-full">
-                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n.content}</p>
-                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{n.author} at {n.timestamp}</p>
+                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{comm.content}</p>
+                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{comm.author} at {comm.timestamp}</p>
                                     </div>
                                   </div>
                                 ))}
@@ -362,21 +379,6 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                                     <Textarea placeholder="Add an internal note..." value={note} onChange={(e) => setNote(e.target.value)} />
                                     <Button className="mt-2" onClick={() => handleAddCommunication('Note', note)}>Add Note</Button>
                                 </div>
-                            </div>
-                        </div>
-                    </TabsContent>
-                    <TabsContent value="findings">
-                         <div className="space-y-4">
-                            <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
-                                {communications.filter(c => c.type === 'Finding').map((n, i) => (
-                                  <div key={i} className="flex items-start gap-4">
-                                    <FileText className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
-                                    <div className="w-full">
-                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n.content}</p>
-                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{n.author} at {n.timestamp}</p>
-                                    </div>
-                                  </div>
-                                ))}
                             </div>
                             <div className="flex items-start gap-4 pt-4 border-t">
                                 <FileText className="h-5 w-5 text-muted-foreground mt-1" />
@@ -389,14 +391,16 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                     </TabsContent>
                     <TabsContent value="attachments">
                         <div className="space-y-4">
-                            <div className="p-6 border-2 border-dashed rounded-lg text-center">
-                                <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <Label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80">
-                                    <span>Upload a file</span>
-                                    <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
-                                </Label>
-                                <p className="text-xs text-muted-foreground">or drag and drop</p>
-                            </div>
+                             {user?.role === 'staff' && (
+                                <div className="p-6 border-2 border-dashed rounded-lg text-center">
+                                    <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                                    <Label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80">
+                                        <span>Upload a file</span>
+                                        <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
+                                    </Label>
+                                    <p className="text-xs text-muted-foreground">or drag and drop</p>
+                                </div>
+                            )}
                              {attachments.length > 0 && (
                                 <div>
                                     <h4 className="font-semibold text-sm mb-2">Selected files:</h4>
@@ -425,8 +429,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                             <div className="flex items-start gap-4 pt-4 border-t">
                                 <Send className="h-5 w-5 text-muted-foreground mt-1" />
                                 <div className="w-full">
-                                    <Textarea placeholder={`Reply to ${caseItem.customer}...`} value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} />
-                                    <Button className="mt-2" onClick={handleSendReply}>Send Email</Button>
+                                    <Textarea placeholder={`Reply to ${caseItem.customer}...`} value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} disabled={user?.role !== 'staff'} />
+                                    <Button className="mt-2" onClick={handleSendReply} disabled={user?.role !== 'staff'}>Send Email</Button>
                                 </div>
                             </div>
                         </div>
@@ -501,3 +505,5 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
+
+    

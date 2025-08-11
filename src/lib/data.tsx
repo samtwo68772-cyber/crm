@@ -1,3 +1,4 @@
+
 import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
@@ -10,13 +11,98 @@ export const users: User[] = [
 ];
 
 export const cases: Case[] = [
-  { id: 'case-101', subject: 'Login issue on mobile', customer: 'John Doe', email: 'john.d@customer.com', priority: 'High', status: 'New', assignedTo: 'Maria Garcia', createdAt: '2024-05-20', description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', communications: [] },
-  { id: 'case-102', subject: 'Billing question', customer: 'Jane Roe', email: 'jane.r@customer.com', priority: 'Medium', status: 'In Progress', assignedTo: 'James Smith', createdAt: '2024-05-19', description: 'Customer is asking for clarification on their last invoice, specifically the "Service Adjustment" line item.', communications: [] },
-  { id: 'case-103', subject: 'Feature request: Dark Mode', customer: 'Peter Jones', email: 'peter.j@customer.com', priority: 'Low', status: 'Closed', assignedTo: 'Alex Johnson', createdAt: '2024-05-18', description: 'User loves the platform and would like to see a dark mode option for the UI.', communications: [] },
-  { id: 'case-104', subject: 'Cannot export data to CSV', customer: 'Susan Miller', email: 'susan.m@customer.com', priority: 'High', status: 'Investigated', assignedTo: 'James Smith', createdAt: '2024-05-20', description: 'The export to CSV feature is failing with a server error 500. This is blocking their monthly reporting.', communications: [] },
-  { id: 'case-105', subject: 'Slow performance on dashboard', customer: 'Robert Brown', email: 'robert.b@customer.com', priority: 'Medium', status: 'New', assignedTo: 'Unassigned', createdAt: '2024-05-21', description: 'The main dashboard is taking over 10 seconds to load.', communications: [] },
-  { id: 'case-106', subject: 'Password reset link not working', customer: 'Emily White', email: 'emily.w@customer.com', priority: 'High', status: 'Under Review', assignedTo: 'Maria Garcia', createdAt: '2024-05-22', description: 'Customer is not receiving the password reset email.', communications: [] },
-  { id: 'case-107', subject: 'API access request', customer: 'Michael Green', email: 'michael.g@customer.com', priority: 'Low', status: 'Declined', assignedTo: 'Alex Johnson', createdAt: '2024-05-21', description: 'Requesting API access for a custom integration, which is not supported on their current plan.', communications: [] },
+  { 
+    id: 'case-101', 
+    subject: 'Login issue on mobile', 
+    customer: 'John Doe', 
+    email: 'john.d@customer.com', 
+    priority: 'High', 
+    status: 'New', 
+    assignedTo: 'Maria Garcia', 
+    createdAt: '2024-05-20', 
+    description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', 
+    communications: [
+        { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorRole: 'staff', timestamp: '2024-05-20 10:00:00' }
+    ] 
+  },
+  { 
+    id: 'case-102', 
+    subject: 'Billing question', 
+    customer: 'Jane Roe', 
+    email: 'jane.r@customer.com', 
+    priority: 'Medium', 
+    status: 'In Progress', 
+    assignedTo: 'James Smith', 
+    createdAt: '2024-05-19', 
+    description: 'Customer is asking for clarification on their last invoice, specifically the "Service Adjustment" line item.', 
+    communications: [] 
+  },
+  { 
+    id: 'case-103', 
+    subject: 'Feature request: Dark Mode', 
+    customer: 'Peter Jones', 
+    email: 'peter.j@customer.com', 
+    priority: 'Low', 
+    status: 'Closed', 
+    assignedTo: 'Alex Johnson', 
+    createdAt: '2024-05-18', 
+    description: 'User loves the platform and would like to see a dark mode option for the UI.', 
+    communications: [
+        { id: 'comm-2', type: 'Note', content: 'Feature has been added to the product backlog. Closing case.', author: 'Alex Johnson', authorRole: 'admin', timestamp: '2024-05-18 14:00:00' }
+    ]
+  },
+  { 
+    id: 'case-104', 
+    subject: 'Cannot export data to CSV', 
+    customer: 'Susan Miller', 
+    email: 'susan.m@customer.com', 
+    priority: 'High', 
+    status: 'Investigated', 
+    assignedTo: 'James Smith', 
+    createdAt: '2024-05-20', 
+    description: 'The export to CSV feature is failing with a server error 500. This is blocking their monthly reporting.', 
+    communications: [
+        { id: 'comm-3', type: 'Finding', content: 'The CSV export fails due to a timeout on large datasets. The query needs to be optimized.', author: 'James Smith', authorRole: 'staff', timestamp: '2024-05-21 11:30:00' }
+    ]
+  },
+  { 
+    id: 'case-105', 
+    subject: 'Slow performance on dashboard', 
+    customer: 'Robert Brown', 
+    email: 'robert.b@customer.com', 
+    priority: 'Medium', 
+    status: 'New', 
+    assignedTo: 'Unassigned', 
+    createdAt: '2024-05-21', 
+    description: 'The main dashboard is taking over 10 seconds to load.', 
+    communications: [] 
+  },
+  { 
+    id: 'case-106', 
+    subject: 'Password reset link not working', 
+    customer: 'Emily White', 
+    email: 'emily.w@customer.com', 
+    priority: 'High', 
+    status: 'Under Review', 
+    assignedTo: 'Maria Garcia', 
+    createdAt: '2024-05-22', 
+    description: 'Customer is not receiving the password reset email.', 
+    communications: [] 
+  },
+  { 
+    id: 'case-107', 
+    subject: 'API access request', 
+    customer: 'Michael Green', 
+    email: 'michael.g@customer.com', 
+    priority: 'Low', 
+    status: 'Declined', 
+    assignedTo: 'Alex Johnson', 
+    createdAt: '2024-05-21', 
+    description: 'Requesting API access for a custom integration, which is not supported on their current plan.', 
+    communications: [
+      { id: 'comm-4', type: 'Note', content: 'Customer plan does not include API access. Declined request.', author: 'Alex Johnson', authorRole: 'admin', timestamp: '2024-05-21 16:00:00' }
+    ]
+  },
 ];
 
 export const tasks: Task[] = [
@@ -72,3 +158,5 @@ export const adminStats: { title: string; value: string; change: string; icon: R
     { title: "Active Users", value: "4", change: "All users active", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
     { title: "Avg. Resolution Time", value: "2.1 days", change: "-0.2 days from last month", icon: <Clock className="h-4 w-4 text-muted-foreground" /> },
 ];
+
+    
