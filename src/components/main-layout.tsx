@@ -62,6 +62,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const pathname = usePathname();
     const isMobile = useIsMobile();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
     useEffect(() => {
         if (!user) {
@@ -87,10 +88,10 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     const sidebarContent = (
       <div className="flex flex-col h-full bg-card text-card-foreground border-r">
-        <div className="flex h-20 items-center border-b px-6 shrink-0">
-            <Link href="/" className="flex items-center gap-3 font-semibold text-foreground">
-              <Logo className="h-8 w-8 text-primary" />
-              <div className="flex flex-col">
+        <div className={`flex h-20 items-center border-b px-6 shrink-0 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+            <Link href="/" className={`flex items-center gap-3 font-semibold text-foreground ${sidebarCollapsed ? 'justify-center' : ''}`}>
+              <Logo className="h-8 w-8 text-primary shrink-0" />
+              <div className={`flex flex-col ${sidebarCollapsed ? 'hidden' : 'block'}`}>
                 <span className={`font-headline text-xl`}>MinT CRM</span>
               </div>
             </Link>
@@ -102,10 +103,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     ${pathname === item.href 
                         ? 'bg-primary/10 text-primary border-l-4 border-primary' 
                         : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
+                    ${sidebarCollapsed ? 'justify-center' : ''}
                   `}
                 >
-                  <item.icon className={`h-5 w-5 mr-3 transition-colors duration-200 ease-in-out ${pathname === item.href ? 'text-primary' : 'group-hover:text-primary'}`} />
-                  <span className="truncate">{item.label}</span>
+                  <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out ${sidebarCollapsed ? '' : 'mr-3'} ${pathname === item.href ? 'text-primary' : 'group-hover:text-primary'}`} />
+                  <span className={`truncate ${sidebarCollapsed ? 'hidden' : 'block'}`}>{item.label}</span>
               </Link>
             ))}
         </nav>
@@ -114,24 +116,23 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className="grid min-h-screen w-full bg-background lg:grid-cols-[280px_1fr]">
-            <div className="hidden border-r bg-card lg:block">
-                {sidebarContent}
-            </div>
-            <div className="flex flex-col">
-                <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
-                  <Sheet open={isSidebarOpen} onOpenChange={setSidebarOpen}>
-                      <SheetTrigger asChild>
-                          <Button variant="outline" size="icon" className="lg:hidden">
-                              <Menu className="h-6 w-6" />
-                              <span className="sr-only">Toggle navigation menu</span>
-                          </Button>
-                      </SheetTrigger>
+        <div className="grid min-h-screen w-full bg-background" style={{ gridTemplateColumns: sidebarCollapsed ? '80px 1fr' : '280px 1fr' }}>
+            <div className="bg-card">
+                 {isMobile ? (
+                    <Sheet open={isSidebarOpen} onOpenChange={setSidebarOpen}>
                       <SheetContent side="left" className="p-0 w-[280px]">
                         <VisuallyHidden><SheetTitle>Mobile Navigation Menu</SheetTitle></VisuallyHidden>
                         {sidebarContent}
                       </SheetContent>
                   </Sheet>
+                 ) : sidebarContent }
+            </div>
+            <div className="flex flex-col">
+                <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
+                  <Button variant="outline" size="icon" className="shrink-0" onClick={() => isMobile ? setSidebarOpen(true) : setSidebarCollapsed(!sidebarCollapsed)}>
+                      <Menu className="h-6 w-6" />
+                      <span className="sr-only">Toggle navigation menu</span>
+                  </Button>
                   
                   <div className="flex-1">
                     <div className="relative">
@@ -183,3 +184,5 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
+
+    
