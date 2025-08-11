@@ -13,10 +13,19 @@ export type Case = {
   customer: string;
   email: string;
   priority: 'High' | 'Medium' | 'Low';
-  status: 'New' | 'In Progress' | 'Resolved';
+  status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed';
   assignedTo: string;
   createdAt: string;
   description: string;
+  communications: Communication[];
+};
+
+export type Communication = {
+  id: string;
+  type: 'Finding' | 'Note' | 'Email';
+  content: string;
+  author: string;
+  timestamp: string;
 };
 
 export type Task = {

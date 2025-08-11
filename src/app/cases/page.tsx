@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { cases as mockCases, users as mockUsers } from '@/lib/data.tsx';
 import type { Case, User } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
@@ -12,9 +12,11 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from "@/hooks/use-toast"
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -34,12 +36,18 @@ export default function CasesPage() {
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
+  const { toast } = useToast();
 
-  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description'>) => {
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'>) => {
     const newCase: Case = {
       id: `case-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
       description: "Initial case description.",
+      communications: [],
       ...newCaseData
     };
     setCases([newCase, ...cases]);
@@ -55,9 +63,27 @@ export default function CasesPage() {
   const handleUpdateCase = (updatedCase: Case) => {
     setCases(cases.map(c => c.id === updatedCase.id ? updatedCase : c));
     setSelectedCase(updatedCase);
+    if (updatedCase.status === 'Completed') {
+       toast({
+        title: "Case Completed",
+        description: `Case "${updatedCase.subject}" has been marked as completed.`,
+      })
+    }
   };
   
-  const displayedCases = user?.role === 'admin' ? cases : cases.filter(c => c.assignedTo === user?.name);
+  const userCases = useMemo(() => {
+    return user?.role === 'admin' ? cases : cases.filter(c => c.assignedTo === user?.name);
+  }, [cases, user]);
+
+  const filteredCases = useMemo(() => {
+    return userCases.filter(c => {
+        const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+        const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
+        const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesStatus && matchesPriority && matchesSearch;
+    });
+  }, [userCases, statusFilter, priorityFilter, searchQuery]);
+
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -67,27 +93,32 @@ export default function CasesPage() {
       </div>
       <div className="flex items-center justify-between">
         <div className="flex flex-1 items-center space-x-2">
-          <Input placeholder="Filter cases..." className="max-w-sm" />
-          <Select>
+          <Input placeholder="Filter cases by subject or customer..." className="max-w-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="new">New</SelectItem>
-              <SelectItem value="in-progress">In Progress</SelectItem>
-              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="New">New</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Investigated">Investigated</SelectItem>
+              <SelectItem value="Resolved">Resolved</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
             </SelectContent>
           </Select>
-          <Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="High">High</SelectItem>
+              <SelectItem value="Medium">Medium</SelectItem>
+              <SelectItem value="Low">Low</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setSearchQuery(''); }}>Clear Filters</Button>
         </div>
       </div>
       <div className="rounded-md border bg-card">
@@ -103,7 +134,7 @@ export default function CasesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {displayedCases.map((caseItem) => (
+            {filteredCases.map((caseItem) => (
               <TableRow key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
                 <TableCell>{caseItem.customer}</TableCell>
@@ -142,7 +173,7 @@ export default function CasesPage() {
       </div>
 
       <Dialog open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl">
           {selectedCase && <CaseDetailPanel caseItem={selectedCase} onUpdateCase={handleUpdateCase} />}
         </DialogContent>
       </Dialog>
@@ -153,13 +184,26 @@ export default function CasesPage() {
 }
 
 function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void }) {
+  const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
-  const [notes, setNotes] = useState<string[]>(['Initial case created.']);
+  const [communications, setCommunications] = useState(caseItem.communications || []);
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [replyMessage, setReplyMessage] = useState('');
 
-  const handleAddNote = () => {
-    if (note.trim()) {
-      setNotes([...notes, note]);
-      setNote('');
+  const handleAddCommunication = (type: 'Finding' | 'Note' | 'Email', content: string) => {
+    if (content.trim()) {
+      const newComm = {
+        id: `comm-${Date.now()}`,
+        type,
+        content,
+        author: 'You', // Replace with actual user name
+        timestamp: new Date().toLocaleString(),
+      };
+      const updatedComms = [...communications, newComm];
+      setCommunications(updatedComms);
+      onUpdateCase({ ...caseItem, communications: updatedComms });
+      if(type === 'Finding') setFinding('');
+      if(type === 'Note') setNote('');
     }
   };
 
@@ -167,17 +211,30 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
     onUpdateCase({ ...caseItem, status: newStatus });
   };
   
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+      setAttachments(prev => [...prev, ...Array.from(event.target.files as FileList)]);
+    }
+  };
+
+  const handleSendReply = () => {
+    if(replyMessage.trim()){
+      handleAddCommunication('Email', replyMessage);
+      setReplyMessage('');
+    }
+  };
+  
   return (
-    <div className="flex flex-col h-full max-h-[80vh]">
+    <div className="flex flex-col h-full max-h-[85vh]">
         <DialogHeader className="p-6 border-b">
         <DialogTitle className="font-headline text-2xl">{caseItem.subject}</DialogTitle>
         <DialogDescription>
             From {caseItem.customer} ({caseItem.email})
         </DialogDescription>
         </DialogHeader>
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            <div className="space-y-4">
-                <h4 className="font-semibold">Details</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden">
+            <div className="col-span-1 border-r p-6 space-y-6 overflow-y-auto">
+                 <h4 className="font-semibold">Details</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" /> Created:</div>
                     <div>{caseItem.createdAt}</div>
@@ -187,42 +244,123 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                     <div><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></div>
                     <div className="flex items-center gap-2 text-muted-foreground">Status:</div>
                     <Select onValueChange={(value: Case['status']) => handleStatusChange(value)} defaultValue={caseItem.status}>
-                        <SelectTrigger className="w-[180px]">
+                        <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="New">New</SelectItem>
                           <SelectItem value="In Progress">In Progress</SelectItem>
+                          <SelectItem value="Investigated">Investigated</SelectItem>
                           <SelectItem value="Resolved">Resolved</SelectItem>
+                           <SelectItem value="Completed">Completed</SelectItem>
                         </SelectContent>
                       </Select>
                 </div>
-            </div>
-            <div className="space-y-4">
-                <h4 className="font-semibold">Description</h4>
-                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{caseItem.description}</p>
-            </div>
-            <div className="space-y-4">
-                <h4 className="font-semibold">Timeline & Notes</h4>
-                <div className="space-y-4">
-                    {notes.map((n, i) => (
-                      <div key={i} className="flex items-start gap-4">
-                        <MessageSquare className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
-                        <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n}</p>
-                      </div>
-                    ))}
-                    <div className="flex items-start gap-4">
-                        <MessageSquare className="h-5 w-5 text-muted-foreground mt-1" />
-                        <div className="w-full">
-                            <Textarea placeholder="Add an internal note or finding..." value={note} onChange={(e) => setNote(e.target.value)} />
-                            <Button className="mt-2" onClick={handleAddNote}>Add Note</Button>
-                        </div>
-                    </div>
+                 <div className="space-y-2">
+                    <h4 className="font-semibold">Description</h4>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{caseItem.description}</p>
                 </div>
+                <Button className="w-full" onClick={() => handleStatusChange('Completed')}>
+                    <CheckCircle className="mr-2 h-4 w-4" /> Mark Case as Completed
+                </Button>
             </div>
-            <div className="space-y-4">
-                <h4 className="font-semibold">Attachments</h4>
-                <Button variant="outline"><FileText className="mr-2 h-4 w-4" /> Add attachment</Button>
+            <div className="col-span-2 overflow-y-auto p-6">
+                <Tabs defaultValue="communication">
+                    <TabsList className="mb-4">
+                        <TabsTrigger value="communication">Internal Communications</TabsTrigger>
+                        <TabsTrigger value="findings">Key Findings</TabsTrigger>
+                        <TabsTrigger value="attachments">Attachments</TabsTrigger>
+                        <TabsTrigger value="customer">Customer Communication</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="communication">
+                        <div className="space-y-4">
+                            <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
+                                {communications.filter(c => c.type === 'Note').map((n, i) => (
+                                  <div key={i} className="flex items-start gap-4">
+                                    <MessageSquare className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
+                                    <div className="w-full">
+                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n.content}</p>
+                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{n.author} at {n.timestamp}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                            <div className="flex items-start gap-4 pt-4 border-t">
+                                <MessageSquare className="h-5 w-5 text-muted-foreground mt-1" />
+                                <div className="w-full">
+                                    <Textarea placeholder="Add an internal note..." value={note} onChange={(e) => setNote(e.target.value)} />
+                                    <Button className="mt-2" onClick={() => handleAddCommunication('Note', note)}>Add Note</Button>
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="findings">
+                         <div className="space-y-4">
+                            <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
+                                {communications.filter(c => c.type === 'Finding').map((n, i) => (
+                                  <div key={i} className="flex items-start gap-4">
+                                    <FileText className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
+                                    <div className="w-full">
+                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n.content}</p>
+                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{n.author} at {n.timestamp}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                            <div className="flex items-start gap-4 pt-4 border-t">
+                                <FileText className="h-5 w-5 text-muted-foreground mt-1" />
+                                <div className="w-full">
+                                    <Textarea placeholder="Add a key finding..." value={finding} onChange={(e) => setFinding(e.target.value)} />
+                                    <Button className="mt-2" onClick={() => handleAddCommunication('Finding', finding)}>Add Finding</Button>
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="attachments">
+                        <div className="space-y-4">
+                            <div className="p-6 border-2 border-dashed rounded-lg text-center">
+                                <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
+                                <Label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80">
+                                    <span>Upload a file</span>
+                                    <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
+                                </Label>
+                                <p className="text-xs text-muted-foreground">or drag and drop</p>
+                            </div>
+                             {attachments.length > 0 && (
+                                <div>
+                                    <h4 className="font-semibold text-sm mb-2">Selected files:</h4>
+                                    <ul className="list-disc list-inside space-y-1">
+                                        {attachments.map((file, i) => (
+                                            <li key={i} className="text-sm text-muted-foreground">{file.name} ({ (file.size / 1024).toFixed(2) } KB)</li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="customer">
+                         <div className="space-y-4">
+                            <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
+                                {communications.filter(c => c.type === 'Email').map((n, i) => (
+                                  <div key={i} className="flex items-start gap-4">
+                                    <Send className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
+                                    <div className="w-full">
+                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n.content}</p>
+                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{n.author} at {n.timestamp}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+                            <div className="flex items-start gap-4 pt-4 border-t">
+                                <Send className="h-5 w-5 text-muted-foreground mt-1" />
+                                <div className="w-full">
+                                    <Textarea placeholder={`Reply to ${caseItem.customer}...`} value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} />
+                                    <Button className="mt-2" onClick={handleSendReply}>Send Email</Button>
+                                </div>
+                            </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     </div>
