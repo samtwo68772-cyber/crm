@@ -13,11 +13,11 @@ export type Case = {
   customer: string;
   email: string;
   priority: 'High' | 'Medium' | 'Low';
-  status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed';
+  status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
   assignedTo: string;
   createdAt: string;
   description: string;
-  communications: Communication[];
+  communications?: Communication[];
 };
 
 export type Communication = {
