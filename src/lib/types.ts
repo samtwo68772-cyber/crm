@@ -38,6 +38,7 @@ export type Task = {
   dueDate: string;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
+  assignedTo?: string;
 };
 
 export type Contact = {
@@ -84,5 +85,3 @@ export type Meeting = {
   organizer: string;
   attendees: number;
 }
-
-    
