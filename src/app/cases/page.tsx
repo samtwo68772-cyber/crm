@@ -10,7 +10,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare } from 'lucide-react';
@@ -36,10 +35,11 @@ export default function CasesPage() {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
 
-  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt'>) => {
+  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description'>) => {
     const newCase: Case = {
       id: `case-${Date.now()}`,
       createdAt: new Date().toISOString().split('T')[0],
+      description: "Initial case description.",
       ...newCaseData
     };
     setCases([newCase, ...cases]);
@@ -50,6 +50,11 @@ export default function CasesPage() {
     const assignedUser = mockUsers.find(u => u.id === userId);
     if (!assignedUser) return;
     setCases(cases.map(c => c.id === caseId ? { ...c, assignedTo: assignedUser.name } : c));
+  };
+  
+  const handleUpdateCase = (updatedCase: Case) => {
+    setCases(cases.map(c => c.id === updatedCase.id ? updatedCase : c));
+    setSelectedCase(updatedCase);
   };
   
   const displayedCases = user?.role === 'admin' ? cases : cases.filter(c => c.assignedTo === user?.name);
@@ -136,52 +141,81 @@ export default function CasesPage() {
         </Table>
       </div>
 
-      <Sheet open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
-        <SheetContent className="sm:max-w-lg w-[80vw] p-0">
-          {selectedCase && <CaseDetailPanel caseItem={selectedCase} />}
-        </SheetContent>
-      </Sheet>
+      <Dialog open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
+        <DialogContent className="sm:max-w-3xl">
+          {selectedCase && <CaseDetailPanel caseItem={selectedCase} onUpdateCase={handleUpdateCase} />}
+        </DialogContent>
+      </Dialog>
 
       <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} />
     </div>
   );
 }
 
-function CaseDetailPanel({ caseItem }: { caseItem: Case }) {
+function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void }) {
+  const [note, setNote] = useState('');
+  const [notes, setNotes] = useState<string[]>(['Initial case created.']);
+
+  const handleAddNote = () => {
+    if (note.trim()) {
+      setNotes([...notes, note]);
+      setNote('');
+    }
+  };
+
+  const handleStatusChange = (newStatus: Case['status']) => {
+    onUpdateCase({ ...caseItem, status: newStatus });
+  };
+  
   return (
-    <div className="flex flex-col h-full">
-        <SheetHeader className="p-6 border-b">
-        <SheetTitle className="font-headline text-2xl">{caseItem.subject}</SheetTitle>
-        <SheetDescription>
+    <div className="flex flex-col h-full max-h-[80vh]">
+        <DialogHeader className="p-6 border-b">
+        <DialogTitle className="font-headline text-2xl">{caseItem.subject}</DialogTitle>
+        <DialogDescription>
             From {caseItem.customer} ({caseItem.email})
-        </SheetDescription>
-        </SheetHeader>
+        </DialogDescription>
+        </DialogHeader>
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
             <div className="space-y-4">
                 <h4 className="font-semibold">Details</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="flex items-center gap-2 text-muted-foreground"><Clock className="h-4 w-4" /> Created:</div>
                     <div>{caseItem.createdAt}</div>
                     <div className="flex items-center gap-2 text-muted-foreground"><UserIcon className="h-4 w-4" /> Assigned to:</div>
                     <div>{caseItem.assignedTo}</div>
-                    <div className="flex items-center gap-2 text-muted-foreground">Status:</div>
-                    <div><Badge variant="outline">{caseItem.status}</Badge></div>
                     <div className="flex items-center gap-2 text-muted-foreground">Priority:</div>
                     <div><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></div>
+                    <div className="flex items-center gap-2 text-muted-foreground">Status:</div>
+                    <Select onValueChange={(value: Case['status']) => handleStatusChange(value)} defaultValue={caseItem.status}>
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="New">New</SelectItem>
+                          <SelectItem value="In Progress">In Progress</SelectItem>
+                          <SelectItem value="Resolved">Resolved</SelectItem>
+                        </SelectContent>
+                      </Select>
                 </div>
             </div>
             <div className="space-y-4">
                 <h4 className="font-semibold">Description</h4>
-                <p className="text-sm text-muted-foreground">{caseItem.description}</p>
+                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{caseItem.description}</p>
             </div>
             <div className="space-y-4">
                 <h4 className="font-semibold">Timeline & Notes</h4>
                 <div className="space-y-4">
+                    {notes.map((n, i) => (
+                      <div key={i} className="flex items-start gap-4">
+                        <MessageSquare className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
+                        <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n}</p>
+                      </div>
+                    ))}
                     <div className="flex items-start gap-4">
                         <MessageSquare className="h-5 w-5 text-muted-foreground mt-1" />
                         <div className="w-full">
-                            <Textarea placeholder="Add an internal note..." />
-                            <Button className="mt-2">Add Note</Button>
+                            <Textarea placeholder="Add an internal note or finding..." value={note} onChange={(e) => setNote(e.target.value)} />
+                            <Button className="mt-2" onClick={handleAddNote}>Add Note</Button>
                         </div>
                     </div>
                 </div>
@@ -200,11 +234,17 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   const [customer, setCustomer] = useState('');
   const [email, setEmail] = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState('Medium');
-  const [status, setStatus] = useState('New');
+  const [priority, setPriority] = useState<Case['priority']>('Medium');
+  const [status, setStatus] = useState<Case['status']>('New');
 
   const handleSubmit = () => {
     onCreate({ subject, customer, email, description, priority, status, assignedTo: 'Unassigned' });
+    setSubject('');
+    setCustomer('');
+    setEmail('');
+    setDescription('');
+    setPriority('Medium');
+    setStatus('New');
   };
   
   return (
@@ -233,7 +273,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="priority" className="text-right">Priority</Label>
-             <Select onValueChange={setPriority} defaultValue={priority}>
+             <Select onValueChange={(v: Case['priority']) => setPriority(v)} defaultValue={priority}>
                 <SelectTrigger className="col-span-3">
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
