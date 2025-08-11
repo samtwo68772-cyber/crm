@@ -14,7 +14,6 @@ export type Case = {
   customer: string;
   email: string;
   priority: 'High' | 'Medium' | 'Low';
-  severity: 'Critical' | 'High' | 'Medium' | 'Low';
   type: 'Bug Report' | 'Feature Request' | 'Billing Inquiry' | 'General Question';
   status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
   assignedTo: string;
@@ -85,3 +84,5 @@ export type Meeting = {
   organizer: string;
   attendees: number;
 }
+
+    

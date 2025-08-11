@@ -30,15 +30,6 @@ function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
     default: return 'default';
   }
 }
-function getSeverityVariant(severity: 'Critical' | 'High' | 'Medium' | 'Low') {
-  switch (severity) {
-    case 'Critical': return 'destructive';
-    case 'High': return 'destructive';
-    case 'Medium': return 'yellow';
-    case 'Low': return 'green';
-    default: return 'default';
-  }
-}
 
 function getStatusVariant(status: Case['status']) {
     switch (status) {
@@ -59,7 +50,6 @@ export default function CasesPage() {
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [assignedToFilter, setAssignedToFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -102,14 +92,13 @@ export default function CasesPage() {
     return userCases.filter(c => {
         const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
         const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
-        const matchesSeverity = severityFilter === 'all' || c.severity === severityFilter;
         const matchesType = typeFilter === 'all' || c.type === typeFilter;
-        const matchesAssignedTo = assignedToFilter === 'all' || c.assignedTo === assignedToFilter || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
+        const matchesAssignedTo = assignedToFilter === 'all' || c.assignedTo === c.assignedTo || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
         const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
-        return matchesStatus && matchesPriority && matchesSeverity && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
+        return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
     });
-  }, [userCases, statusFilter, priorityFilter, severityFilter, typeFilter, assignedToFilter, searchQuery, dateRange]);
+  }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange]);
 
 
   return (
@@ -138,13 +127,6 @@ export default function CasesPage() {
               <SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={severityFilter} onValueChange={setSeverityFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Severity" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Severities</SelectItem>
-              <SelectItem value="Critical">Critical</SelectItem><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem>
-            </SelectContent>
-          </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Case Type" /></SelectTrigger>
             <SelectContent>
@@ -162,7 +144,7 @@ export default function CasesPage() {
                 </SelectContent>
             </Select>
           )}
-          <Button variant="outline" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setSeverityFilter('all'); setTypeFilter('all'); setSearchQuery(''); setAssignedToFilter('all'); setDateRange(undefined)}}>Clear Filters</Button>
+          <Button variant="outline" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setTypeFilter('all'); setSearchQuery(''); setAssignedToFilter('all'); setDateRange(undefined)}}>Clear Filters</Button>
         </div>
       </div>
       <div className="rounded-md border bg-card">
@@ -172,7 +154,6 @@ export default function CasesPage() {
               <TableHead>Case ID</TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Priority</TableHead>
-              <TableHead>Severity</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Assigned Staff</TableHead>
               <TableHead>Created</TableHead>
@@ -185,7 +166,6 @@ export default function CasesPage() {
                 <TableCell className="font-mono text-xs">{caseItem.id}</TableCell>
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
                 <TableCell><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
-                <TableCell><Badge variant={getSeverityVariant(caseItem.severity)}>{caseItem.severity}</Badge></TableCell>
                 <TableCell><Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge></TableCell>
                 <TableCell>{caseItem.assignedTo}</TableCell>
                 <TableCell>{caseItem.createdAt}</TableCell>
@@ -236,7 +216,6 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
   };
   
   const handleStatusChange = (newStatus: Case['status']) => onUpdateCase({ ...caseItem, status: newStatus });
-  const handleSeverityChange = (newSeverity: Case['severity']) => onUpdateCase({ ...caseItem, severity: newSeverity });
   const handleAssigneeChange = (newAssignee: string) => onUpdateCase({ ...caseItem, assignedTo: newAssignee });
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -281,17 +260,6 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                         }
                         <div><Label className="text-muted-foreground">Priority</Label></div>
                         <Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge>
-                        
-                        <div><Label className="text-muted-foreground">Severity</Label></div>
-                        {isAdmin ? 
-                            (<Select onValueChange={(value: Case['severity']) => handleSeverityChange(value)} defaultValue={caseItem.severity}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="Critical">Critical</SelectItem><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem>
-                                </SelectContent>
-                            </Select>) : 
-                            (<Badge variant={getSeverityVariant(caseItem.severity)}>{caseItem.severity}</Badge>)
-                        }
 
                         <div><Label className="text-muted-foreground">Assigned To</Label></div>
                         {isAdmin ? 
@@ -454,13 +422,12 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   const [email, setEmail] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<Case['priority']>('Medium');
-  const [severity, setSeverity] = useState<Case['severity']>('Medium');
   const [type, setType] = useState<Case['type']>('General Question');
   const [status, setStatus] = useState<Case['status']>('New');
 
   const handleSubmit = () => {
-    onCreate({ subject, customer, email, description, priority, severity, type, status, assignedTo: 'Unassigned' });
-    setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setSeverity('Medium'); setType('General Question'); setStatus('New');
+    onCreate({ subject, customer, email, description, priority, type, status, assignedTo: 'Unassigned' });
+    setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New');
   };
   
   return (
@@ -477,10 +444,6 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
             <Select onValueChange={(v: Case['priority']) => setPriority(v)} defaultValue={priority}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select>
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="severity" className="text-right">Severity</Label>
-            <Select onValueChange={(v: Case['severity']) => setSeverity(v)} defaultValue={severity}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Critical">Critical</SelectItem><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select>
-          </div>
-           <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="type" className="text-right">Case Type</Label>
             <Select onValueChange={(v: Case['type']) => setType(v)} defaultValue={type}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Bug Report">Bug Report</SelectItem><SelectItem value="Feature Request">Feature Request</SelectItem><SelectItem value="Billing Inquiry">Billing Inquiry</SelectItem><SelectItem value="General Question">General Question</SelectItem></SelectContent></Select>
           </div>
@@ -490,3 +453,5 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
+
+    
