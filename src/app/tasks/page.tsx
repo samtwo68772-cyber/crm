@@ -2,13 +2,16 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { tasks as mockTasks, users as mockUsers } from '@/lib/data.tsx';
-import type { Task } from '@/lib/types';
+import { tasks as mockTasks, users as mockUsers, cases as mockCases } from '@/lib/data.tsx';
+import type { Task, User, Case } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { PlusCircle, Calendar, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast"
@@ -42,12 +45,22 @@ export default function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<TaskStatus>('all');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   
   const handleDeleteTask = (taskId: string) => {
     setTasks(tasks.filter(task => task.id !== taskId));
     toast({
         title: "Task Deleted",
         description: "The task has been successfully deleted.",
+    });
+  };
+
+  const handleUpdateTask = (updatedTask: Task) => {
+    setTasks(tasks.map(task => task.id === updatedTask.id ? updatedTask : task));
+    setEditingTask(null);
+    toast({
+        title: "Task Updated",
+        description: `Task "${updatedTask.title}" has been updated.`,
     });
   };
   
@@ -81,7 +94,7 @@ export default function TasksPage() {
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <Card className="cursor-pointer" onClick={() => setStatusFilter('To Do')}>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setStatusFilter('To Do')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">To Do</CardTitle>
                 <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -91,7 +104,7 @@ export default function TasksPage() {
                 <p className="text-xs text-muted-foreground">Tasks not yet started.</p>
             </CardContent>
         </Card>
-        <Card className="cursor-pointer" onClick={() => setStatusFilter('In Progress')}>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setStatusFilter('In Progress')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">In Progress</CardTitle>
                 <Activity className="h-4 w-4 text-muted-foreground" />
@@ -101,7 +114,7 @@ export default function TasksPage() {
                 <p className="text-xs text-muted-foreground">Tasks currently being worked on.</p>
             </CardContent>
         </Card>
-        <Card className="cursor-pointer" onClick={() => setStatusFilter('Done')}>
+        <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setStatusFilter('Done')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Done</CardTitle>
                 <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -154,7 +167,7 @@ export default function TasksPage() {
                  {tasksInGroup.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {tasksInGroup.map(task => (
-                            <TaskItem key={task.id} task={task} isAdmin={user?.role === 'admin'} onDelete={handleDeleteTask}/>
+                            <TaskItem key={task.id} task={task} isAdmin={user?.role === 'admin'} onDelete={handleDeleteTask} onEdit={() => setEditingTask(task)} />
                         ))}
                     </div>
                  ) : (
@@ -164,11 +177,13 @@ export default function TasksPage() {
            )
         })}
        </div>
+
+       {editingTask && <EditTaskDialog open={!!editingTask} onOpenChange={() => setEditingTask(null)} task={editingTask} onUpdateTask={handleUpdateTask} />}
     </div>
   );
 }
 
-function TaskItem({ task, isAdmin, onDelete }: { task: Task; isAdmin: boolean, onDelete: (id: string) => void }) {
+function TaskItem({ task, isAdmin, onDelete, onEdit }: { task: Task; isAdmin: boolean, onDelete: (id: string) => void, onEdit: () => void }) {
     const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
     return (
         <Card className="group relative flex flex-col justify-between">
@@ -199,11 +214,58 @@ function TaskItem({ task, isAdmin, onDelete }: { task: Task; isAdmin: boolean, o
                 </div>
                  {isAdmin && (
                     <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(task.id)}><Trash2 className="h-4 w-4" /></Button>
                     </div>
                 )}
             </CardFooter>
         </Card>
+    );
+}
+
+function EditTaskDialog({ open, onOpenChange, task, onUpdateTask }: { open: boolean, onOpenChange: (open: boolean) => void, task: Task, onUpdateTask: (task: Task) => void }) {
+    const [title, setTitle] = useState(task.title);
+    const [assignedTo, setAssignedTo] = useState(task.assignedTo || '');
+    const [priority, setPriority] = useState<Task['priority']>(task.priority);
+    const [linkedCase, setLinkedCase] = useState(task.linkedCase || '');
+    const [status, setStatus] = useState<Task['status']>(task.status);
+    
+    const handleSubmit = () => {
+        const updatedTask = { ...task, title, assignedTo, priority, linkedCase, status };
+        onUpdateTask(updatedTask);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader><DialogTitle className="font-headline">Edit Task</DialogTitle><DialogDescription>Update the details for this task.</DialogDescription></DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="col-span-3" /></div>
+                    
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="status" className="text-right">Status</Label>
+                        <Select onValueChange={(v: Task['status']) => setStatus(v)} defaultValue={status}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="To Do">To Do</SelectItem><SelectItem value="In Progress">In Progress</SelectItem><SelectItem value="Done">Done</SelectItem></SelectContent></Select>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="priority" className="text-right">Priority</Label>
+                        <Select onValueChange={(v: Task['priority']) => setPriority(v)} defaultValue={priority}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem></SelectContent></Select>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="assignedTo" className="text-right">Assigned To</Label>
+                        <Select onValueChange={setAssignedTo} defaultValue={assignedTo}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a user" /></SelectTrigger>
+                            <SelectContent>{mockUsers.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="linkedCase" className="text-right">Linked Case</Label>
+                        <Select onValueChange={setLinkedCase} defaultValue={linkedCase}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case" /></SelectTrigger>
+                            <SelectContent>{mockCases.map(c => <SelectItem key={c.id} value={c.id}>{c.id} - {c.subject}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter><Button type="submit" onClick={handleSubmit}>Update Task</Button></DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
