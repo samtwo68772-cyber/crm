@@ -7,7 +7,7 @@ import type { Meeting, Case, User } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import { format, isThisMonth, isSameDay } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 function getStatusVariant(status: Meeting['status']) {
     switch (status) {
@@ -30,13 +31,12 @@ function getStatusVariant(status: Meeting['status']) {
 
 function getStatusColor(status: Meeting['status']) {
      switch (status) {
-        case 'Upcoming': return 'hsl(var(--primary))';
-        case 'Completed': return 'hsl(var(--success))';
-        case 'Canceled': return 'hsl(var(--muted-foreground))';
-        default: return 'hsl(var(--foreground))';
+        case 'Upcoming': return 'bg-blue-500';
+        case 'Completed': return 'bg-green-500';
+        case 'Canceled': return 'bg-gray-500';
+        default: return 'bg-gray-500';
     }
 }
-
 
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>(mockMeetings);
@@ -81,19 +81,12 @@ export default function MeetingsPage() {
     return userMeetings.filter(m => {
         const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
         const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesDate = !selectedDate || isSameDay(new Date(m.date), selectedDate);
-        return matchesStatus && matchesSearch && matchesDate;
+        return matchesStatus && matchesSearch;
     })
-  }, [userMeetings, statusFilter, searchQuery, selectedDate]);
-
-  const summaryStats = useMemo(() => {
-    const thisMonthMeetings = userMeetings.filter(m => isThisMonth(new Date(m.date)));
-    return {
-        total: thisMonthMeetings.length,
-        upcoming: thisMonthMeetings.filter(m => m.status === 'Upcoming').length,
-        completed: thisMonthMeetings.filter(m => m.status === 'Completed').length,
-        canceled: thisMonthMeetings.filter(m => m.status === 'Canceled').length,
-    }
+  }, [userMeetings, statusFilter, searchQuery]);
+  
+  const upcomingMeetings = useMemo(() => {
+    return userMeetings.filter(m => m.status === 'Upcoming');
   }, [userMeetings]);
 
 
@@ -107,37 +100,52 @@ export default function MeetingsPage() {
         {isAdmin && <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Schedule Meeting</Button>}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Total Meetings (Month)</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.total}</div></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Upcoming</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.upcoming}</div></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Completed</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.completed}</div></CardContent></Card>
-        <Card><CardHeader className="pb-2"><CardTitle className="text-sm font-medium">Canceled</CardTitle></CardHeader><CardContent><div className="text-2xl font-bold">{summaryStats.canceled}</div></CardContent></Card>
-      </div>
-
-      <div className="grid gap-8 md:grid-cols-3">
-        <div className="md:col-span-1">
-          <Card>
-            <CardContent className="p-0">
-               <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    modifiers={{
-                       meeting: userMeetings.map(m => new Date(m.date))
-                    }}
-                    modifiersStyles={{
-                        meeting: {
-                           textDecoration: 'underline',
-                           textDecorationColor: 'hsl(var(--primary))'
-                        }
-                    }}
-                    className="p-4"
-               />
-            </CardContent>
-          </Card>
-        </div>
-        <div className="md:col-span-2 space-y-4">
-             <div className="flex items-center gap-4">
+       <Tabs defaultValue="calendar">
+          <TabsList>
+              <TabsTrigger value="calendar">Calendar View</TabsTrigger>
+              <TabsTrigger value="meetings">All Meetings</TabsTrigger>
+              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+          </TabsList>
+          <TabsContent value="calendar">
+              <Card>
+                <CardHeader>
+                    <CardTitle>Calendar</CardTitle>
+                    <CardDescription>View and manage scheduled meetings</CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        className="p-4"
+                        components={{
+                            DayContent: ({ date }) => {
+                                const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
+                                return (
+                                    <>
+                                        <div className="relative h-full w-full">
+                                            <span>{format(date, 'd')}</span>
+                                            {dayMeetings.length > 0 && 
+                                                <div className="flex flex-col gap-1 absolute bottom-1 w-full px-1">
+                                                {dayMeetings.slice(0, 2).map(m => (
+                                                    <div key={m.id} onClick={() => setSelectedMeeting(m)} className={`text-white text-[10px] rounded-sm px-1 truncate cursor-pointer ${getStatusColor(m.status)}`}>
+                                                        {m.title}
+                                                    </div>
+                                                ))}
+                                                </div>
+                                            }
+                                        </div>
+                                    </>
+                                );
+                            }
+                        }}
+                        dayClassName="h-28 items-start justify-start p-2"
+                    />
+                  </CardContent>
+              </Card>
+          </TabsContent>
+          <TabsContent value="meetings" className="space-y-6">
+            <div className="flex items-center gap-4">
                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search meetings..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
@@ -177,8 +185,37 @@ export default function MeetingsPage() {
                     </div>
                 )}
             </div>
-        </div>
-      </div>
+          </TabsContent>
+          <TabsContent value="upcoming">
+            <Card>
+                <CardHeader>
+                    <CardTitle>Upcoming Meetings</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {upcomingMeetings.length > 0 ? upcomingMeetings.map(meeting => (
+                        <Card key={meeting.id} className="cursor-pointer" onClick={() => setSelectedMeeting(meeting)}>
+                            <CardContent className="p-4">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h3 className="font-semibold text-lg">{meeting.title}</h3>
+                                        <p className="text-sm text-muted-foreground">{meeting.description}</p>
+                                    </div>
+                                    <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
+                                </div>
+                                <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
+                                    <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {format(new Date(meeting.date), 'PPP')}</div>
+                                    <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {format(new Date(meeting.date), 'p')}</div>
+                                    <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )) : (
+                        <p className="text-muted-foreground mt-2">No upcoming meetings scheduled.</p>
+                    )}
+                </CardContent>
+            </Card>
+          </TabsContent>
+      </Tabs>
       
       {selectedMeeting && <MeetingDetailPanel open={!!selectedMeeting} onOpenChange={() => setSelectedMeeting(null)} meeting={selectedMeeting} onUpdate={handleUpdateMeeting} onDelete={handleDeleteMeeting} />}
       <CreateMeetingDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateMeeting} />
@@ -326,3 +363,5 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, 
     </Dialog>
   )
 }
+
+    
