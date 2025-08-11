@@ -106,7 +106,7 @@ export default function TasksPage() {
 
 function TaskItem({ task, isAdmin }: { task: Task; isAdmin: boolean }) {
     return (
-        <Card className="group">
+        <Card className="group relative">
             <AccordionItem value={task.id} className="border-0">
                 <AccordionTrigger className="p-4 hover:no-underline">
                      <div className="flex items-center justify-between w-full">
@@ -114,7 +114,7 @@ function TaskItem({ task, isAdmin }: { task: Task; isAdmin: boolean }) {
                             <p className="font-semibold">{task.title}</p>
                             {task.linkedCase && <p className="text-sm text-muted-foreground mt-1">Case: {task.linkedCase}</p>}
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-4 pr-12">
                             <Badge variant={getPriorityVariant(task.priority)} className="flex items-center gap-1">
                                 <Flag className="h-3 w-3" />
                                 {task.priority}
@@ -123,12 +123,6 @@ function TaskItem({ task, isAdmin }: { task: Task; isAdmin: boolean }) {
                                 <Calendar className="h-4 w-4" />
                                 <span>{task.dueDate}</span>
                             </div>
-                            {isAdmin && (
-                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-4 w-4" /></Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </AccordionTrigger>
@@ -138,6 +132,12 @@ function TaskItem({ task, isAdmin }: { task: Task; isAdmin: boolean }) {
                     </div>
                 </AccordionContent>
             </AccordionItem>
+             {isAdmin && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-4 w-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                </div>
+            )}
         </Card>
     );
 }
