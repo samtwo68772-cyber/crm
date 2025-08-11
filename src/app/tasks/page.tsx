@@ -11,10 +11,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle, Calendar, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon } from 'lucide-react';
+import { PlusCircle, Calendar, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Done' | 'all';
 type TaskPriority = 'High' | 'Medium' | 'Low' | 'all';
@@ -174,7 +175,7 @@ export default function TasksPage() {
                  {tasksInGroup.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                         {tasksInGroup.map(task => (
-                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} />
+                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} />
                         ))}
                     </div>
                  ) : (
@@ -190,10 +191,15 @@ export default function TasksPage() {
   );
 }
 
-function TaskItem({ task, onDelete, onEdit }: { task: Task; onDelete: (id: string) => void; onEdit: () => void }) {
+function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task) => void; }) {
     const { user } = useAuth();
     const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
     const linkedCase = mockCases.find(c => c.id === task.linkedCase);
+    const isAdmin = user?.role === 'admin';
+
+    const handleStatusChange = (newStatus: Task['status']) => {
+        onUpdate({ ...task, status: newStatus });
+    };
 
     return (
         <Card className="group relative flex flex-col justify-between">
@@ -223,8 +229,23 @@ function TaskItem({ task, onDelete, onEdit }: { task: Task; onDelete: (id: strin
                     </div>
                 </div>
                  <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
-                    {user?.role === 'admin' && <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(task.id)}><Trash2 className="h-4 w-4" /></Button>}
+                    {isAdmin ? (
+                        <>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(task.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </>
+                    ) : (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleStatusChange('To Do')}>To Do</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange('In Progress')}>In Progress</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleStatusChange('Done')}>Done</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    )}
                  </div>
             </CardFooter>
         </Card>
@@ -300,5 +321,3 @@ function EditTaskDialog({ open, onOpenChange, task, onUpdateTask }: { open: bool
         </Dialog>
     );
 }
-
-    
