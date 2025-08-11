@@ -4,12 +4,13 @@
 import React, { useState, useMemo } from 'react';
 import { tasks as mockTasks } from '@/lib/data.tsx';
 import type { Task } from '@/lib/types';
+import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Calendar, Flag } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { MoreHorizontal, PlusCircle, Calendar, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Done';
@@ -31,108 +32,112 @@ const statusGroups: TaskStatus[] = ['To Do', 'In Progress', 'Done'];
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-
+  const { user } = useAuth();
+  
   const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
     setTasks(tasks.map(task => task.id === taskId ? { ...task, status: newStatus } : task));
   };
   
-  const filteredTasks = useMemo(() => {
-    return tasks.filter(task => {
-      const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-      const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
-      const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesStatus && matchesPriority && matchesSearch;
-    });
-  }, [tasks, statusFilter, priorityFilter, searchQuery]);
-
-  const groupedTasks = useMemo(() => {
-    return statusGroups.map(status => ({
-      status,
-      tasks: filteredTasks.filter(task => task.status === status)
-    })).filter(group => statusFilter === 'all' || group.status === statusFilter);
-  }, [filteredTasks, statusFilter]);
+  const summaryStats = useMemo(() => {
+    const toDo = tasks.filter(t => t.status === 'To Do').length;
+    const inProgress = tasks.filter(t => t.status === 'In Progress').length;
+    const done = tasks.filter(t => t.status === 'Done').length;
+    return { toDo, inProgress, done };
+  }, [tasks]);
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight font-headline">Tasks</h2>
+        <div>
+            <h2 className="text-3xl font-bold tracking-tight font-headline">Tasks</h2>
+            <p className="text-muted-foreground">Manage all assigned tasks and track performance.</p>
+        </div>
         <Button><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>
       </div>
-      <div className="flex items-center justify-between">
-         <div className="flex flex-1 items-center space-x-2">
-            <Input placeholder="Filter tasks by title..." className="max-w-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-             <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="To Do">To Do</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Done">Done</SelectItem>
-                </SelectContent>
-            </Select>
-             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Priority" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Priorities</SelectItem>
-                  <SelectItem value="High">High</SelectItem>
-                  <SelectItem value="Medium">Medium</SelectItem>
-                  <SelectItem value="Low">Low</SelectItem>
-                </SelectContent>
-            </Select>
-            <Button variant="outline" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setSearchQuery(''); }}>Clear Filters</Button>
-        </div>
+      
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">To Do</CardTitle>
+                <ListTodo className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.toDo}</div>
+                <p className="text-xs text-muted-foreground">Tasks not yet started.</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.inProgress}</div>
+                <p className="text-xs text-muted-foreground">Tasks currently being worked on.</p>
+            </CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Done</CardTitle>
+                <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{summaryStats.done}</div>
+                <p className="text-xs text-muted-foreground">Tasks completed.</p>
+            </CardContent>
+        </Card>
       </div>
-       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {groupedTasks.map(group => (
-            <Card key={group.status} className="h-fit">
-                <CardHeader className="border-b">
-                    <CardTitle className="flex items-center justify-between">
-                        <span>{group.status}</span>
-                        <Badge variant="secondary">{group.tasks.length}</Badge>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 space-y-3">
-                    {group.tasks.length > 0 ? group.tasks.map(task => (
-                         <div key={task.id} className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
-                           <div className="flex justify-between items-start">
-                             <p className="font-medium leading-snug pr-4">{task.title}</p>
-                             <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" className="h-7 w-7 p-0 -mr-2 -mt-1"><MoreHorizontal className="h-4 w-4" /></Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuLabel>Change Status</DropdownMenuLabel>
-                                  <DropdownMenuItem onClick={() => handleStatusChange(task.id, 'To Do')}>To Do</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleStatusChange(task.id, 'In Progress')}>In Progress</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleStatusChange(task.id, 'Done')}>Done</DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                           </div>
-                           <div className="flex items-center justify-between mt-2 text-sm text-muted-foreground">
-                               <div className="flex items-center gap-2">
-                                   <Calendar className="h-4 w-4" />
-                                   <span>{task.dueDate}</span>
-                               </div>
-                               <Badge variant={getPriorityVariant(task.priority)} className="flex items-center gap-1">
-                                 <Flag className="h-3 w-3" />
-                                 {task.priority}
-                               </Badge>
-                           </div>
-                         </div>
-                    )) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">No tasks in this category.</p>
-                    )}
-                </CardContent>
-            </Card>
+
+       <div className="space-y-4">
+        {statusGroups.map(status => (
+            <div key={status}>
+                <h3 className="text-xl font-semibold tracking-tight mb-3">{status} ({tasks.filter(t => t.status === status).length})</h3>
+                <Accordion type="single" collapsible className="w-full space-y-2">
+                    {tasks.filter(t => t.status === status).map(task => (
+                        <TaskItem key={task.id} task={task} isAdmin={user?.role === 'admin'} />
+                    ))}
+                </Accordion>
+            </div>
         ))}
-      </div>
+       </div>
     </div>
   );
+}
+
+function TaskItem({ task, isAdmin }: { task: Task; isAdmin: boolean }) {
+    return (
+        <Card className="group">
+            <AccordionItem value={task.id} className="border-0">
+                <AccordionTrigger className="p-4 hover:no-underline">
+                     <div className="flex items-center justify-between w-full">
+                        <div className="text-left">
+                            <p className="font-semibold">{task.title}</p>
+                            {task.linkedCase && <p className="text-sm text-muted-foreground mt-1">Case: {task.linkedCase}</p>}
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <Badge variant={getPriorityVariant(task.priority)} className="flex items-center gap-1">
+                                <Flag className="h-3 w-3" />
+                                {task.priority}
+                            </Badge>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Calendar className="h-4 w-4" />
+                                <span>{task.dueDate}</span>
+                            </div>
+                            {isAdmin && (
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8"><Pencil className="h-4 w-4" /></Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </AccordionTrigger>
+                <AccordionContent>
+                    <div className="p-4 pt-0 border-t">
+                        <p className="text-muted-foreground">Task details and attachments would be displayed here.</p>
+                    </div>
+                </AccordionContent>
+            </AccordionItem>
+        </Card>
+    );
 }

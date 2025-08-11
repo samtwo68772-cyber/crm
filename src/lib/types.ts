@@ -36,6 +36,7 @@ export type Task = {
   status: 'To Do' | 'In Progress' | 'Done';
   dueDate: string;
   priority: 'High' | 'Medium' | 'Low';
+  linkedCase?: string;
 };
 
 export type Contact = {
@@ -82,5 +83,3 @@ export type Meeting = {
   organizer: string;
   attendees: number;
 }
-
-    

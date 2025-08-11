@@ -106,8 +106,8 @@ export const cases: Case[] = [
 ];
 
 export const tasks: Task[] = [
-  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High' },
-  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High' },
+  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High', linkedCase: '#case-101' },
+  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High', linkedCase: '#case-104' },
   { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: '2024-05-30', priority: 'Medium' },
   { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: '2024-06-05', priority: 'Low' },
   { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: '2024-05-15', priority: 'Medium' },
@@ -158,5 +158,3 @@ export const adminStats: { title: string; value: string; change: string; icon: R
     { title: "Active Users", value: "4", change: "All users active", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
     { title: "Avg. Resolution Time", value: "2.1 days", change: "-0.2 days from last month", icon: <Clock className="h-4 w-4 text-muted-foreground" /> },
 ];
-
-    
