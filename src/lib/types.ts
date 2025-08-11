@@ -1,4 +1,5 @@
 
+
 export type User = {
   id: string;
   name: string;
@@ -76,12 +77,12 @@ export type Document = {
 export type Meeting = {
   id: string;
   title: string;
-  status: 'Scheduled' | 'Completed' | 'Canceled';
-  type: 'Client Meeting' | 'Team Meeting';
   description: string;
   date: string;
-  duration: number;
-  location: string;
-  organizer: string;
-  attendees: number;
+  status: 'Upcoming' | 'Completed' | 'Canceled';
+  participants: string[]; // array of user IDs
+  linkedRecord?: string; // case or task ID
+  notes?: { authorId: string; content: string; timestamp: string }[];
+  attachments?: { name: string; url: string }[];
+  // location and duration are removed for simplicity but can be added back
 }

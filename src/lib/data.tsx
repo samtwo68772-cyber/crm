@@ -1,4 +1,5 @@
 
+
 import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
@@ -149,8 +150,48 @@ export const documents: Document[] = [
 ];
 
 export const meetings: Meeting[] = [
-    { id: 'meet-1', title: 'Client Review Meeting', status: 'Scheduled', type: 'Client Meeting', description: 'Quarterly review with TechCorp Inc.', date: '2024-01-18T10:00:00', duration: 60, location: 'Conference Room A', organizer: 'John Smith', attendees: 2 },
-    { id: 'meet-2', title: 'Team Standup', status: 'Completed', type: 'Team Meeting', description: 'Daily team synchronization', date: '2024-01-18T09:00:00', duration: 15, location: 'Online', organizer: 'Alex Johnson', attendees: 4 },
+  { 
+    id: 'meet-1', 
+    title: 'Q2 Review with Acme Inc.', 
+    description: 'Quarterly business review and planning for next quarter.',
+    date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(), 
+    status: 'Upcoming', 
+    participants: ['user-1', 'user-2'],
+    linkedRecord: 'case-101',
+  },
+  { 
+    id: 'meet-2', 
+    title: 'Internal Project Kickoff', 
+    description: 'Kickoff meeting for the new mobile app redesign project.',
+    date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), 
+    status: 'Completed', 
+    participants: ['user-1', 'user-2', 'user-3', 'user-4'],
+  },
+  { 
+    id: 'meet-3', 
+    title: 'Support Team Sync', 
+    description: 'Weekly sync to discuss high-priority cases.',
+    date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), 
+    status: 'Completed', 
+    participants: ['user-2', 'user-3', 'user-4'],
+  },
+   { 
+    id: 'meet-4', 
+    title: 'Client Demo', 
+    description: 'Demo of the new features for Stark Industries.',
+    date: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString(), 
+    status: 'Upcoming', 
+    participants: ['user-1', 'user-3'],
+    linkedRecord: 'case-102',
+  },
+   { 
+    id: 'meet-5', 
+    title: 'On-site Maintenance', 
+    description: 'Scheduled maintenance at the client\'s office.',
+    date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), 
+    status: 'Canceled', 
+    participants: ['user-4'],
+  },
 ];
 
 
