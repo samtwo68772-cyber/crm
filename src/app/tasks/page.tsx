@@ -38,7 +38,7 @@ export default function TasksPage() {
         <h2 className="text-3xl font-bold tracking-tight font-headline">Tasks</h2>
         <Button><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {columns.map(status => (
           <div key={status} className="flex flex-col gap-4">
             <h3 className="text-lg font-semibold text-foreground font-headline">{status}</h3>
