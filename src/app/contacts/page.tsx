@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { MoreHorizontal, PlusCircle, Briefcase, ListTodo, Calendar, Trash2, Edit, X, User as UserIcon, Building, Phone, Mail, Search, ChevronDown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from '@/components/ui/separator';
@@ -121,22 +122,20 @@ export default function ContactsPage() {
         {filteredContacts.map((contact, index) => (
           <Collapsible key={contact.id} open={openContactId === contact.id} onOpenChange={() => setOpenContactId(prevId => prevId === contact.id ? null : contact.id)}>
               <div className={`flex flex-col md:flex-row items-start md:items-center p-4 gap-4 ${index > 0 ? 'border-t' : ''} ${openContactId === contact.id ? 'bg-muted/50' : 'hover:bg-muted/50'}`}>
-                <CollapsibleTrigger asChild className="w-full">
-                   <div className="flex flex-1 items-center gap-4 cursor-pointer">
-                     <Avatar className="h-10 w-10">
+                <CollapsibleTrigger asChild>
+                   <div className="flex-1 grid items-center grid-cols-1 md:grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-x-4 gap-y-1 w-full cursor-pointer">
+                     <Avatar className="h-10 w-10 row-span-2 md:row-span-1">
                        <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
                        <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 flex-1 text-sm">
-                        <div className="font-semibold col-span-2 md:col-span-1">{contact.name}</div>
-                        <div className="text-muted-foreground col-span-2 md:col-span-1">{contact.role}, {contact.company}</div>
-                        <div className="text-muted-foreground">{contact.email}</div>
-                        <div className="text-muted-foreground">{contact.phone}</div>
-                    </div>
-                    <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${openContactId === contact.id ? 'rotate-180' : ''}`} />
+                    <div className="font-semibold col-span-1">{contact.name}</div>
+                    <div className="text-muted-foreground text-sm col-span-1">{contact.role}, {contact.company}</div>
+                    <div className="text-muted-foreground text-sm col-span-1">{contact.email}</div>
+                    <div className="text-muted-foreground text-sm col-span-1">{contact.phone}</div>
+                    <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 justify-self-end ${openContactId === contact.id ? 'rotate-180' : ''}`} />
                    </div>
                 </CollapsibleTrigger>
-                 <div className="flex gap-2 self-start md:self-center shrink-0">
+                 <div className="flex gap-2 self-start md:self-center shrink-0 ml-auto md:ml-0">
                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
                         <Mail className="h-4 w-4" />
                         <span className="sr-only">Email</span>
@@ -294,4 +293,3 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
     );
 }
 
-    
