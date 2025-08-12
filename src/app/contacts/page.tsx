@@ -10,14 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Briefcase, ListTodo, Calendar, Trash2, Edit, X, User as UserIcon, Building, Phone, Mail, Search } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { MoreHorizontal, PlusCircle, Briefcase, ListTodo, Calendar, Trash2, Edit, X, User as UserIcon, Building, Phone, Mail, Search, ChevronDown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from '@/components/ui/separator';
 
@@ -26,8 +25,7 @@ export default function ContactsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [openContactId, setOpenContactId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const { user } = useAuth();
@@ -61,14 +59,12 @@ export default function ContactsPage() {
     setContacts(contacts.map(c => c.id === updatedContact.id ? updatedContact : c));
     setEditingContact(null);
     setIsFormOpen(false);
-    setSelectedContact(updatedContact);
     toast({ title: "Contact Updated", description: `Contact "${updatedContact.name}" has been updated.` });
   };
   
   const handleDeleteContact = (contactId: string) => {
     setContacts(contacts.filter(c => c.id !== contactId));
-    setSelectedContact(null);
-    setIsSheetOpen(false);
+    setOpenContactId(null);
     toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
   };
   
@@ -79,15 +75,9 @@ export default function ContactsPage() {
 
   const openEditForm = (contact: Contact) => {
     setEditingContact(contact);
-    setIsSheetOpen(false); 
-    setTimeout(() => setIsFormOpen(true), 150);
+    setIsFormOpen(true);
   }
-
-  const openDetailsSheet = (contact: Contact) => {
-      setSelectedContact(contact);
-      setIsSheetOpen(true);
-  }
-
+  
   const clearFilters = () => {
       setSearchQuery('');
       setCompanyFilter('all');
@@ -127,47 +117,46 @@ export default function ContactsPage() {
         </CardContent>
        </Card>
 
-      <div className="space-y-4">
-        {filteredContacts.map((contact) => (
-          <Card key={contact.id} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer" onClick={() => openDetailsSheet(contact)}>
-            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4 flex-1">
-                     <Avatar className="h-12 w-12">
+      <div className="bg-card border rounded-lg">
+        {filteredContacts.map((contact, index) => (
+          <Collapsible key={contact.id} open={openContactId === contact.id} onOpenChange={() => setOpenContactId(prevId => prevId === contact.id ? null : contact.id)}>
+              <div className={`flex flex-col md:flex-row items-start md:items-center p-4 gap-4 ${index > 0 ? 'border-t' : ''} ${openContactId === contact.id ? 'bg-muted/50' : 'hover:bg-muted/50'}`}>
+                <CollapsibleTrigger asChild className="w-full">
+                   <div className="flex flex-1 items-center gap-4 cursor-pointer">
+                     <Avatar className="h-10 w-10">
                        <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
                        <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <div className="min-w-0">
-                        <p className="text-lg font-semibold truncate">{contact.name}</p>
-                        <p className="text-sm text-muted-foreground">{contact.role} at <span className="font-medium text-foreground">{contact.company}</span></p>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-1 flex-1 text-sm">
+                        <div className="font-semibold col-span-2 md:col-span-1">{contact.name}</div>
+                        <div className="text-muted-foreground col-span-2 md:col-span-1">{contact.role}, {contact.company}</div>
+                        <div className="text-muted-foreground">{contact.email}</div>
+                        <div className="text-muted-foreground">{contact.phone}</div>
                     </div>
-                </div>
-                <div className="flex flex-col md:flex-row md:items-center gap-4 text-sm text-muted-foreground shrink-0">
-                    <div className="flex items-center gap-2"><Mail className="h-4 w-4" />{contact.email}</div>
-                    <div className="flex items-center gap-2"><Phone className="h-4 w-4" />{contact.phone}</div>
-                </div>
-                <div className="flex gap-2 self-start md:self-center shrink-0">
-                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
-                        <Phone className="h-4 w-4" />
-                        <span className="sr-only">Call</span>
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                    <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${openContactId === contact.id ? 'rotate-180' : ''}`} />
+                   </div>
+                </CollapsibleTrigger>
+                 <div className="flex gap-2 self-start md:self-center shrink-0">
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
                         <Mail className="h-4 w-4" />
                         <span className="sr-only">Email</span>
                     </Button>
-                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDetailsSheet(contact); }}>View Details</DropdownMenuItem>
-                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditForm(contact); }}>Edit Contact</DropdownMenuItem>
-                           {isAdmin && <DropdownMenuSeparator />}
-                           {isAdmin && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDeleteContact(contact.id); }} className="text-destructive focus:text-destructive">Delete Contact</DropdownMenuItem>}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                        <Phone className="h-4 w-4" />
+                        <span className="sr-only">Call</span>
+                    </Button>
+                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEditForm(contact); }}>
+                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Edit Contact</span>
+                    </Button>
                 </div>
-            </CardContent>
-          </Card>
+            </div>
+            <CollapsibleContent>
+                <div className="p-6 bg-background border-t">
+                     <ContactDetails contact={contact} />
+                </div>
+            </CollapsibleContent>
+          </Collapsible>
         ))}
          {filteredContacts.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
@@ -176,16 +165,6 @@ export default function ContactsPage() {
             </div>
         )}
       </div>
-      
-      {selectedContact && (
-        <ContactDetailSheet
-            open={isSheetOpen}
-            onOpenChange={setIsSheetOpen}
-            contact={selectedContact}
-            onEdit={() => openEditForm(selectedContact)}
-            onDelete={() => handleDeleteContact(selectedContact.id)}
-        />
-      )}
       
       <ContactFormDialog
         key={editingContact ? editingContact.id : 'create'}
@@ -205,60 +184,26 @@ export default function ContactsPage() {
 }
 
 
-function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact, onEdit: () => void, onDelete: () => void }) {
-    const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+function ContactDetails({ contact }: { contact: Contact }) {
     const relatedCases = useMemo(() => mockCases.filter(c => c.contactId === contact.id), [contact.id]);
     const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId === contact.id), [contact.id]);
     const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId === contact.id), [contact.id]);
 
     return (
-        <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-2xl p-0">
-                <div className="flex flex-col h-full">
-                    <SheetHeader className="p-6 border-b">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <Avatar className="h-16 w-16">
-                                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
-                                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <SheetTitle className="font-headline text-2xl">{contact.name}</SheetTitle>
-                                    <SheetDescription>{contact.role} at {contact.company}</SheetDescription>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
-                                {isAdmin && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
-                                <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-6 text-sm text-muted-foreground pt-4">
-                            <div className="flex items-center gap-2"><Mail className="h-4 w-4" /> {contact.email}</div>
-                            <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {contact.phone}</div>
-                            <div className="flex items-center gap-2"><Building className="h-4 w-4" /> {contact.company}</div>
-                        </div>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-y-auto">
-                        <Tabs defaultValue="related" className="p-6">
-                            <TabsList>
-                                <TabsTrigger value="related">Related Items</TabsTrigger>
-                                <TabsTrigger value="notes">Notes</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="related" className="mt-4 space-y-6">
-                                <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
-                                <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
-                                <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
-                            </TabsContent>
-                            <TabsContent value="notes" className="mt-4">
-                                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{contact.notes || "No notes for this contact."}</p>
-                            </TabsContent>
-                        </Tabs>
-                    </div>
-                </div>
-            </SheetContent>
-        </Sheet>
+        <Tabs defaultValue="related" className="w-full">
+            <TabsList>
+                <TabsTrigger value="related">Related Items</TabsTrigger>
+                <TabsTrigger value="notes">Notes</TabsTrigger>
+            </TabsList>
+            <TabsContent value="related" className="mt-4 space-y-6">
+                <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
+                <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
+                <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
+            </TabsContent>
+            <TabsContent value="notes" className="mt-4">
+                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{contact.notes || "No notes for this contact."}</p>
+            </TabsContent>
+        </Tabs>
     )
 }
 
@@ -266,7 +211,7 @@ function RelatedItemsList({ title, icon: Icon, items }: { title: string, icon: R
     if (items.length === 0) return (
         <div>
             <h3 className="text-lg font-semibold flex items-center gap-2 mb-2"><Icon className="h-5 w-5 text-muted-foreground" /> {title}</h3>
-            <p className="text-sm text-muted-foreground text-center py-4">No {title.toLowerCase()} found.</p>
+            <p className="text-sm text-muted-foreground text-center py-4 bg-muted/20 rounded-md">No {title.toLowerCase()} found.</p>
         </div>
     );
 
@@ -348,3 +293,5 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
         </Dialog>
     );
 }
+
+    
