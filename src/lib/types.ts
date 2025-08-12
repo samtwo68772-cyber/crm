@@ -35,11 +35,12 @@ export type Communication = {
 export type Task = {
   id: string;
   title: string;
+  description?: string;
   status: 'To Do' | 'In Progress' | 'Done';
   dueDate: string;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
-  assignedTo?: string;
+  assignedTo?: string[];
 };
 
 export type Contact = {

@@ -15,6 +15,11 @@ import { PlusCircle, Calendar, Flag, ListTodo, Activity, CheckCircle, Pencil, Tr
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { format } from 'date-fns';
 
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Done' | 'all';
@@ -47,13 +52,15 @@ export default function TasksPage() {
   const [priorityFilter, setPriorityFilter] = useState<TaskPriority>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+  const isAdmin = user?.role === 'admin';
 
   const userTasks = useMemo(() => {
-    if (user?.role === 'admin') {
+    if (isAdmin) {
       return tasks;
     }
-    return tasks.filter(task => task.assignedTo === user?.id);
-  }, [tasks, user]);
+    return tasks.filter(task => task.assignedTo?.includes(user?.id || ''));
+  }, [tasks, user, isAdmin]);
   
   const handleDeleteTask = (taskId: string) => {
     setTasks(tasks.filter(task => task.id !== taskId));
@@ -69,6 +76,20 @@ export default function TasksPage() {
     toast({
         title: "Task Updated",
         description: `Task "${updatedTask.title}" has been updated.`,
+    });
+  };
+  
+  const handleCreateTask = (newTaskData: Omit<Task, 'id' | 'dueDate'> & { dueDate: Date | undefined }) => {
+    const newTask: Task = {
+        id: `task-${Date.now()}`,
+        ...newTaskData,
+        dueDate: newTaskData.dueDate ? format(newTaskData.dueDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
+    };
+    setTasks([newTask, ...tasks]);
+    setCreateDialogOpen(false);
+    toast({
+        title: "Task Created",
+        description: `Task "${newTask.title}" has been successfully created.`,
     });
   };
   
@@ -98,7 +119,7 @@ export default function TasksPage() {
             <h2 className="text-3xl font-bold tracking-tight font-headline">Tasks</h2>
             <p className="text-muted-foreground">Manage all assigned tasks and track performance.</p>
         </div>
-        <Button><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>
+        {isAdmin && <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>}
       </div>
       
       <div className="grid gap-4 md:grid-cols-3">
@@ -187,13 +208,14 @@ export default function TasksPage() {
        </div>
 
        {editingTask && <EditTaskDialog open={!!editingTask} onOpenChange={() => setEditingTask(null)} task={editingTask} onUpdateTask={handleUpdateTask} />}
+       <CreateTaskDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateTask} />
     </div>
   );
 }
 
 function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task) => void; }) {
     const { user } = useAuth();
-    const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
+    const assignedUsers = mockUsers.filter(u => task.assignedTo?.includes(u.id));
     const linkedCase = mockCases.find(c => c.id === task.linkedCase);
     const isAdmin = user?.role === 'admin';
 
@@ -213,8 +235,8 @@ function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: 
                         <span>Case: {linkedCase.subject}</span>
                     </div>
                 }
-                {assignedUser &&
-                     <p className="text-sm text-muted-foreground">Assigned to: {assignedUser.name}</p>
+                {assignedUsers.length > 0 &&
+                     <p className="text-sm text-muted-foreground">Assigned to: {assignedUsers.map(u => u.name).join(', ')}</p>
                 }
             </CardContent>
             <CardFooter className="flex justify-between items-center">
@@ -254,12 +276,13 @@ function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: 
 
 function EditTaskDialog({ open, onOpenChange, task, onUpdateTask }: { open: boolean, onOpenChange: (open: boolean) => void, task: Task, onUpdateTask: (task: Task) => void }) {
     const [title, setTitle] = useState(task.title);
-    const [assignedTo, setAssignedTo] = useState(task.assignedTo || '');
+    const [assignedTo, setAssignedTo] = useState(task.assignedTo || []);
     const [priority, setPriority] = useState<Task['priority']>(task.priority);
     const [linkedCase, setLinkedCase] = useState(task.linkedCase || '');
     const [status, setStatus] = useState<Task['status']>(task.status);
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
+    const staffOptions = useMemo(() => mockUsers.map(u => ({ label: u.name, value: u.id })), []);
     
     const handleSubmit = () => {
         const updatedTask = { ...task, title, assignedTo, priority, linkedCase, status };
@@ -302,10 +325,14 @@ function EditTaskDialog({ open, onOpenChange, task, onUpdateTask }: { open: bool
 
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="assignedTo" className="text-right">Assigned To</Label>
-                        <Select onValueChange={setAssignedTo} defaultValue={assignedTo} disabled={!isAdmin}>
-                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a user" /></SelectTrigger>
-                            <SelectContent>{mockUsers.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}</SelectContent>
-                        </Select>
+                         <MultiSelect
+                            className="col-span-3"
+                            options={staffOptions}
+                            selected={assignedTo}
+                            onChange={setAssignedTo}
+                            placeholder="Select staff..."
+                            disabled={!isAdmin}
+                        />
                     </div>
 
                     <div className="grid grid-cols-4 items-center gap-4">
@@ -317,6 +344,127 @@ function EditTaskDialog({ open, onOpenChange, task, onUpdateTask }: { open: bool
                     </div>
                 </div>
                 <DialogFooter><Button type="submit" onClick={handleSubmit}>Update Task</Button></DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
+    const [priority, setPriority] = useState<Task['priority']>('Medium');
+    const [status, setStatus] = useState<Task['status']>('To Do');
+    const [dueDate, setDueDate] = useState<Date | undefined>();
+    const [assignedTo, setAssignedTo] = useState<string[]>([]);
+    const [linkedCase, setLinkedCase] = useState('');
+    
+    const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff').map(u => ({ label: u.name, value: u.id })), []);
+    const caseOptions = useMemo(() => mockCases.map(c => ({ label: c.subject, value: c.id })), []);
+    
+    const handleSubmit = () => {
+        if (!title) {
+            // Basic validation
+            alert("Title is required.");
+            return;
+        }
+        onCreate({ title, description, priority, status, dueDate, assignedTo, linkedCase });
+        // Reset form
+        setTitle('');
+        setDescription('');
+        setPriority('Medium');
+        setStatus('To Do');
+        setDueDate(undefined);
+        setAssignedTo([]);
+        setLinkedCase('');
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle className="font-headline">Create New Task</DialogTitle>
+                    <DialogDescription>Fill in the details for the new task below.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-6 py-4">
+                    <div className="grid gap-2">
+                        <Label htmlFor="title">Title</Label>
+                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Follow up with client" />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Add a detailed description..." />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="priority">Priority</Label>
+                            <Select onValueChange={(v: Task['priority']) => setPriority(v)} defaultValue={priority}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Low">Low</SelectItem>
+                                    <SelectItem value="Medium">Medium</SelectItem>
+                                    <SelectItem value="High">High</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="status">Status</Label>
+                            <Select onValueChange={(v: Task['status']) => setStatus(v)} defaultValue={status}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="To Do">To Do</SelectItem>
+                                    <SelectItem value="In Progress">In Progress</SelectItem>
+                                    <SelectItem value="Done">Done</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="dueDate">Due Date</Label>
+                             <Popover>
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    variant={"outline"}
+                                    className={`w-full justify-start text-left font-normal ${!dueDate && "text-muted-foreground"}`}
+                                  >
+                                    <Calendar className="mr-2 h-4 w-4" />
+                                    {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                  <CalendarComponent
+                                    mode="single"
+                                    selected={dueDate}
+                                    onSelect={setDueDate}
+                                    initialFocus
+                                  />
+                                </PopoverContent>
+                              </Popover>
+                        </div>
+                         <div className="grid gap-2">
+                            <Label htmlFor="assignedTo">Assigned Staff</Label>
+                            <MultiSelect
+                                options={staffOptions}
+                                selected={assignedTo}
+                                onChange={setAssignedTo}
+                                placeholder="Select staff..."
+                            />
+                        </div>
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="linkedCase">Linked Case (Optional)</Label>
+                        <Select onValueChange={setLinkedCase} value={linkedCase}>
+                            <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
+                            <SelectContent>
+                                {caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" onClick={handleSubmit}>Create Task</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
