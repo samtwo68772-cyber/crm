@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { meetings as mockMeetings, cases as mockCases, users as mockUsers } from '@/lib/data.tsx';
 import type { Meeting, Case, User } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
@@ -316,7 +316,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
   
   const handleSave = () => onUpdate(editedMeeting);
   
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       setEditedMeeting(meeting);
     }
@@ -472,3 +472,5 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
+
+    
