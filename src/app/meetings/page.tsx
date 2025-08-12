@@ -242,7 +242,7 @@ export default function MeetingsPage() {
                 open={isSheetOpen} 
                 onOpenChange={setIsSheetOpen} 
                 meeting={selectedMeeting} 
-                onEdit={() => setEditDialogOpen(true)} 
+                onEdit={() => { setIsSheetOpen(false); setTimeout(() => setEditDialogOpen(true), 150); }} 
             />
             <EditMeetingDialog 
                 open={isEditDialogOpen} 
@@ -427,3 +427,5 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
+
+    

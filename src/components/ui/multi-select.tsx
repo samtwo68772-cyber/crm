@@ -37,11 +37,12 @@ export function MultiSelect({
 
   const handleSelect = React.useCallback(
     (value: string) => {
-      const newSelected = selected.includes(value)
+      onChange(
+        selected.includes(value)
           ? selected.filter((v) => v !== value)
-          : [...selected, value];
-      onChange(newSelected);
-       setInputValue("");
+          : [...selected, value]
+      );
+      setInputValue("");
     },
     [onChange, selected]
   );
@@ -70,6 +71,12 @@ export function MultiSelect({
 
   const selectedObjects = selected.map(val => options.find(opt => opt.value === val)).filter(Boolean) as Option[];
 
+  const filteredOptions = options.filter(
+    (option) =>
+      !selected.includes(option.value) &&
+      option.label.toLowerCase().includes(inputValue.toLowerCase())
+  );
+
   return (
     <Command onKeyDown={handleKeyDown} className={cn("overflow-visible bg-transparent", className)} {...props}>
       <div className="group rounded-md border border-input px-3 py-2 text-sm ring-offset-background focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
@@ -78,6 +85,7 @@ export function MultiSelect({
             <Badge key={value} variant="secondary">
               {label}
               <button
+                type="button"
                 className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 onKeyDown={(e) => { if (e.key === "Enter") handleRemove(value); }}
                 onMouseDown={(e) => e.preventDefault()}
@@ -99,11 +107,11 @@ export function MultiSelect({
         </div>
       </div>
       <div className="relative mt-2">
-        {open && options.length > 0 ? (
+        {open && filteredOptions.length > 0 ? (
           <div className="absolute top-0 z-10 w-full rounded-md border bg-popover text-popover-foreground shadow-md outline-none animate-in">
             <CommandList>
               <CommandGroup className="h-full overflow-auto">
-                {options.map((option) => (
+                {filteredOptions.map((option) => (
                   <CommandItem
                     key={option.value}
                     onMouseDown={(e) => {
@@ -111,7 +119,7 @@ export function MultiSelect({
                       e.stopPropagation();
                     }}
                     onSelect={() => handleSelect(option.value)}
-                    className={cn("cursor-pointer", selected.includes(option.value) ? "font-bold" : "")}
+                    className={"cursor-pointer"}
                   >
                     {option.label}
                   </CommandItem>
@@ -124,3 +132,5 @@ export function MultiSelect({
     </Command>
   );
 }
+
+    
