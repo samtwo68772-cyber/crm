@@ -17,7 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { MultiSelect } from '@/components/ui/multi-select';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
-import { format, isThisMonth, isSameDay } from 'date-fns';
+import { format, isValid, isSameDay } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
@@ -36,6 +36,18 @@ function getStatusColor(status: Meeting['status']) {
         case 'Completed': return 'bg-green-500';
         case 'Canceled': return 'bg-gray-400';
         default: return 'bg-gray-400';
+    }
+}
+
+const safeFormat = (date: string | Date, formatString: string) => {
+    try {
+        const d = new Date(date);
+        if (!isValid(d)) {
+            throw new Error('Invalid Date');
+        }
+        return format(d, formatString);
+    } catch (error) {
+        return "Invalid Date";
     }
 }
 
@@ -122,7 +134,7 @@ export default function MeetingsPage() {
                                 const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
                                 return (
                                     <div className="relative h-full w-full flex flex-col items-center justify-between p-2">
-                                        <span className="self-start">{format(date, 'd')}</span>
+                                        <span className="self-start">{safeFormat(date, 'd')}</span>
                                         {dayMeetings.length > 0 && 
                                             <div className="flex -space-x-1">
                                             {dayMeetings.slice(0, 3).map(m => (
@@ -170,8 +182,8 @@ export default function MeetingsPage() {
                                 <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
                             </div>
                             <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
-                                <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {format(new Date(meeting.date), 'PPP')}</div>
-                                <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {format(new Date(meeting.date), 'p')}</div>
+                                <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP')}</div>
+                                <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {safeFormat(meeting.date, 'p')}</div>
                                 <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
                             </div>
                         </CardContent>
@@ -200,8 +212,8 @@ export default function MeetingsPage() {
                                     <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
                                 </div>
                                 <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
-                                    <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {format(new Date(meeting.date), 'PPP')}</div>
-                                    <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {format(new Date(meeting.date), 'p')}</div>
+                                    <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP')}</div>
+                                    <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {safeFormat(meeting.date, 'p')}</div>
                                     <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
                                 </div>
                             </CardContent>
@@ -252,7 +264,7 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
             {isEditing ? (
                  <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={editedMeeting.title} onChange={(e) => handleFieldChange('title', e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date</Label><Input id="date" type="datetime-local" value={format(new Date(editedMeeting.date), "yyyy-MM-dd'T'HH:mm")} onChange={(e) => handleFieldChange('date', e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date</Label><Input id="date" type="datetime-local" value={safeFormat(editedMeeting.date, "yyyy-MM-dd'T'HH:mm")} onChange={(e) => handleFieldChange('date', e.target.value)} className="col-span-3" /></div>
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="status" className="text-right">Status</Label>
                         <Select onValueChange={(v: Meeting['status']) => handleFieldChange('status', v)} defaultValue={editedMeeting.status}>
                             <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
@@ -273,7 +285,7 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
                 <div className="space-y-6 py-4">
                     <div className="flex items-center justify-between">
                          <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
-                         <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {format(new Date(meeting.date), 'PPP p')}</div>
+                         <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP p')}</div>
                     </div>
                     {linkedCase && 
                         <div className="flex items-center gap-2 text-sm"><LinkIcon className="h-4 w-4 text-muted-foreground" /> <strong>Linked Case:</strong> {linkedCase.subject}</div>
