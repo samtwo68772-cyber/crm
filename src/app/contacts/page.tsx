@@ -7,7 +7,7 @@ import type { Contact, Case, Task, Meeting, Account } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet';
@@ -17,13 +17,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator, DropdownMenuLabel } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Briefcase, ListTodo, Calendar, Trash2, Edit, X, User as UserIcon, Building, Phone, Mail } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Briefcase, ListTodo, Calendar, Trash2, Edit, X, User as UserIcon, Building, Phone, Mail, Search } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import { Separator } from '@/components/ui/separator';
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<Contact[]>(mockContacts);
   const [searchQuery, setSearchQuery] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -32,13 +34,17 @@ export default function ContactsPage() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
+  const companies = useMemo(() => ['all', ...Array.from(new Set(mockContacts.map(c => c.company)))], [mockContacts]);
+  const roles = useMemo(() => ['all', ...Array.from(new Set(mockContacts.map(c => c.role)))], [mockContacts]);
+
   const filteredContacts = useMemo(() => {
     return contacts.filter(contact =>
-      contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.company.toLowerCase().includes(searchQuery.toLowerCase())
+      (contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      contact.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
+      (companyFilter === 'all' || contact.company === companyFilter) &&
+      (roleFilter === 'all' || contact.role === roleFilter)
     );
-  }, [contacts, searchQuery]);
+  }, [contacts, searchQuery, companyFilter, roleFilter]);
   
   const handleAddContact = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
     const newContact: Contact = {
@@ -55,7 +61,7 @@ export default function ContactsPage() {
     setContacts(contacts.map(c => c.id === updatedContact.id ? updatedContact : c));
     setEditingContact(null);
     setIsFormOpen(false);
-    setSelectedContact(updatedContact); // Keep sheet updated
+    setSelectedContact(updatedContact);
     toast({ title: "Contact Updated", description: `Contact "${updatedContact.name}" has been updated.` });
   };
   
@@ -73,62 +79,102 @@ export default function ContactsPage() {
 
   const openEditForm = (contact: Contact) => {
     setEditingContact(contact);
-    setIsSheetOpen(false); // Close sheet to open dialog
-    setTimeout(() => setIsFormOpen(true), 150); // Delay to allow sheet to close
+    setIsSheetOpen(false); 
+    setTimeout(() => setIsFormOpen(true), 150);
+  }
+
+  const openDetailsSheet = (contact: Contact) => {
+      setSelectedContact(contact);
+      setIsSheetOpen(true);
+  }
+
+  const clearFilters = () => {
+      setSearchQuery('');
+      setCompanyFilter('all');
+      setRoleFilter('all');
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
       <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight font-headline">Contacts</h2>
+        <div>
+            <h2 className="text-3xl font-bold tracking-tight font-headline">Contacts</h2>
+            <p className="text-muted-foreground">Manage your customer and lead contacts.</p>
+        </div>
         <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Add Contact</Button>
       </div>
-      <div className="flex items-center justify-between">
-        <Input placeholder="Filter contacts..." className="max-w-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-      </div>
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Company</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead><span className="sr-only">Actions</span></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredContacts.map((contact) => (
-              <TableRow key={contact.id} onClick={() => { setSelectedContact(contact); setIsSheetOpen(true);}} className="cursor-pointer">
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
+
+       <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col md:flex-row items-center gap-4">
+            <div className="relative w-full md:flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search contacts..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-muted-foreground">Filter by:</span>
+                 <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Company" /></SelectTrigger>
+                    <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</SelectItem>)}</SelectContent>
+                </Select>
+                 <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
+                    <SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r === 'all' ? 'All Roles' : r}</SelectItem>)}</SelectContent>
+                </Select>
+                <Button variant="outline" onClick={clearFilters}><X className="mr-2 h-4 w-4" /> Clear</Button>
+            </div>
+          </div>
+        </CardContent>
+       </Card>
+
+      <div className="space-y-4">
+        {filteredContacts.map((contact) => (
+          <Card key={contact.id} className="hover:shadow-lg transition-shadow duration-200 cursor-pointer" onClick={() => openDetailsSheet(contact)}>
+            <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                     <Avatar className="h-12 w-12">
                        <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
                        <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
                     </Avatar>
-                    <span className="font-medium">{contact.name}</span>
-                  </div>
-                </TableCell>
-                <TableCell>{contact.company}</TableCell>
-                <TableCell>{contact.email}</TableCell>
-                <TableCell>{contact.phone}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => { setSelectedContact(contact); setIsSheetOpen(true); }}>View Details</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEditForm(contact)}>Edit</DropdownMenuItem>
-                      {isAdmin && <DropdownMenuSeparator />}
-                      {isAdmin && <DropdownMenuItem onClick={() => handleDeleteContact(contact.id)} className="text-destructive focus:text-destructive">Delete</DropdownMenuItem>}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+                    <div className="min-w-0">
+                        <p className="text-lg font-semibold truncate">{contact.name}</p>
+                        <p className="text-sm text-muted-foreground">{contact.role} at <span className="font-medium text-foreground">{contact.company}</span></p>
+                    </div>
+                </div>
+                <div className="flex flex-col md:flex-row md:items-center gap-4 text-sm text-muted-foreground shrink-0">
+                    <div className="flex items-center gap-2"><Mail className="h-4 w-4" />{contact.email}</div>
+                    <div className="flex items-center gap-2"><Phone className="h-4 w-4" />{contact.phone}</div>
+                </div>
+                <div className="flex gap-2 self-start md:self-center shrink-0">
+                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                        <Phone className="h-4 w-4" />
+                        <span className="sr-only">Call</span>
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                        <Mail className="h-4 w-4" />
+                        <span className="sr-only">Email</span>
+                    </Button>
+                     <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDetailsSheet(contact); }}>View Details</DropdownMenuItem>
+                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditForm(contact); }}>Edit Contact</DropdownMenuItem>
+                           {isAdmin && <DropdownMenuSeparator />}
+                           {isAdmin && <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleDeleteContact(contact.id); }} className="text-destructive focus:text-destructive">Delete Contact</DropdownMenuItem>}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                </div>
+            </CardContent>
+          </Card>
+        ))}
+         {filteredContacts.length === 0 && (
+            <div className="text-center py-16 text-muted-foreground">
+                <p className="text-lg font-semibold">No contacts found</p>
+                <p>Try adjusting your search or filters.</p>
+            </div>
+        )}
       </div>
       
       {selectedContact && (
@@ -150,7 +196,7 @@ export default function ContactsPage() {
             if (isEdit && editingContact) {
                 handleUpdateContact({ ...editingContact, ...data });
             } else {
-                handleAddContact(data);
+                handleAddContact(data as Omit<Contact, 'id' | 'avatar'>);
             }
         }}
       />
@@ -217,7 +263,12 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
 }
 
 function RelatedItemsList({ title, icon: Icon, items }: { title: string, icon: React.ElementType, items: (Case | Task | Meeting)[] }) {
-    if (items.length === 0) return null;
+    if (items.length === 0) return (
+        <div>
+            <h3 className="text-lg font-semibold flex items-center gap-2 mb-2"><Icon className="h-5 w-5 text-muted-foreground" /> {title}</h3>
+            <p className="text-sm text-muted-foreground text-center py-4">No {title.toLowerCase()} found.</p>
+        </div>
+    );
 
     return (
         <div>
@@ -264,7 +315,8 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
     }, [contact, open]);
 
     const handleSubmit = () => {
-        onSave({ name, email, phone, company, accountId, role, notes }, isEditMode);
+        const selectedAccount = mockAccounts.find(acc => acc.name === company);
+        onSave({ name, email, phone, company, accountId: selectedAccount?.id || '', role, notes }, isEditMode);
     };
 
     return (
@@ -272,7 +324,6 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{isEditMode ? 'Edit Contact' : 'Create New Contact'}</DialogTitle>
-
                     <DialogDescription>{isEditMode ? 'Update the details for this contact.' : 'Fill in the details for the new contact.'}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
