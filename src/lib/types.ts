@@ -5,6 +5,7 @@ export type User = {
   name: string;
   email: string;
   role: 'admin' | 'staff';
+  status: 'Active' | 'Inactive';
   team: string;
   avatar: string;
 };

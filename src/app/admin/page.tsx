@@ -1,18 +1,33 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
-import type { User, Team } from '@/lib/types';
+import { users as mockUsers, teams as mockTeams, cases as mockCases, tasks as mockTasks } from '@/lib/data.tsx';
+import type { User, Team, Case, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSubContent } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/hooks/use-toast';
+
+
+function getStatusVariant(status: User['status']) {
+    return status === 'Active' ? 'success' : 'secondary';
+}
+
+function getRoleVariant(role: User['role']) {
+    return role === 'admin' ? 'default' : 'outline';
+}
+
 
 export default function AdminPage() {
     const { user } = useAuth();
@@ -48,16 +63,70 @@ export default function AdminPage() {
 }
 
 function UserManagement() {
-    const [users, setUsers] = React.useState<User[]>(mockUsers);
+    const [users, setUsers] = useState<User[]>(mockUsers);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [statusFilter, setStatusFilter] = useState('all');
+    const { toast } = useToast();
 
-    const handleTeamChange = (userId: string, teamName: string) => {
-        setUsers(users.map(u => u.id === userId ? {...u, team: teamName} : u));
+    const filteredUsers = useMemo(() => {
+        return users.filter(user => {
+            const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+            const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
+            return matchesSearch && matchesRole && matchesStatus;
+        });
+    }, [users, searchQuery, roleFilter, statusFilter]);
+
+    const handleAddUser = (newUserData: Omit<User, 'id' | 'avatar'>) => {
+        const newUser: User = {
+            id: `user-${Date.now()}`,
+            avatar: `https://placehold.co/40x40.png`,
+            ...newUserData
+        };
+        setUsers([newUser, ...users]);
+        setIsFormOpen(false);
+        toast({ title: "User Created", description: `User "${newUser.name}" has been added.` });
     };
+
+    const handleUpdateUser = (updatedUser: User) => {
+        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+        setEditingUser(null);
+        setIsFormOpen(false);
+        toast({ title: "User Updated", description: `User "${updatedUser.name}" has been updated.` });
+    };
+    
+    const openCreateForm = () => {
+        setEditingUser(null);
+        setIsFormOpen(true);
+    };
+
+    const openEditForm = (user: User) => {
+        setEditingUser(user);
+        setIsFormOpen(true);
+    };
+
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-end">
-                <Button><PlusCircle className="mr-2 h-4 w-4" /> Add User</Button>
+            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
+                <div className="flex flex-col md:flex-row md:items-center gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search users..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    </div>
+                     <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filter by role" /></SelectTrigger>
+                        <SelectContent><SelectItem value="all">All Roles</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="staff">Staff</SelectItem></SelectContent>
+                    </Select>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filter by status" /></SelectTrigger>
+                        <SelectContent><SelectItem value="all">All Statuses</SelectItem><SelectItem value="Active">Active</SelectItem><SelectItem value="Inactive">Inactive</SelectItem></SelectContent>
+                    </Select>
+                </div>
+                <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Add User</Button>
             </div>
             <div className="rounded-md border bg-card">
                 <Table>
@@ -66,12 +135,13 @@ function UserManagement() {
                             <TableHead>User</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Role</TableHead>
+                            <TableHead>Status</TableHead>
                             <TableHead>Team</TableHead>
                             <TableHead><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {users.map((user) => (
+                        {filteredUsers.map((user) => (
                             <TableRow key={user.id}>
                                 <TableCell>
                                     <div className="flex items-center gap-3">
@@ -83,25 +153,15 @@ function UserManagement() {
                                     </div>
                                 </TableCell>
                                 <TableCell>{user.email}</TableCell>
-                                <TableCell>{user.role}</TableCell>
+                                <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role}</Badge></TableCell>
+                                <TableCell><Badge variant={getStatusVariant(user.status)}>{user.status}</Badge></TableCell>
                                 <TableCell>{user.team}</TableCell>
                                 <TableCell>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
-                                            <DropdownMenuItem>Edit role</DropdownMenuItem>
-                                             <DropdownMenuSub>
-                                                <DropdownMenuSubTrigger>Change team</DropdownMenuSubTrigger>
-                                                <DropdownMenuPortal>
-                                                <DropdownMenuSubContent>
-                                                    {mockTeams.map(team => (
-                                                        <DropdownMenuItem key={team.id} onClick={() => handleTeamChange(user.id, team.name)}>
-                                                            {team.name}
-                                                        </DropdownMenuItem>
-                                                    ))}
-                                                </DropdownMenuSubContent>
-                                                </DropdownMenuPortal>
-                                            </DropdownMenuSub>
+                                            <DropdownMenuItem onClick={() => openEditForm(user)}>Edit User</DropdownMenuItem>
+                                            <DropdownMenuItem>Reset Password</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -110,12 +170,84 @@ function UserManagement() {
                     </TableBody>
                 </Table>
             </div>
+            <UserFormDialog
+                key={editingUser ? editingUser.id : 'create'}
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                user={editingUser}
+                onSave={(data, isEdit) => {
+                    if (isEdit && editingUser) {
+                        handleUpdateUser({ ...editingUser, ...data });
+                    } else {
+                        handleAddUser(data as Omit<User, 'id' | 'avatar'>);
+                    }
+                }}
+                teams={mockTeams}
+            />
         </div>
+    );
+}
+
+function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boolean; onOpenChange: (open: boolean) => void; user: User | null; onSave: (data: any, isEdit: boolean) => void; teams: Team[] }) {
+    const isEditMode = !!user;
+    const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
+    const [role, setRole] = useState<User['role']>('staff');
+    const [status, setStatus] = useState<User['status']>('Active');
+    const [team, setTeam] = useState('');
+
+    useEffect(() => {
+        if(user) {
+            setName(user.name);
+            setEmail(user.email);
+            setRole(user.role);
+            setStatus(user.status);
+            setTeam(user.team);
+        } else {
+            setName(''); setEmail(''); setRole('staff'); setStatus('Active'); setTeam('');
+        }
+    }, [user, open]);
+
+    const handleSubmit = () => {
+        onSave({ name, email, role, status, team }, isEditMode);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{isEditMode ? 'Edit User' : 'Add New User'}</DialogTitle>
+                    <DialogDescription>{isEditMode ? "Update user details and permissions." : "Fill in the details to add a new user to the system."}</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Name</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="role" className="text-right">Role</Label>
+                        <Select onValueChange={(v: User['role']) => setRole(v)} value={role}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="staff">Staff</SelectItem></SelectContent></Select>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="status" className="text-right">Status</Label>
+                        <Select onValueChange={(v: User['status']) => setStatus(v)} value={status}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Active">Active</SelectItem><SelectItem value="Inactive">Inactive</SelectItem></SelectContent></Select>
+                    </div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="team" className="text-right">Team</Label>
+                        <Select onValueChange={setTeam} value={team}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a team" /></SelectTrigger><SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent></Select>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Add User'}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
 function TeamManagement() {
     const [teams, setTeams] = React.useState<Team[]>(mockTeams);
+    const usersInTeam = (teamName: string) => mockUsers.filter(u => u.team === teamName).length;
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-end">
@@ -134,7 +266,7 @@ function TeamManagement() {
                         {teams.map((team) => (
                             <TableRow key={team.id}>
                                 <TableCell className="font-medium">{team.name}</TableCell>
-                                <TableCell>{mockUsers.filter(u => u.team === team.name).length}</TableCell>
+                                <TableCell>{usersInTeam(team.name)}</TableCell>
                                 <TableCell className="text-right">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>

@@ -1,15 +1,16 @@
 
 
 
+
 import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
 export const users: User[] = [
-  { id: 'user-1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'admin', team: 'Management', avatar: '/avatars/01.png' },
-  { id: 'user-2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'staff', team: 'Support Tier 1', avatar: '/avatars/02.png' },
-  { id: 'user-3', name: 'James Smith', email: 'james.s@example.com', role: 'staff', team: 'Support Tier 2', avatar: '/avatars/03.png' },
-  { id: 'user-4', name: 'Patricia Williams', email: 'patricia.w@example.com', role: 'staff', team: 'Support Tier 1', avatar: '/avatars/04.png' },
+  { id: 'user-1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'admin', team: 'Management', avatar: '/avatars/01.png', status: 'Active' },
+  { id: 'user-2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'staff', team: 'Support Tier 1', avatar: '/avatars/02.png', status: 'Active' },
+  { id: 'user-3', name: 'James Smith', email: 'james.s@example.com', role: 'staff', team: 'Support Tier 2', avatar: '/avatars/03.png', status: 'Active' },
+  { id: 'user-4', name: 'Patricia Williams', email: 'patricia.w@example.com', role: 'staff', team: 'Support Tier 1', avatar: '/avatars/04.png', status: 'Inactive' },
 ];
 
 export const accounts: Account[] = [
