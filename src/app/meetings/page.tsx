@@ -92,8 +92,9 @@ export default function MeetingsPage() {
   };
 
   const userMeetings = useMemo(() => {
+    if (!user) return [];
     if (isAdmin) return meetings;
-    return meetings.filter(m => m.participants.includes(user?.id || ''));
+    return meetings.filter(m => m.participants.includes(user.id));
   }, [meetings, user, isAdmin]);
 
   const filteredMeetings = useMemo(() => {
@@ -426,5 +427,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-
-    

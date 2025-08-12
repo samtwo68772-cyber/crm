@@ -37,11 +37,10 @@ export function MultiSelect({
 
   const handleSelect = React.useCallback(
     (value: string) => {
-      onChange(
-        selected.includes(value)
+      const newSelected = selected.includes(value)
           ? selected.filter((v) => v !== value)
-          : [...selected, value]
-      );
+          : [...selected, value];
+      onChange(newSelected);
        setInputValue("");
     },
     [onChange, selected]
@@ -125,5 +124,3 @@ export function MultiSelect({
     </Command>
   );
 }
-
-    
