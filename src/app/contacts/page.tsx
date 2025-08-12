@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -225,7 +225,7 @@ function RelatedItemsList({ title, icon: Icon, items }: { title: string, icon: R
             <div className="space-y-2">
                 {items.map(item => (
                     <div key={item.id} className="text-sm p-3 border rounded-md bg-card hover:bg-muted/50">
-                        <p className="font-medium">{item.subject || item.title}</p>
+                        <p className="font-medium">{('subject' in item && item.subject) || ('title' in item && item.title)}</p>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
                             {'status' in item && <span>Status: <Badge variant="outline" className="text-xs">{item.status}</Badge></span>}
                              {'priority' in item && <span>Priority: {item.priority}</span>}
@@ -272,6 +272,7 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>{isEditMode ? 'Edit Contact' : 'Create New Contact'}</DialogTitle>
+
                     <DialogDescription>{isEditMode ? 'Update the details for this contact.' : 'Fill in the details for the new contact.'}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
