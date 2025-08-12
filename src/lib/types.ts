@@ -69,6 +69,9 @@ export type Account = {
   industry: string;
   owner: string;
   createdAt: string;
+  location?: string;
+  size?: string;
+  primaryContactId?: string;
 };
 
 export type Document = {
@@ -92,3 +95,5 @@ export type Meeting = {
   attachments?: { name: string; url: string }[];
   contactId?: string;
 }
+
+    

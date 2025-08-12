@@ -1,5 +1,6 @@
 
 
+
 import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
@@ -12,9 +13,11 @@ export const users: User[] = [
 ];
 
 export const accounts: Account[] = [
-    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15' },
-    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20' },
-    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10' },
+    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15', location: 'San Francisco, CA', size: '500-1000 employees', primaryContactId: 'contact-1' },
+    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20', location: 'New York, NY', size: '10,000+ employees', primaryContactId: 'contact-2' },
+    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10', location: 'Gotham City', size: '50,000+ employees', primaryContactId: 'contact-3' },
+    { id: 'acc-4', name: 'Cyberdyne Systems', industry: 'Robotics', owner: 'Alex Johnson', createdAt: '2023-04-01', location: 'Sunnyvale, CA', size: '1000-5000 employees' },
+    { id: 'acc-5', name: 'Globex Corporation', industry: 'Energy', owner: 'Maria Garcia', createdAt: '2023-05-22', location: 'Cypress Creek, USA', size: '5000-10000 employees' },
 ];
 
 export const contacts: Contact[] = [
@@ -22,6 +25,8 @@ export const contacts: Contact[] = [
     { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', accountId: 'acc-2', role: 'Procurement Officer', avatar: '/avatars/06.png', notes: 'Handles all billing and contract renewals.' },
     { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', accountId: 'acc-3', role: 'Lead Developer', avatar: '/avatars/07.png' },
     { id: 'contact-4', name: 'Susan Miller', email: 'susan.m@customer.com', phone: '456-789-0123', company: 'Acme Inc.', accountId: 'acc-1', role: 'Project Manager', avatar: '/avatars/08.png' },
+    { id: 'contact-5', name: 'Miles Dyson', email: 'miles.d@cyberdyne.com', phone: '567-890-1234', company: 'Cyberdyne Systems', accountId: 'acc-4', role: 'Head of Research', avatar: '/avatars/09.png' },
+    { id: 'contact-6', name: 'Hank Scorpio', email: 'h.scorpio@globex.com', phone: '678-901-2345', company: 'Globex Corporation', accountId: 'acc-5', role: 'CEO', avatar: '/avatars/10.png' },
 ];
 
 
@@ -217,3 +222,5 @@ export const adminStats: { title: string; value: string; change: string; icon: R
     { title: "Active Users", value: "4", change: "All users active", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
     { title: "Avg. Resolution Time", value: "2.1 days", change: "-0.2 days from last month", icon: <Clock className="h-4 w-4 text-muted-foreground" /> },
 ];
+
+    
