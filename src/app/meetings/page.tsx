@@ -20,6 +20,7 @@ import { useToast } from "@/hooks/use-toast"
 import { format, isThisMonth, isSameDay } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+
 function getStatusVariant(status: Meeting['status']) {
     switch (status) {
         case 'Upcoming': return 'default';
@@ -40,6 +41,8 @@ function getStatusColor(status: Meeting['status']) {
 
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>(mockMeetings);
+  const [users, setUsers] = useState<User[]>(mockUsers);
+  const [cases, setCases] = useState<Case[]>(mockCases);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
@@ -163,7 +166,7 @@ export default function MeetingsPage() {
             </div>
             <div className="space-y-4 h-[60vh] overflow-y-auto pr-4">
                 {filteredMeetings.length > 0 ? filteredMeetings.map(meeting => (
-                    <Card key={meeting.id} className="cursor-pointer" onClick={() => setSelectedMeeting(meeting)}>
+                    <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)}>
                         <CardContent className="p-4">
                              <div className="flex justify-between items-start">
                                 <div>
@@ -193,7 +196,7 @@ export default function MeetingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {upcomingMeetings.length > 0 ? upcomingMeetings.map(meeting => (
-                        <Card key={meeting.id} className="cursor-pointer" onClick={() => setSelectedMeeting(meeting)}>
+                        <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)}>
                             <CardContent className="p-4">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -225,12 +228,14 @@ export default function MeetingsPage() {
 
 function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void }) {
   const { user } = useAuth();
+  const [cases, setCases] = useState<Case[]>(mockCases);
+  const [users, setUsers] = useState<User[]>(mockUsers);
   const isAdmin = user?.role === 'admin';
   const [isEditing, setIsEditing] = useState(false);
   const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);
 
-  const linkedCase = useMemo(() => mockCases.find(c => c.id === meeting.linkedRecord), [meeting]);
-  const participantOptions = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
+  const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
+  const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
 
 
   const handleFieldChange = (field: keyof Meeting, value: any) => {
@@ -281,7 +286,7 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
                     }
                     <div>
                         <h4 className="font-semibold mb-2">Participants</h4>
-                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => <Badge key={pId} variant="secondary">{mockUsers.find(u => u.id === pId)?.name}</Badge>)}</div>
+                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => <Badge key={pId} variant="secondary">{users.find(u => u.id === pId)?.name}</Badge>)}</div>
                     </div>
                      <div>
                         <h4 className="font-semibold mb-2">Notes</h4>
@@ -319,13 +324,15 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
 }
 
 function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
+  const [cases] = useState<Case[]>(mockCases);
+  const [users] = useState<User[]>(mockUsers);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
   const [participants, setParticipants] = useState<string[]>([]);
   const [linkedRecord, setLinkedRecord] = useState('');
 
-  const participantOptions = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
+  const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
 
   const handleSubmit = () => {
     onCreate({ title, description, date, participants, linkedRecord, status: 'Upcoming' });
@@ -354,7 +361,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, 
             <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
             <Select onValueChange={setLinkedRecord} value={linkedRecord}>
                 <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case (optional)" /></SelectTrigger>
-                <SelectContent>{mockCases.map(c => <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>)}</SelectContent>
+                <SelectContent>{cases.map(c => <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
