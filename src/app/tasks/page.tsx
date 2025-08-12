@@ -416,7 +416,6 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
                         <Select onValueChange={setLinkedCase} value={linkedCase}>
                             <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">None</SelectItem>
                                 {caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
