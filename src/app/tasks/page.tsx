@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { tasks as mockTasks, users as mockUsers, cases as mockCases } from '@/lib/data.tsx';
 import type { Task, User, Case } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
@@ -11,13 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Calendar, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Calendar as CalendarIcon, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Calendar } from '@/components/ui/calendar';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { format } from 'date-fns';
 
@@ -79,11 +79,11 @@ export default function TasksPage() {
     });
   };
   
-  const handleCreateTask = (newTaskData: Omit<Task, 'id' | 'dueDate'> & { dueDate: Date | undefined }) => {
+  const handleCreateTask = (newTaskData: Omit<Task, 'id' | 'status'>) => {
     const newTask: Task = {
         id: `task-${Date.now()}`,
+        status: 'To Do',
         ...newTaskData,
-        dueDate: newTaskData.dueDate ? format(newTaskData.dueDate, 'yyyy-MM-dd') : new Date().toISOString().split('T')[0],
     };
     setTasks([newTask, ...tasks]);
     setCreateDialogOpen(false);
@@ -207,8 +207,24 @@ export default function TasksPage() {
         })}
        </div>
 
-       {editingTask && <EditTaskDialog open={!!editingTask} onOpenChange={() => setEditingTask(null)} task={editingTask} onUpdateTask={handleUpdateTask} />}
-       <CreateTaskDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateTask} />
+       <TaskDialog
+          key={editingTask ? editingTask.id : 'create'}
+          open={isCreateDialogOpen || !!editingTask}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCreateDialogOpen(false);
+              setEditingTask(null);
+            }
+          }}
+          task={editingTask}
+          onSave={(taskData) => {
+            if (editingTask) {
+              handleUpdateTask({ ...editingTask, ...taskData });
+            } else {
+              handleCreateTask(taskData);
+            }
+          }}
+       />
     </div>
   );
 }
@@ -246,7 +262,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: 
                         {task.priority}
                     </Badge>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
+                        <CalendarIcon className="h-4 w-4" />
                         <span>{task.dueDate}</span>
                     </div>
                 </div>
@@ -274,116 +290,73 @@ function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: 
     );
 }
 
-function EditTaskDialog({ open, onOpenChange, task, onUpdateTask }: { open: boolean, onOpenChange: (open: boolean) => void, task: Task, onUpdateTask: (task: Task) => void }) {
-    const [title, setTitle] = useState(task.title);
-    const [assignedTo, setAssignedTo] = useState(task.assignedTo || []);
-    const [priority, setPriority] = useState<Task['priority']>(task.priority);
-    const [linkedCase, setLinkedCase] = useState(task.linkedCase || '');
-    const [status, setStatus] = useState<Task['status']>(task.status);
-    const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
-    const staffOptions = useMemo(() => mockUsers.map(u => ({ label: u.name, value: u.id })), []);
-    
-    const handleSubmit = () => {
-        const updatedTask = { ...task, title, assignedTo, priority, linkedCase, status };
-        onUpdateTask(updatedTask);
-    };
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader><DialogTitle className="font-headline">Edit Task</DialogTitle><DialogDescription>Update the details for this task.</DialogDescription></DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="title" className="text-right">Title</Label>
-                        <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="col-span-3" disabled={!isAdmin} />
-                    </div>
-                    
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="status" className="text-right">Status</Label>
-                        <Select onValueChange={(v: Task['status']) => setStatus(v)} defaultValue={status}>
-                            <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="To Do">To Do</SelectItem>
-                                <SelectItem value="In Progress">In Progress</SelectItem>
-                                <SelectItem value="Done">Done</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="priority" className="text-right">Priority</Label>
-                        <Select onValueChange={(v: Task['priority']) => setPriority(v)} defaultValue={priority} disabled={!isAdmin}>
-                            <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="High">High</SelectItem>
-                                <SelectItem value="Medium">Medium</SelectItem>
-                                <SelectItem value="Low">Low</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="assignedTo" className="text-right">Assigned To</Label>
-                         <MultiSelect
-                            className="col-span-3"
-                            options={staffOptions}
-                            selected={assignedTo}
-                            onChange={setAssignedTo}
-                            placeholder="Select staff..."
-                            disabled={!isAdmin}
-                        />
-                    </div>
-
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="linkedCase" className="text-right">Linked Case</Label>
-                        <Select onValueChange={setLinkedCase} defaultValue={linkedCase} disabled={!isAdmin}>
-                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case" /></SelectTrigger>
-                            <SelectContent>{mockCases.map(c => <SelectItem key={c.id} value={c.id}>{c.id} - {c.subject}</SelectItem>)}</SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter><Button type="submit" onClick={handleSubmit}>Update Task</Button></DialogFooter>
-            </DialogContent>
-        </Dialog>
-    );
+interface TaskDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  task: Task | null;
+  onSave: (data: any) => void;
 }
 
-function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
+function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
+    const isEditMode = task !== null;
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState<Task['priority']>('Medium');
-    const [status, setStatus] = useState<Task['status']>('To Do');
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [assignedTo, setAssignedTo] = useState<string[]>([]);
     const [linkedCase, setLinkedCase] = useState('');
     
     const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff').map(u => ({ label: u.name, value: u.id })), []);
-    const caseOptions = useMemo(() => mockCases.map(c => ({ label: c.subject, value: c.id })), []);
-    
-    const handleSubmit = () => {
-        if (!title) {
-            // Basic validation
-            alert("Title is required.");
-            return;
+    const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id })), []);
+
+    useEffect(() => {
+        if (isEditMode && task) {
+            setTitle(task.title);
+            setDescription(task.description || '');
+            setPriority(task.priority);
+            setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
+            setAssignedTo(task.assignedTo || []);
+            setLinkedCase(task.linkedCase || '');
+        } else {
+            resetForm();
         }
-        onCreate({ title, description, priority, status, dueDate, assignedTo, linkedCase });
-        // Reset form
+    }, [task, isEditMode, open]);
+
+    const resetForm = () => {
         setTitle('');
         setDescription('');
         setPriority('Medium');
-        setStatus('To Do');
         setDueDate(undefined);
         setAssignedTo([]);
         setLinkedCase('');
+    };
+
+    const handleSubmit = () => {
+        if (!title) {
+            // Basic validation, can be enhanced with react-hook-form
+            alert("Title is required.");
+            return;
+        }
+        onSave({ 
+            title, 
+            description, 
+            priority, 
+            dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : '', 
+            assignedTo, 
+            linkedCase 
+        });
+        if (!isEditMode) {
+            resetForm();
+        }
+        onOpenChange(false);
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
-                    <DialogTitle className="font-headline">Create New Task</DialogTitle>
-                    <DialogDescription>Fill in the details for the new task below.</DialogDescription>
+                    <DialogTitle className="font-headline">{isEditMode ? 'Edit Task' : 'Create New Task'}</DialogTitle>
+                    <DialogDescription>{isEditMode ? 'Update the details for this task.' : 'Fill in the details for the new task below.'}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-6 py-4">
                     <div className="grid gap-2">
@@ -397,7 +370,7 @@ function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="grid gap-2">
                             <Label htmlFor="priority">Priority</Label>
-                            <Select onValueChange={(v: Task['priority']) => setPriority(v)} defaultValue={priority}>
+                            <Select onValueChange={(v: Task['priority']) => setPriority(v)} value={priority}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Low">Low</SelectItem>
@@ -407,19 +380,6 @@ function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
                             </Select>
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="status">Status</Label>
-                            <Select onValueChange={(v: Task['status']) => setStatus(v)} defaultValue={status}>
-                                <SelectTrigger><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="To Do">To Do</SelectItem>
-                                    <SelectItem value="In Progress">In Progress</SelectItem>
-                                    <SelectItem value="Done">Done</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="grid gap-2">
                             <Label htmlFor="dueDate">Due Date</Label>
                              <Popover>
                                 <PopoverTrigger asChild>
@@ -427,12 +387,12 @@ function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
                                     variant={"outline"}
                                     className={`w-full justify-start text-left font-normal ${!dueDate && "text-muted-foreground"}`}
                                   >
-                                    <Calendar className="mr-2 h-4 w-4" />
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
                                     {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
                                   </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
-                                  <CalendarComponent
+                                  <Calendar
                                     mode="single"
                                     selected={dueDate}
                                     onSelect={setDueDate}
@@ -441,21 +401,22 @@ function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
                                 </PopoverContent>
                               </Popover>
                         </div>
-                         <div className="grid gap-2">
-                            <Label htmlFor="assignedTo">Assigned Staff</Label>
-                            <MultiSelect
-                                options={staffOptions}
-                                selected={assignedTo}
-                                onChange={setAssignedTo}
-                                placeholder="Select staff..."
-                            />
-                        </div>
+                    </div>
+                     <div className="grid gap-2">
+                        <Label htmlFor="assignedTo">Assigned Staff</Label>
+                        <MultiSelect
+                            options={staffOptions}
+                            selected={assignedTo}
+                            onChange={setAssignedTo}
+                            placeholder="Select staff..."
+                        />
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="linkedCase">Linked Case (Optional)</Label>
                         <Select onValueChange={setLinkedCase} value={linkedCase}>
                             <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="">None</SelectItem>
                                 {caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -463,9 +424,11 @@ function CreateTaskDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button type="submit" onClick={handleSubmit}>Create Task</Button>
+                    <Button type="submit" onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Create Task'}</Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
     );
 }
+
+    
