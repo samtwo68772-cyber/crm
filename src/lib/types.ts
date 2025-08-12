@@ -81,7 +81,12 @@ export type Document = {
     type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image';
     size: string;
     uploadedAt: string;
-    linkedTo: string;
+    uploadedBy: string;
+    category: 'Case File' | 'Contract' | 'Report' | 'Meeting Notes' | 'Other';
+    description?: string;
+    linkedToType: 'Case' | 'Task' | 'Account' | 'Contact' | 'Meeting';
+    linkedToId: string;
+    previewUrl?: string;
 };
 
 export type Meeting = {
@@ -96,5 +101,3 @@ export type Meeting = {
   attachments?: { name: string; url: string }[];
   contactId?: string;
 }
-
-    
