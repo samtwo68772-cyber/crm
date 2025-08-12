@@ -170,7 +170,7 @@ export default function MeetingsPage() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input placeholder="Search meetings..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
                 </div>
-                 <Select value={statusFilter} onValueChange={setStatusFilter}>
+                 <Select value={statusFilter} onValueChange={(v: "all" | "Upcoming" | "Completed" | "Canceled") => setStatusFilter(v)}>
                     <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Statuses</SelectItem>
@@ -425,6 +425,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
         onOpenChange(isOpen);
         if (!isOpen) {
             setErrors({});
+            setTitle(''); setDescription(''); setDate(''); setParticipants([]); setLinkedRecord('');
         }
     }}>
       <DialogContent>
@@ -449,10 +450,10 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
                 <Label htmlFor="participants" className="text-right">Participants</Label>
                 <div className="col-span-3">
                     <MultiSelect
-                        className={cn(errors.participants && 'border border-destructive rounded-md')}
                         options={participantOptions}
                         selected={participants}
                         onChange={setParticipants}
+                        className={cn(errors.participants && 'border border-destructive rounded-md')}
                         placeholder="Select participants"
                     />
                     {errors.participants && <p className="text-sm text-destructive mt-1">{errors.participants}</p>}
