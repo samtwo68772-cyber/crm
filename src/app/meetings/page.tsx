@@ -417,7 +417,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
             <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
             <Select onValueChange={setLinkedRecord} value={linkedRecord}>
                 <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case (optional)" /></SelectTrigger>
-                <SelectContent>{caseOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>)}</SelectContent>
+                <SelectContent>{caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
@@ -426,5 +426,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-
-    
