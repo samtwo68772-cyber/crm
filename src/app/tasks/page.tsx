@@ -22,8 +22,8 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { format } from 'date-fns';
 
 
-type TaskStatus = 'To Do' | 'In Progress' | 'Done' | 'all';
-type TaskPriority = 'High' | 'Medium' | 'Low' | 'all';
+type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'all';
+type TaskPriorityFilter = 'High' | 'Medium' | 'Low' | 'all';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -48,8 +48,8 @@ export default function TasksPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   
-  const [statusFilter, setStatusFilter] = useState<TaskStatus>('all');
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority>('all');
+  const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<TaskPriorityFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -160,7 +160,7 @@ export default function TasksPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search tasks or cases..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
-        <Select value={statusFilter} onValueChange={(v: TaskStatus) => setStatusFilter(v)}>
+        <Select value={statusFilter} onValueChange={(v: TaskStatusFilter) => setStatusFilter(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
@@ -169,7 +169,7 @@ export default function TasksPage() {
             <SelectItem value="Done">Done</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={priorityFilter} onValueChange={(v: TaskPriority) => setPriorityFilter(v)}>
+        <Select value={priorityFilter} onValueChange={(v: TaskPriorityFilter) => setPriorityFilter(v)}>
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Priority" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Priorities</SelectItem>
@@ -217,9 +217,9 @@ export default function TasksPage() {
             }
           }}
           task={editingTask}
-          onSave={(taskData) => {
-            if (editingTask) {
-              handleUpdateTask({ ...editingTask, ...taskData });
+          onSave={(taskData, isEdit) => {
+            if (isEdit) {
+              handleUpdateTask({ ...editingTask!, ...taskData });
             } else {
               handleCreateTask(taskData);
             }
@@ -294,7 +294,7 @@ interface TaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   task: Task | null;
-  onSave: (data: any) => void;
+  onSave: (data: any, isEdit: boolean) => void;
 }
 
 function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
@@ -333,7 +333,6 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
 
     const handleSubmit = () => {
         if (!title) {
-            // Basic validation, can be enhanced with react-hook-form
             alert("Title is required.");
             return;
         }
@@ -344,7 +343,8 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
             dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : '', 
             assignedTo, 
             linkedCase 
-        });
+        }, isEditMode);
+        
         if (!isEditMode) {
             resetForm();
         }
@@ -416,7 +416,6 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
                         <Select onValueChange={setLinkedCase} value={linkedCase}>
                             <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">None</SelectItem>
                                 {caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
@@ -430,5 +429,3 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
         </Dialog>
     );
 }
-
-    
