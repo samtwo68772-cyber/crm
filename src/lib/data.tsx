@@ -11,6 +11,20 @@ export const users: User[] = [
   { id: 'user-4', name: 'Patricia Williams', email: 'patricia.w@example.com', role: 'staff', team: 'Support Tier 1', avatar: '/avatars/04.png' },
 ];
 
+export const accounts: Account[] = [
+    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15' },
+    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20' },
+    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10' },
+];
+
+export const contacts: Contact[] = [
+    { id: 'contact-1', name: 'John Doe', email: 'john.d@customer.com', phone: '123-456-7890', company: 'Acme Inc.', accountId: 'acc-1', role: 'IT Manager', avatar: '/avatars/05.png', notes: 'Primary technical contact. Prefers email communication.' },
+    { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', accountId: 'acc-2', role: 'Procurement Officer', avatar: '/avatars/06.png', notes: 'Handles all billing and contract renewals.' },
+    { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', accountId: 'acc-3', role: 'Lead Developer', avatar: '/avatars/07.png' },
+    { id: 'contact-4', name: 'Susan Miller', email: 'susan.m@customer.com', phone: '456-789-0123', company: 'Acme Inc.', accountId: 'acc-1', role: 'Project Manager', avatar: '/avatars/08.png' },
+];
+
+
 export const cases: Case[] = [
   { 
     id: 'case-101', 
@@ -25,7 +39,8 @@ export const cases: Case[] = [
     description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', 
     communications: [
         { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorRole: 'staff', timestamp: '2024-05-20 10:00:00' }
-    ] 
+    ],
+    contactId: 'contact-1'
   },
   { 
     id: 'case-102', 
@@ -38,7 +53,8 @@ export const cases: Case[] = [
     assignedTo: 'James Smith', 
     createdAt: '2024-05-19', 
     description: 'Customer is asking for clarification on their last invoice, specifically the "Service Adjustment" line item.', 
-    communications: [] 
+    communications: [],
+    contactId: 'contact-2'
   },
   { 
     id: 'case-103', 
@@ -53,7 +69,8 @@ export const cases: Case[] = [
     description: 'User loves the platform and would like to see a dark mode option for the UI.', 
     communications: [
         { id: 'comm-2', type: 'Note', content: 'Feature has been added to the product backlog. Closing case.', author: 'Alex Johnson', authorRole: 'admin', timestamp: '2024-05-18 14:00:00' }
-    ]
+    ],
+    contactId: 'contact-3'
   },
   { 
     id: 'case-104', 
@@ -68,7 +85,8 @@ export const cases: Case[] = [
     description: 'The export to CSV feature is failing with a server error 500. This is blocking their monthly reporting.', 
     communications: [
         { id: 'comm-3', type: 'Finding', content: 'The CSV export fails due to a timeout on large datasets. The query needs to be optimized.', author: 'James Smith', authorRole: 'staff', timestamp: '2024-05-21 11:30:00' }
-    ]
+    ],
+    contactId: 'contact-4'
   },
   { 
     id: 'case-105', 
@@ -114,32 +132,20 @@ export const cases: Case[] = [
 ];
 
 export const tasks: Task[] = [
-  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
-  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3' },
+  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2', contactId: 'contact-1' },
+  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3', contactId: 'contact-4' },
   { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: '2024-05-30', priority: 'Medium', assignedTo: 'user-1' },
   { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: '2024-06-05', priority: 'Low', assignedTo: 'user-1' },
   { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: '2024-05-15', priority: 'Medium', assignedTo: 'user-1' },
-  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: '2024-05-23', priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3' },
+  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: '2024-05-23', priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3', contactId: 'contact-2' },
   { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: '2024-05-24', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
   { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: '2024-05-18', priority: 'High', assignedTo: 'user-1' }
-];
-
-export const contacts: Contact[] = [
-    { id: 'contact-1', name: 'John Doe', email: 'john.d@customer.com', phone: '123-456-7890', company: 'Acme Inc.', avatar: '/avatars/05.png' },
-    { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', avatar: '/avatars/06.png' },
-    { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', avatar: '/avatars/07.png' },
 ];
 
 export const teams: Team[] = [
     { id: 'team-1', name: 'Support Tier 1', memberCount: 2 },
     { id: 'team-2', name: 'Support Tier 2', memberCount: 1 },
     { id: 'team-3', name: 'Management', memberCount: 1 },
-];
-
-export const accounts: Account[] = [
-    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15' },
-    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20' },
-    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10' },
 ];
 
 export const documents: Document[] = [
@@ -158,6 +164,7 @@ export const meetings: Meeting[] = [
     status: 'Upcoming', 
     participants: ['user-1', 'user-2'],
     linkedRecord: 'case-101',
+    contactId: 'contact-1'
   },
   { 
     id: 'meet-2', 
@@ -183,6 +190,7 @@ export const meetings: Meeting[] = [
     status: 'Upcoming', 
     participants: ['user-1'],
     linkedRecord: 'case-102',
+    contactId: 'contact-2'
   },
    { 
     id: 'meet-5', 

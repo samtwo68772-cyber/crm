@@ -21,6 +21,7 @@ export type Case = {
   createdAt: string;
   description: string;
   communications?: Communication[];
+  contactId?: string;
 };
 
 export type Communication = {
@@ -41,6 +42,7 @@ export type Task = {
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
   assignedTo?: string;
+  contactId?: string;
 };
 
 export type Contact = {
@@ -49,6 +51,9 @@ export type Contact = {
   email: string;
   phone: string;
   company: string;
+  accountId: string;
+  role: string;
+  notes?: string;
   avatar: string;
 };
 
@@ -85,5 +90,5 @@ export type Meeting = {
   linkedRecord?: string; // case or task ID
   notes?: { authorId: string; content: string; timestamp: string }[];
   attachments?: { name: string; url: string }[];
-  // location and duration are removed for simplicity but can be added back
+  contactId?: string;
 }
