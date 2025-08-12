@@ -20,6 +20,7 @@ import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, File
 import { useToast } from "@/hooks/use-toast"
 import { format, isValid, isSameDay } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 
 
 function getStatusVariant(status: Meeting['status']) {
@@ -316,8 +317,10 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
   const handleSave = () => onUpdate(editedMeeting);
   
   React.useEffect(() => {
-    setEditedMeeting(meeting);
-  }, [meeting]);
+    if (open) {
+      setEditedMeeting(meeting);
+    }
+  }, [meeting, open]);
 
 
   return (
@@ -386,34 +389,75 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
   const [date, setDate] = useState('');
   const [participants, setParticipants] = useState<string[]>([]);
   const [linkedRecord, setLinkedRecord] = useState('');
+  const [errors, setErrors] = useState<{ title?: string; date?: string; participants?: string }>({});
+
 
   const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
 
 
+  const validate = () => {
+    const newErrors: { title?: string; date?: string; participants?: string } = {};
+    if (!title.trim()) {
+      newErrors.title = 'Meeting title is required.';
+    }
+    if (!date) {
+      newErrors.date = 'Please select a date and time.';
+    }
+    if (participants.length === 0) {
+      newErrors.participants = 'Select at least one participant.';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+
   const handleSubmit = () => {
+    if (!validate()) {
+        return;
+    }
     onCreate({ title, description, date, participants, linkedRecord, status: 'Upcoming' });
-    setTitle(''); setDescription(''); setDate(''); setParticipants([]); setLinkedRecord('');
+    setTitle(''); setDescription(''); setDate(''); setParticipants([]); setLinkedRecord(''); setErrors({});
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+        onOpenChange(isOpen);
+        if (!isOpen) {
+            setErrors({});
+        }
+    }}>
       <DialogContent>
         <DialogHeader><DialogTitle className="font-headline">Schedule New Meeting</DialogTitle><DialogDescription>Fill in the details for the new meeting.</DialogDescription></DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className="col-span-3" /></div>
-          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" /></div>
-          <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date & Time</Label><Input id="date" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className="col-span-3" /></div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="participants" className="text-right">Participants</Label>
-             <MultiSelect
-                className="col-span-3"
-                options={participantOptions}
-                selected={participants}
-                onChange={setParticipants}
-                placeholder="Select participants"
-            />
-          </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="title" className="text-right">Title</Label>
+                <div className="col-span-3">
+                    <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} className={cn(errors.title && 'border-destructive')} />
+                    {errors.title && <p className="text-sm text-destructive mt-1">{errors.title}</p>}
+                </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} className="col-span-3" /></div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">Date & Time</Label>
+                <div className="col-span-3">
+                    <Input id="date" type="datetime-local" value={date} onChange={(e) => setDate(e.target.value)} className={cn(errors.date && 'border-destructive')} />
+                    {errors.date && <p className="text-sm text-destructive mt-1">{errors.date}</p>}
+                </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="participants" className="text-right">Participants</Label>
+                <div className="col-span-3">
+                    <MultiSelect
+                        className={cn(errors.participants && 'border border-destructive rounded-md')}
+                        options={participantOptions}
+                        selected={participants}
+                        onChange={setParticipants}
+                        placeholder="Select participants"
+                    />
+                    {errors.participants && <p className="text-sm text-destructive mt-1">{errors.participants}</p>}
+                </div>
+            </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
             <Select onValueChange={setLinkedRecord} value={linkedRecord}>
@@ -427,5 +471,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-
-    
