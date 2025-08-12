@@ -26,7 +26,7 @@ export default function CustomersPage() {
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight font-headline">Customers</h2>
+                    <h2 className="text-3xl font-bold tracking-tight font-headline">Contacts</h2>
                     <p className="text-muted-foreground">Manage your accounts and contacts.</p>
                 </div>
             </div>
@@ -315,9 +315,11 @@ function ContactsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [openContactId, setOpenContactId] = useState<string | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [isDetailSheetOpen, setDetailSheetOpen] = useState(false);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
@@ -354,7 +356,6 @@ function ContactsView() {
   
   const handleDeleteContact = (contactId: string) => {
     setContacts(contacts.filter(c => c.id !== contactId));
-    setOpenContactId(null);
     toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
   };
   
@@ -368,6 +369,11 @@ function ContactsView() {
     setIsFormOpen(true);
   }
   
+  const openDetailSheet = (contact: Contact) => {
+    setSelectedContact(contact);
+    setDetailSheetOpen(true);
+  }
+
   const clearFilters = () => {
       setSearchQuery('');
       setCompanyFilter('all');
@@ -400,48 +406,35 @@ function ContactsView() {
         </CardContent>
        </Card>
 
-      <div className="bg-card border rounded-lg">
+      <div className="border rounded-lg">
         {filteredContacts.map((contact, index) => (
-          <Collapsible key={contact.id} open={openContactId === contact.id} onOpenChange={() => setOpenContactId(prevId => prevId === contact.id ? null : contact.id)}>
-              <div className={`flex flex-col md:flex-row items-start md:items-center p-4 gap-4 ${index > 0 ? 'border-t' : ''} ${openContactId === contact.id ? 'bg-muted/50' : 'hover:bg-muted/50'}`}>
-                <div className="flex-1 grid items-center grid-cols-1 md:grid-cols-[auto_1fr_1fr_1fr_1fr_auto] gap-x-4 gap-y-1 w-full">
-                    <CollapsibleTrigger asChild>
-                       <div className="flex items-center gap-4 cursor-pointer col-span-full md:col-span-1">
-                         <Avatar className="h-10 w-10 row-span-2 md:row-span-1">
-                           <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
-                           <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                         </Avatar>
-                         <div className="font-semibold">{contact.name}</div>
-                       </div>
-                    </CollapsibleTrigger>
-                    <div className="text-muted-foreground text-sm col-span-1 pl-14 md:pl-0">{contact.role}, {contact.company}</div>
-                    <div className="text-muted-foreground text-sm col-span-1 pl-14 md:pl-0">{contact.email}</div>
-                    <div className="text-muted-foreground text-sm col-span-1 pl-14 md:pl-0">{contact.phone}</div>
-                    <CollapsibleTrigger asChild>
-                        <ChevronDown className={`h-5 w-5 text-muted-foreground transition-transform duration-200 justify-self-end cursor-pointer ${openContactId === contact.id ? 'rotate-180' : ''}`} />
-                    </CollapsibleTrigger>
+            <div key={contact.id} className="grid grid-cols-[auto_1fr_1fr_1fr_auto] md:grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)_auto] items-center p-4 gap-x-4 gap-y-2 hover:bg-muted/50 transition-colors even:bg-muted/30">
+                <Avatar className="h-10 w-10">
+                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
+                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <p className="font-semibold truncate">{contact.name}</p>
+                    <p className="text-sm text-muted-foreground truncate">{contact.role}</p>
                 </div>
-                 <div className="flex gap-2 self-start md:self-center shrink-0 ml-auto md:ml-0">
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                 <div className="text-sm text-muted-foreground truncate">{contact.company}</div>
+                 <div className="text-sm text-muted-foreground truncate hidden md:block">{contact.email}</div>
+                 <div className="text-sm text-muted-foreground truncate hidden md:block">{contact.phone}</div>
+                 <div className="flex gap-2 items-center justify-end">
+                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
                         <Mail className="h-4 w-4" />
                         <span className="sr-only">Email</span>
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
                         <Phone className="h-4 w-4" />
                         <span className="sr-only">Call</span>
                     </Button>
-                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEditForm(contact); }}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEditForm(contact)}}>
                         <Edit className="h-4 w-4" />
                         <span className="sr-only">Edit Contact</span>
                     </Button>
-                </div>
+                 </div>
             </div>
-            <CollapsibleContent>
-                <div className="p-6 bg-background border-t">
-                     <ContactDetails contact={contact} />
-                </div>
-            </CollapsibleContent>
-          </Collapsible>
         ))}
          {filteredContacts.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
@@ -549,17 +542,22 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
     );
 }
 
-function RelatedItemsList({ title, icon: Icon, items }: { title: string, icon: React.ElementType, items: (Case | Task | Meeting)[] }) {
-    if (items.length === 0) return (
-        <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2 mb-2"><Icon className="h-5 w-5 text-muted-foreground" /> {title}</h3>
-            <p className="text-sm text-muted-foreground text-center py-4 bg-muted/20 rounded-md">No {title.toLowerCase()} found.</p>
-        </div>
-    );
+function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?: React.ElementType, items: (Case | Task | Meeting)[] }) {
+    if (items.length === 0) {
+        if (!title) return null;
+        return (
+            <div>
+                {title && Icon && <h3 className="text-lg font-semibold flex items-center gap-2 mb-2"><Icon className="h-5 w-5 text-muted-foreground" /> {title}</h3>}
+                <p className="text-sm text-muted-foreground text-center py-4 bg-muted/20 rounded-md">No {title ? title.toLowerCase() : 'items'} found.</p>
+            </div>
+        );
+    }
+    
+    const TitleComponent = title && Icon ? <h3 className="text-lg font-semibold flex items-center gap-2 mb-2"><Icon className="h-5 w-5 text-muted-foreground" /> {title}</h3> : null;
 
     return (
         <div>
-            <h3 className="text-lg font-semibold flex items-center gap-2 mb-2"><Icon className="h-5 w-5 text-muted-foreground" /> {title}</h3>
+            {TitleComponent}
             <div className="space-y-2">
                 {items.map(item => (
                     <div key={item.id} className="text-sm p-3 border rounded-md bg-card hover:bg-muted/50">
@@ -576,3 +574,5 @@ function RelatedItemsList({ title, icon: Icon, items }: { title: string, icon: R
         </div>
     )
 }
+
+    
