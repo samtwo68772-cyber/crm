@@ -34,8 +34,8 @@ function getStatusColor(status: Meeting['status']) {
      switch (status) {
         case 'Upcoming': return 'bg-blue-500';
         case 'Completed': return 'bg-green-500';
-        case 'Canceled': return 'bg-gray-500';
-        default: return 'bg-gray-500';
+        case 'Canceled': return 'bg-gray-400';
+        default: return 'bg-gray-400';
     }
 }
 
@@ -103,51 +103,45 @@ export default function MeetingsPage() {
         {isAdmin && <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Schedule Meeting</Button>}
       </div>
 
-       <Tabs defaultValue="calendar">
-          <TabsList>
+       <Tabs defaultValue="calendar" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-lg p-1">
               <TabsTrigger value="calendar">Calendar View</TabsTrigger>
               <TabsTrigger value="meetings">All Meetings</TabsTrigger>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
           </TabsList>
-          <TabsContent value="calendar">
+          <TabsContent value="calendar" className="mt-6">
               <Card>
-                <CardHeader>
-                    <CardTitle>Calendar</CardTitle>
-                    <CardDescription>View and manage scheduled meetings</CardDescription>
-                </CardHeader>
                 <CardContent className="p-0">
                     <Calendar
                         mode="single"
                         selected={selectedDate}
                         onSelect={setSelectedDate}
-                        className="p-4"
+                        className="w-full"
                         components={{
                             DayContent: ({ date }) => {
                                 const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
                                 return (
-                                    <>
-                                        <div className="relative h-full w-full">
-                                            <span>{format(date, 'd')}</span>
-                                            {dayMeetings.length > 0 && 
-                                                <div className="flex flex-col gap-1 absolute bottom-1 w-full px-1">
-                                                {dayMeetings.slice(0, 2).map(m => (
-                                                    <div key={m.id} onClick={() => setSelectedMeeting(m)} className={`text-white text-[10px] rounded-sm px-1 truncate cursor-pointer ${getStatusColor(m.status)}`}>
-                                                        {m.title}
-                                                    </div>
-                                                ))}
-                                                </div>
-                                            }
-                                        </div>
-                                    </>
+                                    <div className="relative h-full w-full flex flex-col items-center justify-between p-2">
+                                        <span className="self-start">{format(date, 'd')}</span>
+                                        {dayMeetings.length > 0 && 
+                                            <div className="flex -space-x-1">
+                                            {dayMeetings.slice(0, 3).map(m => (
+                                                <div key={m.id} onClick={(e) => { e.stopPropagation(); setSelectedMeeting(m); }} 
+                                                     className={`h-2 w-2 rounded-full border border-card ${getStatusColor(m.status)} cursor-pointer hover:scale-125 transition-transform`}
+                                                     title={m.title}
+                                                />
+                                            ))}
+                                            </div>
+                                        }
+                                    </div>
                                 );
                             }
                         }}
-                        dayClassName="h-28 items-start justify-start p-2"
                     />
                   </CardContent>
               </Card>
           </TabsContent>
-          <TabsContent value="meetings" className="space-y-6">
+          <TabsContent value="meetings" className="space-y-6 mt-6">
             <div className="flex items-center gap-4">
                  <div className="relative flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -166,7 +160,7 @@ export default function MeetingsPage() {
             </div>
             <div className="space-y-4 h-[60vh] overflow-y-auto pr-4">
                 {filteredMeetings.length > 0 ? filteredMeetings.map(meeting => (
-                    <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)}>
+                    <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
                         <CardContent className="p-4">
                              <div className="flex justify-between items-start">
                                 <div>
@@ -189,14 +183,14 @@ export default function MeetingsPage() {
                 )}
             </div>
           </TabsContent>
-          <TabsContent value="upcoming">
+          <TabsContent value="upcoming" className="mt-6">
             <Card>
                 <CardHeader>
                     <CardTitle>Upcoming Meetings</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {upcomingMeetings.length > 0 ? upcomingMeetings.map(meeting => (
-                        <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)}>
+                        <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
                             <CardContent className="p-4">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -213,7 +207,7 @@ export default function MeetingsPage() {
                             </CardContent>
                         </Card>
                     )) : (
-                        <p className="text-muted-foreground mt-2">No upcoming meetings scheduled.</p>
+                        <p className="text-muted-foreground mt-2 text-center py-8">No upcoming meetings scheduled.</p>
                     )}
                 </CardContent>
             </Card>
@@ -286,7 +280,10 @@ function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }:
                     }
                     <div>
                         <h4 className="font-semibold mb-2">Participants</h4>
-                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => <Badge key={pId} variant="secondary">{users.find(u => u.id === pId)?.name}</Badge>)}</div>
+                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
+                            const participant = users.find(u => u.id === pId);
+                            return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
+                        })}</div>
                     </div>
                      <div>
                         <h4 className="font-semibold mb-2">Notes</h4>
