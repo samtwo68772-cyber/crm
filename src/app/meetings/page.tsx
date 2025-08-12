@@ -54,8 +54,6 @@ const safeFormat = (date: string | Date, formatString: string) => {
 
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>(mockMeetings);
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [cases, setCases] = useState<Case[]>(mockCases);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -251,10 +249,18 @@ export default function MeetingsPage() {
                 meeting={selectedMeeting} 
                 onUpdate={handleUpdateMeeting} 
                 onDelete={handleDeleteMeeting}
+                users={mockUsers}
+                cases={mockCases}
             />
         </>
       )}
-      <CreateMeetingDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateMeeting} />
+      <CreateMeetingDialog 
+        open={isCreateDialogOpen} 
+        onOpenChange={setCreateDialogOpen} 
+        onCreate={handleCreateMeeting} 
+        users={mockUsers}
+        cases={mockCases}
+      />
     </div>
   );
 }
@@ -296,9 +302,9 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
 }
 
 
-function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void }) {
-  const participantOptions = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
-  const caseOptions = useMemo(() => mockCases.map(c => ({value: c.id, label: c.subject})), []);
+function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
+  const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
+  const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
   
   const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);
 
@@ -373,9 +379,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete }: 
   )
 }
 
-function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
-  const [cases] = useState<Case[]>(mockCases);
-  const [users] = useState<User[]>(mockUsers);
+function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], cases: Case[] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
@@ -383,6 +387,8 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, 
   const [linkedRecord, setLinkedRecord] = useState('');
 
   const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
+  const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
+
 
   const handleSubmit = () => {
     onCreate({ title, description, date, participants, linkedRecord, status: 'Upcoming' });
@@ -411,7 +417,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate }: { open: boolean, 
             <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
             <Select onValueChange={setLinkedRecord} value={linkedRecord}>
                 <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case (optional)" /></SelectTrigger>
-                <SelectContent>{cases.map(c => <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>)}</SelectContent>
+                <SelectContent>{caseOptions.map(c => <SelectItem key={c.id} value={c.id}>{c.subject}</SelectItem>)}</SelectContent>
             </Select>
           </div>
         </div>
