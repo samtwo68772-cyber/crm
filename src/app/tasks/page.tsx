@@ -18,7 +18,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { MultiSelect } from '@/components/ui/multi-select';
 import { format } from 'date-fns';
 
 
@@ -59,7 +58,7 @@ export default function TasksPage() {
     if (isAdmin) {
       return tasks;
     }
-    return tasks.filter(task => task.assignedTo?.includes(user?.id || ''));
+    return tasks.filter(task => task.assignedTo === user?.id);
   }, [tasks, user, isAdmin]);
   
   const handleDeleteTask = (taskId: string) => {
@@ -218,8 +217,8 @@ export default function TasksPage() {
           }}
           task={editingTask}
           onSave={(taskData, isEdit) => {
-            if (isEdit) {
-              handleUpdateTask({ ...editingTask!, ...taskData });
+            if (isEdit && editingTask) {
+              handleUpdateTask({ ...editingTask, ...taskData });
             } else {
               handleCreateTask(taskData);
             }
@@ -231,7 +230,7 @@ export default function TasksPage() {
 
 function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task) => void; }) {
     const { user } = useAuth();
-    const assignedUsers = mockUsers.filter(u => task.assignedTo?.includes(u.id));
+    const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
     const linkedCase = mockCases.find(c => c.id === task.linkedCase);
     const isAdmin = user?.role === 'admin';
 
@@ -251,8 +250,8 @@ function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: 
                         <span>Case: {linkedCase.subject}</span>
                     </div>
                 }
-                {assignedUsers.length > 0 &&
-                     <p className="text-sm text-muted-foreground">Assigned to: {assignedUsers.map(u => u.name).join(', ')}</p>
+                {assignedUser &&
+                     <p className="text-sm text-muted-foreground">Assigned to: {assignedUser.name}</p>
                 }
             </CardContent>
             <CardFooter className="flex justify-between items-center">
@@ -303,10 +302,10 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState<Task['priority']>('Medium');
     const [dueDate, setDueDate] = useState<Date | undefined>();
-    const [assignedTo, setAssignedTo] = useState<string[]>([]);
-    const [linkedCase, setLinkedCase] = useState('');
+    const [assignedTo, setAssignedTo] = useState<string | undefined>();
+    const [linkedCase, setLinkedCase] = useState<string | undefined>();
     
-    const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff').map(u => ({ label: u.name, value: u.id })), []);
+    const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), []);
     const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id })), []);
 
     useEffect(() => {
@@ -315,8 +314,8 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
             setDescription(task.description || '');
             setPriority(task.priority);
             setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
-            setAssignedTo(task.assignedTo || []);
-            setLinkedCase(task.linkedCase || '');
+            setAssignedTo(task.assignedTo || undefined);
+            setLinkedCase(task.linkedCase || undefined);
         } else {
             resetForm();
         }
@@ -327,12 +326,13 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
         setDescription('');
         setPriority('Medium');
         setDueDate(undefined);
-        setAssignedTo([]);
-        setLinkedCase('');
+        setAssignedTo(undefined);
+        setLinkedCase(undefined);
     };
 
     const handleSubmit = () => {
         if (!title) {
+            // Basic validation
             alert("Title is required.");
             return;
         }
@@ -404,18 +404,19 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
                     </div>
                      <div className="grid gap-2">
                         <Label htmlFor="assignedTo">Assigned Staff</Label>
-                        <MultiSelect
-                            options={staffOptions}
-                            selected={assignedTo}
-                            onChange={setAssignedTo}
-                            placeholder="Select staff..."
-                        />
+                        <Select onValueChange={setAssignedTo} value={assignedTo}>
+                            <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                            <SelectContent>
+                                {staffOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="linkedCase">Linked Case (Optional)</Label>
                         <Select onValueChange={setLinkedCase} value={linkedCase}>
                             <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="">None</SelectItem>
                                 {caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>

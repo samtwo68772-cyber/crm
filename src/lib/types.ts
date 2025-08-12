@@ -40,7 +40,7 @@ export type Task = {
   dueDate: string;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
-  assignedTo?: string[];
+  assignedTo?: string;
 };
 
 export type Contact = {

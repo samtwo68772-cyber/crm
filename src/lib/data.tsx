@@ -114,14 +114,14 @@ export const cases: Case[] = [
 ];
 
 export const tasks: Task[] = [
-  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High', linkedCase: 'case-101', assignedTo: ['user-2'] },
-  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High', linkedCase: 'case-104', assignedTo: ['user-3'] },
-  { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: '2024-05-30', priority: 'Medium', assignedTo: ['user-1'] },
-  { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: '2024-06-05', priority: 'Low', assignedTo: ['user-1'] },
-  { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: '2024-05-15', priority: 'Medium', assignedTo: ['user-1'] },
-  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: '2024-05-23', priority: 'Medium', linkedCase: 'case-102', assignedTo: ['user-3'] },
-  { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: '2024-05-24', priority: 'High', linkedCase: 'case-101', assignedTo: ['user-2', 'user-3'] },
-  { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: '2024-05-18', priority: 'High', assignedTo: ['user-1'] }
+  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
+  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3' },
+  { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: '2024-05-30', priority: 'Medium', assignedTo: 'user-1' },
+  { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: '2024-06-05', priority: 'Low', assignedTo: 'user-1' },
+  { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: '2024-05-15', priority: 'Medium', assignedTo: 'user-1' },
+  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: '2024-05-23', priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3' },
+  { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: '2024-05-24', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
+  { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: '2024-05-18', priority: 'High', assignedTo: 'user-1' }
 ];
 
 export const contacts: Contact[] = [
@@ -165,7 +165,7 @@ export const meetings: Meeting[] = [
     description: 'Kickoff meeting for the new mobile app redesign project.',
     date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), 
     status: 'Completed', 
-    participants: ['user-1', 'user-2', 'user-3', 'user-4'],
+    participants: ['user-1', 'user-3'],
   },
   { 
     id: 'meet-3', 
@@ -181,7 +181,7 @@ export const meetings: Meeting[] = [
     description: 'Demo of the new features for Stark Industries.',
     date: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString(), 
     status: 'Upcoming', 
-    participants: ['user-1', 'user-3'],
+    participants: ['user-1'],
     linkedRecord: 'case-102',
   },
    { 
