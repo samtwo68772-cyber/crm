@@ -29,8 +29,7 @@ const navItemsAdmin = [
     { href: '/cases', label: 'Cases Management', icon: Briefcase },
     { href: '/tasks', label: 'Tasks Management', icon: ListTodo },
     { href: '/meetings', label: 'Meetings Management', icon: Calendar },
-    { href: '/contacts', label: 'Contacts', icon: Contact },
-    { href: '/accounts', label: 'Accounts', icon: Building },
+    { href: '/accounts', label: 'Customers', icon: Contact },
     { href: '/documents', label: 'Documents', icon: FileText },
     { href: '/emails', label: 'Emails / Communication', icon: Mail },
     { href: '/reports', label: 'Reports', icon: BarChart },
@@ -46,8 +45,7 @@ const navItemsStaff = [
     { href: '/cases', label: 'Cases', icon: Briefcase },
     { href: '/tasks', label: 'Tasks', icon: ListTodo },
     { href: '/meetings', label: 'Meetings', icon: Calendar },
-    { href: '/contacts', label: 'Contacts', icon: Contact },
-    { href: '/accounts', label: 'Accounts', icon: Building },
+    { href: '/accounts', label: 'Customers', icon: Contact },
     { href: '/documents', label: 'Documents', icon: FileText },
     { href: '/calendar', label: 'Calendar', icon: Calendar },
     { href: '/emails', label: 'Emails / Messages', icon: Mail },
@@ -184,5 +182,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
-
-    
