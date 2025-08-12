@@ -10,6 +10,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -56,7 +57,9 @@ export default function MeetingsPage() {
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [cases, setCases] = useState<Case[]>(mockCases);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const { user } = useAuth();
   const { toast } = useToast();
@@ -67,12 +70,15 @@ export default function MeetingsPage() {
 
   const handleUpdateMeeting = (updatedMeeting: Meeting) => {
     setMeetings(meetings.map(m => m.id === updatedMeeting.id ? updatedMeeting : m));
-    setSelectedMeeting(null);
+    setEditDialogOpen(false);
+    setSelectedMeeting(updatedMeeting);
     toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeeting.title}" has been updated.` });
   };
   
    const handleDeleteMeeting = (meetingId: string) => {
     setMeetings(meetings.filter(m => m.id !== meetingId));
+    setEditDialogOpen(false);
+    setIsSheetOpen(false);
     setSelectedMeeting(null);
     toast({ title: 'Meeting Canceled', description: `The meeting has been canceled.` });
   };
@@ -103,6 +109,11 @@ export default function MeetingsPage() {
   const upcomingMeetings = useMemo(() => {
     return userMeetings.filter(m => m.status === 'Upcoming');
   }, [userMeetings]);
+  
+  const handleMeetingClick = (meeting: Meeting) => {
+      setSelectedMeeting(meeting);
+      setIsSheetOpen(true);
+  }
 
 
   return (
@@ -138,7 +149,7 @@ export default function MeetingsPage() {
                                         {dayMeetings.length > 0 && 
                                             <div className="flex -space-x-1">
                                             {dayMeetings.slice(0, 3).map(m => (
-                                                <div key={m.id} onClick={(e) => { e.stopPropagation(); setSelectedMeeting(m); }} 
+                                                <div key={m.id} onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }} 
                                                      className={`h-2 w-2 rounded-full border border-card ${getStatusColor(m.status)} cursor-pointer hover:scale-125 transition-transform`}
                                                      title={m.title}
                                                 />
@@ -172,7 +183,7 @@ export default function MeetingsPage() {
             </div>
             <div className="space-y-4 h-[60vh] overflow-y-auto pr-4">
                 {filteredMeetings.length > 0 ? filteredMeetings.map(meeting => (
-                    <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                    <Card key={meeting.id} onClick={() => handleMeetingClick(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
                         <CardContent className="p-4">
                              <div className="flex justify-between items-start">
                                 <div>
@@ -202,7 +213,7 @@ export default function MeetingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {upcomingMeetings.length > 0 ? upcomingMeetings.map(meeting => (
-                        <Card key={meeting.id} onClick={() => setSelectedMeeting(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <Card key={meeting.id} onClick={() => handleMeetingClick(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
                             <CardContent className="p-4">
                                 <div className="flex justify-between items-start">
                                     <div>
@@ -226,106 +237,136 @@ export default function MeetingsPage() {
           </TabsContent>
       </Tabs>
       
-      {selectedMeeting && <MeetingDetailPanel open={!!selectedMeeting} onOpenChange={() => setSelectedMeeting(null)} meeting={selectedMeeting} onUpdate={handleUpdateMeeting} onDelete={handleDeleteMeeting} />}
+      {selectedMeeting && (
+        <>
+            <MeetingDetailSheet 
+                open={isSheetOpen} 
+                onOpenChange={setIsSheetOpen} 
+                meeting={selectedMeeting} 
+                onEdit={() => setEditDialogOpen(true)} 
+            />
+            <EditMeetingDialog 
+                open={isEditDialogOpen} 
+                onOpenChange={setEditDialogOpen} 
+                meeting={selectedMeeting} 
+                onUpdate={handleUpdateMeeting} 
+                onDelete={handleDeleteMeeting}
+            />
+        </>
+      )}
       <CreateMeetingDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateMeeting} />
     </div>
   );
 }
 
-function MeetingDetailPanel({ open, onOpenChange, meeting, onUpdate, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void }) {
-  const { user } = useAuth();
-  const [cases, setCases] = useState<Case[]>(mockCases);
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const isAdmin = user?.role === 'admin';
-  const [isEditing, setIsEditing] = useState(false);
+function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void }) {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+    const linkedCase = useMemo(() => mockCases.find(c => c.id === meeting.linkedRecord), [meeting]);
+
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent className="sm:max-w-md">
+                <SheetHeader>
+                    <SheetTitle className="font-headline text-2xl">{meeting.title}</SheetTitle>
+                    <SheetDescription>{meeting.description}</SheetDescription>
+                </SheetHeader>
+                <div className="py-6 space-y-4">
+                     <div className="flex items-center justify-between">
+                         <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
+                         <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP p')}</div>
+                    </div>
+                     {linkedCase && 
+                        <div className="flex items-center gap-2 text-sm"><LinkIcon className="h-4 w-4 text-muted-foreground" /> <strong>Linked Case:</strong> {linkedCase.subject}</div>
+                    }
+                     <div>
+                        <h4 className="font-semibold mb-2">Participants</h4>
+                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
+                            const participant = mockUsers.find(u => u.id === pId);
+                            return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
+                        })}</div>
+                    </div>
+                </div>
+                <SheetFooter>
+                    {isAdmin && <Button onClick={onEdit}><Edit className="mr-2 h-4 w-4" /> Open Full Details</Button>}
+                </SheetFooter>
+            </SheetContent>
+        </Sheet>
+    )
+}
+
+
+function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void }) {
+  const participantOptions = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
+  const caseOptions = useMemo(() => mockCases.map(c => ({value: c.id, label: c.subject})), []);
+  
   const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);
-
-  const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
-  const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
-
 
   const handleFieldChange = (field: keyof Meeting, value: any) => {
     setEditedMeeting(prev => ({ ...prev, [field]: value }));
   };
+  
+  const handleSave = () => onUpdate(editedMeeting);
+  
+  React.useEffect(() => {
+    setEditedMeeting(meeting);
+  }, [meeting]);
 
-  const handleSave = () => {
-    onUpdate(editedMeeting);
-    setIsEditing(false);
-  };
 
   return (
-     <Dialog open={open} onOpenChange={(val) => { onOpenChange(val); setIsEditing(false); }}>
+     <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl">
             <DialogHeader>
-                <DialogTitle className="font-headline text-2xl">{meeting.title}</DialogTitle>
-                <DialogDescription>{meeting.description}</DialogDescription>
+                <DialogTitle className="font-headline text-2xl">Edit Meeting</DialogTitle>
+                <DialogDescription>Update the details for this meeting.</DialogDescription>
             </DialogHeader>
-            
-            {isEditing ? (
-                 <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={editedMeeting.title} onChange={(e) => handleFieldChange('title', e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date</Label><Input id="date" type="datetime-local" value={safeFormat(editedMeeting.date, "yyyy-MM-dd'T'HH:mm")} onChange={(e) => handleFieldChange('date', e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="status" className="text-right">Status</Label>
-                        <Select onValueChange={(v: Meeting['status']) => handleFieldChange('status', v)} defaultValue={editedMeeting.status}>
-                            <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                            <SelectContent><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Canceled">Canceled</SelectItem></SelectContent>
-                        </Select>
-                    </div>
-                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="participants" className="text-right">Participants</Label>
-                        <MultiSelect
-                            className="col-span-3"
-                            options={participantOptions}
-                            selected={editedMeeting.participants}
-                            onChange={(selected) => handleFieldChange('participants', selected)}
-                            placeholder="Select participants"
-                        />
+             <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={editedMeeting.title} onChange={(e) => handleFieldChange('title', e.target.value)} className="col-span-3" /></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={editedMeeting.description} onChange={(e) => handleFieldChange('description', e.target.value)} className="col-span-3" /></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date</Label><Input id="date" type="datetime-local" value={safeFormat(editedMeeting.date, "yyyy-MM-dd'T'HH:mm")} onChange={(e) => handleFieldChange('date', e.target.value)} className="col-span-3" /></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="status" className="text-right">Status</Label>
+                    <Select onValueChange={(v: Meeting['status']) => handleFieldChange('status', v)} defaultValue={editedMeeting.status}>
+                        <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                        <SelectContent><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Canceled">Canceled</SelectItem></SelectContent>
+                    </Select>
+                </div>
+                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="participants" className="text-right">Participants</Label>
+                    <MultiSelect
+                        className="col-span-3"
+                        options={participantOptions}
+                        selected={editedMeeting.participants}
+                        onChange={(selected) => handleFieldChange('participants', selected)}
+                        placeholder="Select participants"
+                    />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
+                    <Select onValueChange={(value) => handleFieldChange('linkedRecord', value)} value={editedMeeting.linkedRecord}>
+                        <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case (optional)" /></SelectTrigger>
+                        <SelectContent>{caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                    </Select>
+                </div>
+                <div>
+                    <h4 className="font-semibold mb-2">Notes</h4>
+                    <Textarea placeholder="Add meeting notes..." rows={4} />
+                    <Button className="mt-2" size="sm">Add Note</Button>
+                </div>
+                <div>
+                    <h4 className="font-semibold mb-2">Attachments</h4>
+                    <div className="p-4 border-2 border-dashed rounded-lg text-center">
+                        <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
+                        <Label htmlFor="file-upload" className="relative cursor-pointer text-sm font-medium text-primary hover:text-primary/80"><span>Upload a file</span><input id="file-upload" type="file" className="sr-only" /></Label>
                     </div>
                 </div>
-            ) : (
-                <div className="space-y-6 py-4">
-                    <div className="flex items-center justify-between">
-                         <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
-                         <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP p')}</div>
-                    </div>
-                    {linkedCase && 
-                        <div className="flex items-center gap-2 text-sm"><LinkIcon className="h-4 w-4 text-muted-foreground" /> <strong>Linked Case:</strong> {linkedCase.subject}</div>
-                    }
-                    <div>
-                        <h4 className="font-semibold mb-2">Participants</h4>
-                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
-                            const participant = users.find(u => u.id === pId);
-                            return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
-                        })}</div>
-                    </div>
-                     <div>
-                        <h4 className="font-semibold mb-2">Notes</h4>
-                        <Textarea placeholder="Add meeting notes..." rows={4} />
-                        <Button className="mt-2" size="sm">Add Note</Button>
-                    </div>
-                     <div>
-                        <h4 className="font-semibold mb-2">Attachments</h4>
-                        <div className="p-4 border-2 border-dashed rounded-lg text-center">
-                            <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-                            <Label htmlFor="file-upload" className="relative cursor-pointer text-sm font-medium text-primary hover:text-primary/80"><span>Upload a file</span><input id="file-upload" type="file" className="sr-only" /></Label>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
+            </div>
             <DialogFooter className="justify-between">
                 <div>
-                     {isAdmin && isEditing && <Button variant="destructive" onClick={() => onDelete(meeting.id)}><Trash2 className="mr-2 h-4 w-4" />Delete Meeting</Button>}
+                    <Button variant="destructive" onClick={() => onDelete(meeting.id)}><Trash2 className="mr-2 h-4 w-4" />Delete Meeting</Button>
                 </div>
-                <div>
-                {isAdmin && !isEditing && <Button variant="outline" onClick={() => setIsEditing(true)}><Edit className="mr-2 h-4 w-4" /> Edit</Button>}
-                {isAdmin && isEditing && (
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => { setIsEditing(false); setEditedMeeting(meeting); }}>Cancel</Button>
-                        <Button onClick={handleSave}>Save Changes</Button>
-                    </div>
-                )}
-                 {!isAdmin && <Button onClick={() => onOpenChange(false)}>Close</Button>}
-                 </div>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSave}>Save Changes</Button>
+                </div>
             </DialogFooter>
         </DialogContent>
     </Dialog>

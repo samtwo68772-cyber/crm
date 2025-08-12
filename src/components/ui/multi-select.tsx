@@ -19,7 +19,7 @@ type Option = Record<"value" | "label", string>;
 interface MultiSelectProps extends React.ComponentPropsWithoutRef<typeof CommandPrimitive> {
   options: Option[];
   selected: string[];
-  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onChange: (selected: string[]) => void;
   placeholder?: string;
 }
 
@@ -37,21 +37,21 @@ export function MultiSelect({
 
   const handleSelect = React.useCallback(
     (value: string) => {
-      onChange((prev) =>
-        prev.includes(value)
-          ? prev.filter((v) => v !== value)
-          : [...prev, value]
+      onChange(
+        selected.includes(value)
+          ? selected.filter((v) => v !== value)
+          : [...selected, value]
       );
        setInputValue("");
     },
-    [onChange]
+    [onChange, selected]
   );
 
   const handleRemove = React.useCallback(
     (value: string) => {
-      onChange((prev) => prev.filter((v) => v !== value));
+      onChange(selected.filter((v) => v !== value));
     },
-    [onChange]
+    [onChange, selected]
   );
   
   const handleKeyDown = React.useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -125,4 +125,3 @@ export function MultiSelect({
     </Command>
   );
 }
-
