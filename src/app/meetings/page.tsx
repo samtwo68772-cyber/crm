@@ -121,7 +121,7 @@ export default function MeetingsPage() {
           <h1 className="text-3xl font-bold tracking-tight font-headline">Meetings</h1>
           <p className="text-muted-foreground">Schedule, view, and manage meetings.</p>
         </div>
-        {isAdmin && <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Schedule Meeting</Button>}
+        <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Schedule Meeting</Button>
       </div>
 
        <Tabs defaultValue="calendar" className="w-full">
@@ -426,3 +426,5 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
+
+    
