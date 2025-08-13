@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
 import type { User, Team } from '@/lib/types';
@@ -19,7 +19,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const initialSettings = {
@@ -30,10 +31,19 @@ const initialSettings = {
     timeZone: 'UTC-5:00',
     language: 'en-US',
   },
+  security: {
+    passwordMinLength: 8,
+    passwordRequireSpecialChars: true,
+    passwordRequireNumbers: true,
+    enable2FA: false,
+    sessionTimeout: 30, // in minutes
+    ipWhitelist: '192.168.1.1\n127.0.0.1',
+  },
 };
 
 type SettingsType = typeof initialSettings;
 type GeneralSettingsType = SettingsType['general'];
+type SecuritySettingsType = SettingsType['security'];
 
 
 export default function SettingsPage() {
@@ -72,17 +82,19 @@ export default function SettingsPage() {
                 <p className="text-muted-foreground">Configure system-wide settings and preferences</p>
             </div>
 
-            <Tabs defaultValue="users" className="w-full">
-                <TabsList className="border-b-0 justify-start overflow-x-auto p-0 bg-transparent">
-                    <TabsTrigger value="general">General</TabsTrigger>
-                    <TabsTrigger value="users">Users</TabsTrigger>
-                    <TabsTrigger value="security">Security</TabsTrigger>
-                    <TabsTrigger value="email">Email</TabsTrigger>
-                    <TabsTrigger value="alerts">Alerts</TabsTrigger>
-                    <TabsTrigger value="api">API</TabsTrigger>
-                    <TabsTrigger value="workflows">Workflows</TabsTrigger>
-                    <TabsTrigger value="audit">Audit</TabsTrigger>
-                </TabsList>
+            <Tabs defaultValue="general" className="w-full">
+                <div className="overflow-x-auto">
+                    <TabsList className="border-b-0 justify-start p-0 bg-transparent">
+                        <TabsTrigger value="general">General</TabsTrigger>
+                        <TabsTrigger value="users">Users & Roles</TabsTrigger>
+                        <TabsTrigger value="security">Security</TabsTrigger>
+                        <TabsTrigger value="email">Email</TabsTrigger>
+                        <TabsTrigger value="alerts">Alerts</TabsTrigger>
+                        <TabsTrigger value="api">API & Integrations</TabsTrigger>
+                        <TabsTrigger value="workflows">Workflows</TabsTrigger>
+                        <TabsTrigger value="audit">Audit Log</TabsTrigger>
+                    </TabsList>
+                </div>
                 
                 <TabsContent value="general" className="mt-6">
                     <GeneralSettings initialSettings={settings.general} onSave={(newSettings) => handleSettingChange('general', newSettings)} />
@@ -90,7 +102,9 @@ export default function SettingsPage() {
                 <TabsContent value="users" className="mt-6">
                     <UsersSettings />
                 </TabsContent>
-                <TabsContent value="security" className="mt-6"><PlaceholderCard title="Security Settings" description="Configure password policies, 2FA, and session management." icon={Shield} /></TabsContent>
+                <TabsContent value="security" className="mt-6">
+                    <SecuritySettings initialSettings={settings.security} onSave={(newSettings) => handleSettingChange('security', newSettings)} />
+                </TabsContent>
                 <TabsContent value="email" className="mt-6"><PlaceholderCard title="Email Configuration" description="Set up SMTP and default email templates." icon={Mail} /></TabsContent>
                 <TabsContent value="alerts" className="mt-6"><PlaceholderCard title="Alerts & Notifications" description="Define system-wide alert triggers and notification channels." icon={Bell} /></TabsContent>
                 <TabsContent value="api" className="mt-6"><PlaceholderCard title="API & Integrations" description="Manage API keys and connected third-party applications." icon={KeyRound} /></TabsContent>
@@ -248,6 +262,11 @@ function UsersSettings() {
         setIsFormOpen(false);
         toast({ title: "User Updated", description: `User "${updatedUser.name}" has been updated.` });
     };
+
+    const handleDeleteUser = (userId: string) => {
+        setUsers(users.filter(u => u.id !== userId));
+        toast({ title: "User Deleted", description: `User has been deleted.` });
+    };
     
     const openCreateForm = () => {
         setEditingUser(null);
@@ -318,7 +337,7 @@ function UsersSettings() {
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onClick={() => openEditForm(user)}>Edit User</DropdownMenuItem>
                                                 <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-destructive">Delete User</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(user.id)}>Delete User</DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -402,6 +421,73 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
     );
 }
 
+function SecuritySettings({ initialSettings, onSave }: { initialSettings: SecuritySettingsType; onSave: (data: SecuritySettingsType) => void; }) {
+    const [settings, setSettings] = useState<SecuritySettingsType>(initialSettings);
+    const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialSettings);
+
+    const handleCancel = () => setSettings(initialSettings);
+    const handleSave = () => onSave(settings);
+
+    useEffect(() => {
+        setSettings(initialSettings);
+    }, [initialSettings]);
+
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <Shield className="h-6 w-6" />
+                    <div>
+                        <CardTitle>Security Settings</CardTitle>
+                        <CardDescription>Configure password policies, 2FA, session management, and IP whitelisting.</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-8">
+                <div>
+                    <h4 className="font-medium text-lg mb-4">Password Policy</h4>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <Label htmlFor="require-special-chars">Require Special Characters</Label>
+                            <Switch id="require-special-chars" checked={settings.passwordRequireSpecialChars} onCheckedChange={(checked) => setSettings(s => ({ ...s, passwordRequireSpecialChars: checked }))}/>
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <Label htmlFor="require-numbers">Require Numbers</Label>
+                            <Switch id="require-numbers" checked={settings.passwordRequireNumbers} onCheckedChange={(checked) => setSettings(s => ({ ...s, passwordRequireNumbers: checked }))}/>
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <Label htmlFor="min-length">Minimum Length</Label>
+                            <Input id="min-length" type="number" value={settings.passwordMinLength} onChange={(e) => setSettings(s => ({ ...s, passwordMinLength: parseInt(e.target.value, 10) || 0 }))} className="w-24"/>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 className="font-medium text-lg mb-4">Authentication</h4>
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <Label htmlFor="enable-2fa">Enable Two-Factor Authentication (2FA)</Label>
+                            <Switch id="enable-2fa" checked={settings.enable2FA} onCheckedChange={(checked) => setSettings(s => ({ ...s, enable2FA: checked }))}/>
+                        </div>
+                        <div className="flex items-center justify-between p-4 border rounded-lg">
+                            <Label htmlFor="session-timeout">Session Timeout (minutes)</Label>
+                            <Input id="session-timeout" type="number" value={settings.sessionTimeout} onChange={(e) => setSettings(s => ({ ...s, sessionTimeout: parseInt(e.target.value, 10) || 0 }))} className="w-24"/>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                     <h4 className="font-medium text-lg mb-2">IP Whitelist</h4>
+                     <p className="text-sm text-muted-foreground mb-4">Only allow access from these IP addresses. Enter one IP per line.</p>
+                     <Textarea value={settings.ipWhitelist} onChange={(e) => setSettings(s => ({...s, ipWhitelist: e.target.value}))} rows={5}/>
+                </div>
+            </CardContent>
+            <CardFooter className="border-t pt-6 flex justify-end gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
+            </CardFooter>
+        </Card>
+    );
+}
+
 function WorkflowsSettings() {
     return (
         <Card>
@@ -469,3 +555,4 @@ function PlaceholderCard({ title, description, icon: Icon }: { title: string, de
 }
 
     
+
