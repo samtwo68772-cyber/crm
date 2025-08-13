@@ -80,13 +80,13 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
       </div>
       <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(true)} className="mt-2">
         <Users className="mr-2 h-4 w-4" />
-        Manage Participants
+        Select Participants
       </Button>
 
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Manage Participants</DialogTitle>
+            <DialogTitle>Select Participants</DialogTitle>
             <DialogDescription>Select staff members to invite to the meeting.</DialogDescription>
           </DialogHeader>
           <div className="relative">

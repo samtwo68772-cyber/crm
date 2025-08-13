@@ -140,6 +140,9 @@ export default function MeetingsPage() {
                         selected={selectedDate}
                         onSelect={setSelectedDate}
                         className="w-full"
+                        classNames={{
+                           cell: "border bg-muted/30"
+                        }}
                         components={{
                             DayContent: ({ date }) => {
                                 const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
@@ -324,7 +327,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
 
   return (
      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle className="font-headline text-2xl">Edit Meeting</DialogTitle>
                 <DialogDescription>Update the details for this meeting.</DialogDescription>
@@ -355,18 +358,6 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                         <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a case (optional)" /></SelectTrigger>
                         <SelectContent>{caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                     </Select>
-                </div>
-                <div>
-                    <h4 className="font-semibold mb-2">Notes</h4>
-                    <Textarea placeholder="Add meeting notes..." rows={4} />
-                    <Button className="mt-2" size="sm">Add Note</Button>
-                </div>
-                <div>
-                    <h4 className="font-semibold mb-2">Attachments</h4>
-                    <div className="p-4 border-2 border-dashed rounded-lg text-center">
-                        <FileText className="mx-auto h-8 w-8 text-muted-foreground" />
-                        <Label htmlFor="file-upload" className="relative cursor-pointer text-sm font-medium text-primary hover:text-primary/80"><span>Upload a file</span><input id="file-upload" type="file" className="sr-only" /></Label>
-                    </div>
                 </div>
             </div>
             <DialogFooter className="justify-between">
