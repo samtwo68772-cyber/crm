@@ -54,19 +54,35 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
     );
   };
   
+  const handleRemoveParticipant = (userId: string) => {
+    onChange(selectedUserIds.filter(id => id !== userId));
+  };
+
   return (
     <div>
        <div 
-        className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground min-h-10 cursor-text"
+        className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-10"
         onClick={() => setDialogOpen(true)}
       >
-        <div className="flex-1">
-            {selectedUsers.length > 0 ? (
-                <span className="text-foreground">{selectedUsers.map(u => u.name).join(', ')}</span>
-            ) : (
-                <span>No participants selected.</span>
-            )}
-        </div>
+        {selectedUsers.length > 0 ? (
+            selectedUsers.map(user => (
+                <Badge key={user.id} variant="secondary">
+                    {user.name}
+                    <button 
+                        type="button" 
+                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveParticipant(user.id);
+                        }}
+                    >
+                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                    </button>
+                </Badge>
+            ))
+        ) : (
+            <span className="text-muted-foreground">No participants selected.</span>
+        )}
       </div>
       <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(true)} className="mt-2">
         <Users className="mr-2 h-4 w-4" />
@@ -100,7 +116,7 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
                             onClick={(e) => e.stopPropagation()}
                         />
                         <Avatar className="h-8 w-8">
-                            <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="person avatar"/>
+                            <AvatarImage src={user.avatar} data-ai-hint="person avatar" alt={user.name}/>
                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex-1">
@@ -130,4 +146,3 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
     </div>
   );
 }
-
