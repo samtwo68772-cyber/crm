@@ -49,7 +49,7 @@ function Calendar({
 
         // Custom scoped styles for the meeting calendar
         ...Object.keys(classNames || {}).length === 0 && {
-          table: "w-full border-collapse",
+          table: "w-full border-collapse table-fixed",
           head_row: "grid grid-cols-7",
           head_cell: "text-center text-muted-foreground font-normal text-sm p-2",
           row: "grid grid-cols-7",
