@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MultiSelect } from '@/components/ui/multi-select';
+import { ParticipantsPicker } from '@/components/ui/participants-picker';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
 import { format, isValid, isSameDay } from 'date-fns';
@@ -305,7 +305,6 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
 
 
 function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
-  const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
   
   const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);
@@ -340,14 +339,15 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                         <SelectContent><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Canceled">Canceled</SelectItem></SelectContent>
                     </Select>
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="participants" className="text-right">Participants</Label>
-                    <MultiSelect
-                        className="col-span-3"
-                        options={participantOptions}
-                        selected={editedMeeting.participants}
-                        onChange={(selected) => handleFieldChange('participants', selected)}
-                        placeholder="Select participants"
-                    />
+                 <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="participants" className="text-right">Participants</Label>
+                    <div className="col-span-3">
+                        <ParticipantsPicker
+                            allUsers={users}
+                            selectedUserIds={editedMeeting.participants}
+                            onChange={(ids) => handleFieldChange('participants', ids)}
+                        />
+                    </div>
                 </div>
                 <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="linkedRecord" className="text-right">Link to Case</Label>
@@ -391,8 +391,6 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
   const [linkedRecord, setLinkedRecord] = useState('');
   const [errors, setErrors] = useState<{ title?: string; date?: string; participants?: string }>({});
 
-
-  const participantOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
 
 
@@ -449,14 +447,12 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
             <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="participants" className="text-right">Participants</Label>
                 <div className="col-span-3">
-                    <MultiSelect
-                        options={participantOptions}
-                        selected={participants}
+                    <ParticipantsPicker
+                        allUsers={users}
+                        selectedUserIds={participants}
                         onChange={setParticipants}
-                        className={cn(errors.participants && 'border border-destructive rounded-md')}
-                        placeholder="Select participants"
                     />
-                    {errors.participants && <p className="text-sm text-destructive mt-1">{errors.participants}</p>}
+                     {errors.participants && <p className="text-sm text-destructive mt-1">{errors.participants}</p>}
                 </div>
             </div>
            <div className="grid grid-cols-4 items-center gap-4">
@@ -472,5 +468,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-
-    

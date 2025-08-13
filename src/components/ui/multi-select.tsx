@@ -29,7 +29,7 @@ export type OptionType = {
 interface MultiSelectProps {
   options: OptionType[];
   selected: string[];
-  onChange: React.Dispatch<React.SetStateAction<string[]>>;
+  onChange: (selected: string[]) => void;
   className?: string;
   placeholder?: string;
 }
@@ -54,8 +54,8 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={`w-full justify-between h-auto ${selected.length > 0 ? 'h-full' : 'h-10'}`}
-          onClick={() => setOpen(!open)}
+          className={`w-full justify-between ${selected.length > 1 ? 'h-full' : 'h-10'}`}
+          onClick={(e) => { e.preventDefault(); setOpen(!open);}}
         >
           <div className="flex gap-1 flex-wrap">
             {selected.length > 0 ? (
@@ -63,14 +63,31 @@ function MultiSelect({
                     <Badge
                         variant="secondary"
                         key={option.value}
-                        className="mr-1 mb-1"
+                        className="mr-1"
                         onClick={(e) => {
                            e.stopPropagation();
                            handleUnselect(option.value);
                         }}
                     >
                         {option.label}
-                        <X className="ml-1 h-4 w-4" />
+                        <button
+                          className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleUnselect(option.value);
+                            }
+                          }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                           e.stopPropagation();
+                           handleUnselect(option.value);
+                        }}
+                        >
+                          <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                        </button>
                     </Badge>
                 ))
             ) : (
@@ -80,7 +97,7 @@ function MultiSelect({
           <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 z-50">
         <Command className={className}>
           <CommandInput placeholder="Search..." />
           <CommandList>
@@ -118,5 +135,3 @@ function MultiSelect({
 }
 
 export { MultiSelect };
-
-    
