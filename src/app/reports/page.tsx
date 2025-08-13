@@ -12,265 +12,86 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown } from 'lucide-react';
+import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck } from 'lucide-react';
 import type { DateRange } from "react-day-picker";
-import { isWithinInterval, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { MultiSelect, OptionType } from '@/components/ui/multi-select';
+import { isWithinInterval, startOfDay, endOfDay, subDays } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#dd84d8'];
 
-export default function ReportsPage() {
-    const { user } = useAuth();
-    if (!user) return <p>Loading...</p>;
+const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
-    return (
-        <div className="flex-1 space-y-6 pt-2">
-            <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight font-headline">Analytics Dashboard</h1>
-                    <p className="text-muted-foreground">Analyze performance and trends across the system.</p>
-                </div>
-            </header>
-            
-            <main>
-                {user.role === 'admin' ? <AdminReportsView /> : <StaffReportsView user={user} />}
-            </main>
-        </div>
-    );
+function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
+  switch (priority) {
+    case 'High': return 'high';
+    case 'Medium': return 'medium';
+    case 'Low': return 'low';
+    default: return 'default';
+  }
 }
 
-// #region Staff View
-function StaffReportsView({ user }: { user: User }) {
-    const userCases = useMemo(() => mockCases.filter(c => c.assignedTo === user.name), [user.name]);
-    const userTasks = useMemo(() => mockTasks.filter(t => t.assignedTo === user.id), [user.id]);
-    const userMeetings = useMemo(() => mockMeetings.filter(m => m.participants.includes(user.id)), [user.id]);
-    
-    const now = new Date();
-    const meetingsThisWeek = userMeetings.filter(m => isWithinInterval(new Date(m.date), { start: startOfWeek(now), end: endOfWeek(now) })).length;
-    const completionRate = userTasks.length > 0 ? (userTasks.filter(t => t.status === 'Done').length / userTasks.length) * 100 : 0;
-
-    const summaryStats = [
-        { title: "My Open Cases", value: userCases.filter(c => c.status !== 'Closed').length, icon: Briefcase },
-        { title: "Completed Tasks", value: userTasks.filter(t => t.status === 'Done').length, icon: CheckCircle },
-        { title: "Meetings This Week", value: meetingsThisWeek, icon: CalendarIcon },
-        { title: "Task Completion Rate", value: `${completionRate.toFixed(0)}%`, icon: Percent },
-    ];
-    
-    return (
-        <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {summaryStats.map(stat => <StatCard key={stat.title} title={stat.title} value={stat.value} icon={React.createElement(stat.icon)} />)}
-            </div>
-            
-            <Tabs defaultValue="cases" className="mt-6">
-                <TabsList>
-                    <TabsTrigger value="cases">Case Reports</TabsTrigger>
-                    <TabsTrigger value="tasks">Task Reports</TabsTrigger>
-                </TabsList>
-                <TabsContent value="cases" className="mt-4">
-                    <CaseReportChart data={userCases} />
-                </TabsContent>
-                <TabsContent value="tasks" className="mt-4">
-                    <TaskReportChart data={userTasks} />
-                </TabsContent>
-            </Tabs>
-        </div>
-    );
-}
-// #endregion
-
-// #region Admin View
-function AdminReportsView() {
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
-    const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
-    
-    const staffOptions: OptionType[] = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
-
-    const filteredCases = useMemo(() => {
-        return mockCases.filter(c => {
-            const inDate = !dateRange?.from || isWithinInterval(new Date(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) });
-            const inStaff = selectedStaff.length === 0 || selectedStaff.includes(mockUsers.find(u => u.name === c.assignedTo)?.id || '');
-            return inDate && inStaff;
-        });
-    }, [dateRange, selectedStaff]);
-
-    const filteredTasks = useMemo(() => {
-        return mockTasks.filter(t => {
-            const inDate = !dateRange?.from || isWithinInterval(new Date(t.dueDate), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) });
-            const inStaff = selectedStaff.length === 0 || (t.assignedTo && selectedStaff.includes(t.assignedTo));
-            return inDate && inStaff;
-        });
-    }, [dateRange, selectedStaff]);
-    
-    const kpiData = useMemo(() => {
-        const totalOpen = filteredCases.filter(c => c.status !== 'Closed').length;
-        const totalCompleted = filteredTasks.filter(t => t.status === 'Done').length;
-        const meetingsThisMonth = mockMeetings.filter(m => isWithinInterval(new Date(m.date), { start: startOfMonth(new Date()), end: endOfMonth(new Date()) })).length;
-        return { totalOpen, totalCompleted, meetingsThisMonth };
-    }, [filteredCases, filteredTasks]);
-
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3 space-y-6">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <StatCard title="Total Open Cases" value={kpiData.totalOpen} icon={<Briefcase />} />
-                    <StatCard title="Avg. Resolution Time" value="2.1d" icon={<Clock />} />
-                    <StatCard title="Total Completed Tasks" value={kpiData.totalCompleted} icon={<CheckCircle />} />
-                    <StatCard title="Meetings This Month" value={mockMeetings.filter(m => isWithinInterval(new Date(m.date), { start: startOfMonth(new Date()), end: endOfMonth(new Date()) })).length} icon={<CalendarIcon />} />
-                </div>
-                
-                <Tabs defaultValue="cases" className="mt-6">
-                    <div className="flex items-center justify-between flex-wrap gap-4">
-                        <TabsList>
-                            <TabsTrigger value="cases">Cases</TabsTrigger>
-                            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-                            <TabsTrigger value="performance">Staff Performance</TabsTrigger>
-                        </TabsList>
-                        <div className="flex items-center gap-2">
-                            <ScheduleReportDialog />
-                            <Button variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
-                        </div>
-                    </div>
-                    <TabsContent value="cases" className="mt-4">
-                        <CaseReportChart data={filteredCases} />
-                        <CaseReportTable data={filteredCases} />
-                    </TabsContent>
-                    <TabsContent value="tasks" className="mt-4">
-                        <TaskReportChart data={filteredTasks} />
-                        <TaskReportTable data={filteredTasks} />
-                    </TabsContent>
-                     <TabsContent value="performance" className="mt-4">
-                        <StaffPerformanceChart />
-                    </TabsContent>
-                </Tabs>
-            </div>
-            
-            <aside className="lg:col-span-1 lg:sticky top-24 h-fit">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Report Filters</CardTitle>
-                        <CardDescription>Refine the data shown in the dashboard.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <Label>Date Range</Label>
-                            <DateRangePicker onDateChange={setDateRange} />
-                        </div>
-                        <div>
-                            <Label>Staff Member(s)</Label>
-                            <MultiSelect 
-                                options={staffOptions} 
-                                selected={selectedStaff} 
-                                onChange={setSelectedStaff}
-                                placeholder="All Staff"
-                            />
-                        </div>
-                    </CardContent>
-                </Card>
-            </aside>
-        </div>
-    );
+function getStatusVariant(status: Case['status']) {
+    switch (status) {
+        case 'New': return 'blue';
+        case 'In Progress': return 'teal';
+        case 'Resolved': return 'green';
+        default: return 'outline';
+    }
 }
 
-// #endregion
-
-// #region Shared Components
-
-function StatCard({ title, value, icon }: { title: string; value: string | number; icon: React.ReactNode }) {
+function KpiCard({ title, value, change, changeType, icon: Icon }: { title: string; value: string; change: string; changeType: 'positive' | 'negative'; icon: React.ElementType }) {
+    const isPositive = changeType === 'positive';
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <div className="text-muted-foreground">{icon}</div>
+        <Card className="shadow-sm hover:shadow-lg transition-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <Icon className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{value}</div>
+                <div className="flex items-center text-xs text-muted-foreground">
+                    <span className={`flex items-center gap-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                        {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                        {change}
+                    </span>
+                </div>
             </CardContent>
         </Card>
     );
 }
 
-function CaseReportChart({ data }: { data: Case[] }) {
-    const dataByStatus = useMemo(() => {
-        const counts = data.reduce((acc, curr) => {
+export default function ReportsPage() {
+    const [reportType, setReportType] = useState('overview');
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
+
+    const filteredCases = useMemo(() => {
+        return mockCases.filter(c => 
+            !dateRange?.from || isWithinInterval(new Date(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) })
+        );
+    }, [dateRange]);
+
+    const kpiData = {
+        totalCases: { value: '1,234', change: '+12.5%', type: 'positive' },
+        avgResolutionTime: { value: '2.1d', change: '-5.2%', type: 'positive' },
+        customerSatisfaction: { value: '92%', change: '+1.8%', type: 'positive' },
+        activeUsers: { value: '45', change: '-2.1%', type: 'negative' },
+    };
+    
+    const caseStatusData = useMemo(() => {
+        const counts = filteredCases.reduce((acc, curr) => {
             acc[curr.status] = (acc[curr.status] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
-    }, [data]);
+    }, [filteredCases]);
 
-    const dataByPriority = useMemo(() => {
-        const counts = data.reduce((acc, curr) => {
+    const casePriorityData = useMemo(() => {
+        const counts = filteredCases.reduce((acc, curr) => {
             acc[curr.priority] = (acc[curr.priority] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
-    }, [data]);
+    }, [filteredCases]);
 
-    return (
-        <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <Card>
-                <CardHeader><CardTitle>Cases by Status</CardTitle></CardHeader>
-                <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={dataByStatus}>
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                            <Tooltip />
-                            <Bar dataKey="value" fill="var(--color-cases)" radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader><CardTitle>Cases by Priority</CardTitle></CardHeader>
-                <CardContent>
-                     <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={dataByPriority} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                {dataByPriority.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-        </div>
-    )
-}
-
-function TaskReportChart({ data }: { data: Task[] }) {
-     const dataByStatus = useMemo(() => {
-        const counts = data.reduce((acc, curr) => {
-            acc[curr.status] = (acc[curr.status] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-        return Object.entries(counts).map(([name, value]) => ({ name, value }));
-    }, [data]);
-    
-    return (
-         <Card className="mb-6">
-            <CardHeader><CardTitle>Tasks by Status</CardTitle></CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={dataByStatus}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false}/>
-                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                        <Tooltip />
-                        <Bar dataKey="value" fill="var(--color-tasks)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
-    );
-}
-
-function StaffPerformanceChart() {
     const performanceData = useMemo(() => {
         return mockUsers.map(user => {
             const cases = mockCases.filter(c => c.assignedTo === user.name);
@@ -278,111 +99,159 @@ function StaffPerformanceChart() {
             return {
                 name: user.name,
                 resolvedCases: cases.filter(c => c.status === 'Resolved' || c.status === 'Closed').length,
-                completedTasks: tasks.filter(t => t.status === 'Done').length
-            }
+                completedTasks: tasks.filter(t => t.status === 'Done').length,
+                avgResolution: (Math.random() * 5).toFixed(1) + 'd', // mock data
+            };
         });
     }, []);
 
     return (
-        <Card className="mb-6">
-            <CardHeader><CardTitle>Performance Snapshot</CardTitle></CardHeader>
-            <CardContent>
-                <ResponsiveContainer width="100%" height={350}>
-                    <BarChart data={performanceData}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
-                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="resolvedCases" name="Resolved Cases" fill="var(--color-cases)" radius={[4, 4, 0, 0]} />
-                        <Bar dataKey="completedTasks" name="Completed Tasks" fill="var(--color-tasks)" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                </ResponsiveContainer>
-            </CardContent>
-        </Card>
-    );
-}
-
-function CaseReportTable({ data }: { data: Case[] }) {
-    return (
-        <Card>
-            <CardHeader><CardTitle>Detailed Case Report</CardTitle></CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader><TableRow><TableHead>Case ID</TableHead><TableHead>Subject</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Assigned To</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                        {data.map(c => <TableRow key={c.id}><TableCell>{c.id}</TableCell><TableCell>{c.subject}</TableCell><TableCell>{c.status}</TableCell><TableCell>{c.priority}</TableCell><TableCell>{c.assignedTo}</TableCell></TableRow>)}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    )
-}
-
-function TaskReportTable({ data }: { data: Task[] }) {
-    return (
-        <Card>
-            <CardHeader><CardTitle>Detailed Task Report</CardTitle></CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader><TableRow><TableHead>Task ID</TableHead><TableHead>Title</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Due Date</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                        {data.map(t => <TableRow key={t.id}><TableCell>{t.id}</TableCell><TableCell>{t.title}</TableCell><TableCell>{t.status}</TableCell><TableCell>{t.priority}</TableCell><TableCell>{t.dueDate}</TableCell></TableRow>)}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
-    )
-}
-
-function ScheduleReportDialog() {
-    return (
-        <Dialog>
-            <DialogTrigger asChild>
-                <Button variant="outline"><Bell className="mr-2 h-4 w-4" /> Schedule</Button>
-            </DialogTrigger>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Schedule Automated Report</DialogTitle>
-                    <DialogDescription>Configure automated delivery of this report.</DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="frequency" className="text-right">Frequency</Label>
-                        <Select defaultValue="weekly">
-                            <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="daily">Daily</SelectItem>
-                                <SelectItem value="weekly">Weekly</SelectItem>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="recipients" className="text-right">Recipients</Label>
-                        <Select>
-                             <SelectTrigger className="col-span-3"><SelectValue placeholder="Select recipients..." /></SelectTrigger>
-                             <SelectContent>
-                                {mockUsers.filter(u => u.role === 'admin').map(u => <SelectItem key={u.id} value={u.email}>{u.name}</SelectItem>)}
-                             </SelectContent>
-                        </Select>
-                    </div>
+        <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
+            <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight font-headline">Reports & Analytics</h1>
+                    <p className="text-muted-foreground">Gain insights into your team's performance and customer interactions.</p>
                 </div>
-                <DialogFooter>
-                    <DialogClose asChild><Button variant="outline">Cancel</Button></DialogClose>
-                    <Button>Save Schedule</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                <div className="flex items-center gap-2">
+                    <Select value={reportType} onValueChange={setReportType}>
+                        <SelectTrigger className="w-[180px] bg-background">
+                            <SelectValue placeholder="Select report type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="overview">Overview</SelectItem>
+                            <SelectItem value="cases">Case Report</SelectItem>
+                            <SelectItem value="performance">Performance</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <DateRangePicker onDateChange={setDateRange} />
+                    <Button>Generate</Button>
+                </div>
+            </header>
+
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
+                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType={kpiData.totalCases.type as any} icon={Briefcase} />
+                <KpiCard title="Avg. Resolution Time" value={kpiData.avgResolutionTime.value} change={kpiData.avgResolutionTime.change} changeType={kpiData.avgResolutionTime.type as any} icon={Clock} />
+                <KpiCard title="Customer Satisfaction" value={kpiData.customerSatisfaction.value} change={kpiData.customerSatisfaction.change} changeType={kpiData.customerSatisfaction.type as any} icon={UserCheck} />
+                <KpiCard title="Active Users" value={kpiData.activeUsers.value} change={kpiData.activeUsers.change} changeType={kpiData.activeUsers.type as any} icon={Users} />
+            </div>
+
+            <main className="mt-8">
+                <Tabs defaultValue="overview">
+                    <TabsList>
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="case-reports">Case Reports</TabsTrigger>
+                        <TabsTrigger value="performance">Performance</TabsTrigger>
+                        <TabsTrigger value="export">Export</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="overview" className="mt-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card>
+                                <CardHeader><CardTitle>Cases by Status</CardTitle></CardHeader>
+                                <CardContent>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <BarChart data={caseStatusData}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                                            <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
+                                            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                             <Card>
+                                <CardHeader><CardTitle>Cases by Priority</CardTitle></CardHeader>
+                                <CardContent>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <PieChart>
+                                            <Pie data={casePriorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                                const x  = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+                                                const y = cy  + radius * Math.sin(-midAngle * Math.PI / 180);
+                                                return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central">{(percent * 100).toFixed(0)}%</text>;
+                                            }}>
+                                                {casePriorityData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                            </Pie>
+                                            <Tooltip />
+                                            <Legend />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="case-reports" className="mt-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Detailed Case Report</CardTitle>
+                                <CardDescription>A full list of cases within the selected date range.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader><TableRow><TableHead>Case ID</TableHead><TableHead>Subject</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Assigned To</TableHead><TableHead>Created At</TableHead></TableRow></TableHeader>
+                                    <TableBody>
+                                        {filteredCases.map(c => 
+                                            <TableRow key={c.id}>
+                                                <TableCell className="font-mono text-xs">{c.id}</TableCell>
+                                                <TableCell className="font-medium">{c.subject}</TableCell>
+                                                <TableCell><Badge variant={getStatusVariant(c.status)}>{c.status}</Badge></TableCell>
+                                                <TableCell><Badge variant={getPriorityVariant(c.priority)}>{c.priority}</Badge></TableCell>
+                                                <TableCell>{c.assignedTo}</TableCell>
+                                                <TableCell>{c.createdAt}</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="performance" className="mt-6">
+                         <Card>
+                            <CardHeader>
+                                <CardTitle>Team Performance</CardTitle>
+                                <CardDescription>Productivity metrics for each staff member.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <Table>
+                                    <TableHeader><TableRow><TableHead>Staff Member</TableHead><TableHead>Resolved Cases</TableHead><TableHead>Completed Tasks</TableHead><TableHead>Avg. Resolution Time</TableHead></TableRow></TableHeader>
+                                    <TableBody>
+                                        {performanceData.map(p => 
+                                            <TableRow key={p.name}>
+                                                <TableCell className="font-medium">{p.name}</TableCell>
+                                                <TableCell>{p.resolvedCases}</TableCell>
+                                                <TableCell>{p.completedTasks}</TableCell>
+                                                <TableCell>{p.avgResolution}</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="export" className="mt-6">
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <Card className="flex flex-col justify-between">
+                                <CardHeader>
+                                    <CardTitle>Export as PDF</CardTitle>
+                                    <CardDescription>Generate a comprehensive PDF document of the current report view.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Button className="w-full"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
+                                </CardContent>
+                            </Card>
+                            <Card className="flex flex-col justify-between">
+                                <CardHeader>
+                                    <CardTitle>Export as Excel</CardTitle>
+                                    <CardDescription>Download the raw data in an Excel-compatible format for further analysis.</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <Button className="w-full"><FileDown className="mr-2 h-4 w-4" /> Export Excel</Button>
+                                </CardContent>
+                            </Card>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+            </main>
+        </div>
     );
 }
-
-// #endregion
-        
-<style jsx>{`
-    :root {
-        --color-cases: hsl(var(--chart-1));
-        --color-tasks: hsl(var(--chart-2));
-    }
-`}</style>
-    
