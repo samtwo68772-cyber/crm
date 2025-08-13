@@ -217,66 +217,60 @@ export default function MeetingsPage() {
               <TabsTrigger value="meetings">All Meetings</TabsTrigger>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
           </TabsList>
-          <TabsContent value="calendar" className="mt-6 meeting-calendar-wrapper">
-               <Card>
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <CardTitle className="font-headline text-xl">{format(currentMonth, 'MMMM yyyy')}</CardTitle>
-                        <div className="flex items-center gap-2">
-                            <Button variant="outline" size="icon" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
-                            <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
-                        </div>
-                    </CardHeader>
-                    <CardContent className="p-2">
-                       <Calendar
-                            month={currentMonth}
-                            onMonthChange={setCurrentMonth}
-                            mode="single"
-                            className="w-full"
-                            classNames={{
-                                day_today: "bg-primary text-primary-foreground",
-                            }}
-                            components={{
-                                DayContent: ({ date }) => {
-                                    const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
-                                    return (
-                                        <TooltipProvider>
-                                            <div className="relative h-full w-full flex flex-col items-start p-1 min-h-0 min-w-0">
-                                                <div className="font-semibold text-sm">{format(date, 'd')}</div>
-                                                <div className="flex flex-col gap-1 w-full mt-1 overflow-hidden">
-                                                    {dayMeetings.slice(0, 2).map(m => (
-                                                        <Tooltip key={m.id}>
-                                                            <TooltipTrigger asChild>
-                                                                 <div onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }}
-                                                                     className={cn(
-                                                                        "w-full text-left text-xs px-1.5 py-0.5 rounded-sm truncate cursor-pointer text-white",
-                                                                        getStatusColor(m.status)
-                                                                     )}
-                                                                     title={m.title}
-                                                                >
-                                                                    {m.title}
-                                                                </div>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <p className="font-bold">{m.title}</p>
-                                                                <p>{safeFormat(m.date, 'p')}</p>
-                                                                <p>{m.participants.length} participants</p>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+          <TabsContent value="calendar" className="mt-6">
+               <div className="meeting-calendar-wrapper">
+                   <Card>
+                        <CardHeader className="flex flex-row items-center justify-between">
+                            <CardTitle className="font-headline text-xl">{format(currentMonth, 'MMMM yyyy')}</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Button variant="outline" size="icon" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+                                <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-2">
+                           <Calendar
+                                month={currentMonth}
+                                onMonthChange={setCurrentMonth}
+                                mode="single"
+                                className="w-full"
+                                components={{
+                                    DayContent: ({ date, ...props }) => {
+                                        const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
+                                        return (
+                                            <div className="h-full w-full">
+                                                <div className="w-full text-right p-1 text-sm">{format(date, 'd')}</div>
+                                                <div className="flex flex-col gap-1 px-1">
+                                                    {dayMeetings.map(m => (
+                                                        <TooltipProvider key={m.id}>
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                     <div onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }}
+                                                                         className={cn(
+                                                                            "w-full text-left text-xs px-1.5 py-0.5 rounded-sm truncate cursor-pointer text-white",
+                                                                            getStatusColor(m.status)
+                                                                         )}
+                                                                         title={m.title}
+                                                                    >
+                                                                        {m.title}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p className="font-bold">{m.title}</p>
+                                                                    <p>{safeFormat(m.date, 'p')}</p>
+                                                                    <p>{m.participants.length} participants</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
                                                     ))}
-                                                    {dayMeetings.length > 2 && (
-                                                        <div className="text-xs text-muted-foreground mt-1">
-                                                            + {dayMeetings.length - 2} more
-                                                        </div>
-                                                    )}
                                                 </div>
                                             </div>
-                                        </TooltipProvider>
-                                    );
-                                }
-                            }}
-                        />
-                    </CardContent>
-                </Card>
+                                        );
+                                    }
+                                }}
+                            />
+                        </CardContent>
+                    </Card>
+               </div>
           </TabsContent>
           <TabsContent value="meetings">
             <AllMeetingsView meetings={userMeetings} onMeetingClick={handleMeetingClick} />
@@ -512,4 +506,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-
