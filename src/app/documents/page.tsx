@@ -82,6 +82,52 @@ export default function DocumentsPage() {
     toast({ title: 'Document Deleted', description: 'The document has been deleted.' });
   };
   
+  const handleDownload = (doc: Document) => {
+    // In a real app, this would be a link to a download URL.
+    // Here, we simulate the download with a dummy file.
+    let mimeType = '';
+    switch (doc.type) {
+        case 'PDF': mimeType = 'application/pdf'; break;
+        case 'Document': mimeType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'; break;
+        case 'Spreadsheet': mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'; break;
+        case 'Image': mimeType = 'image/png'; break;
+        default: mimeType = 'text/plain';
+    }
+
+    // For image with previewUrl, we can try to fetch it
+    if (doc.type === 'Image' && doc.previewUrl) {
+        fetch(doc.previewUrl)
+            .then(res => res.blob())
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = doc.name;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+            })
+            .catch(() => console.error('Could not download image.'));
+        return;
+    }
+    
+    const dummyContent = `This is a dummy file for ${doc.name}.\n\nType: ${doc.type}\nSize: ${doc.size}`;
+    const blob = new Blob([dummyContent], { type: mimeType });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = doc.name;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    a.remove();
+    
+    toast({ title: 'Downloading Document', description: `"${doc.name}" should begin downloading shortly.` });
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
@@ -160,7 +206,7 @@ export default function DocumentsPage() {
                                    <div className="flex gap-2 items-center"><Calendar className="h-4 w-4 text-muted-foreground" /> <strong>Uploaded At:</strong> {doc.uploadedAt}</div>
                                 </div>
                                 <div className="flex gap-2 mt-6">
-                                    <Button size="sm"><Download className="mr-2 h-4 w-4"/> Download</Button>
+                                    <Button size="sm" onClick={() => handleDownload(doc)}><Download className="mr-2 h-4 w-4"/> Download</Button>
                                     <Button size="sm" variant="outline" onClick={() => setEditingDocument(doc)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
                                     {isAdmin && <Button size="sm" variant="destructive" onClick={() => handleDeleteDocument(doc.id)}><Trash2 className="mr-2 h-4 w-4"/> Delete</Button>}
                                 </div>
