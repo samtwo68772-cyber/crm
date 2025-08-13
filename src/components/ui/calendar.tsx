@@ -39,7 +39,7 @@ function Calendar({
         day_range_end: "day-range-end",
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        day_today: "bg-accent text-accent-foreground",
+        day_today: "bg-primary text-primary-foreground",
         day_outside:
           "day-outside text-muted-foreground opacity-50 aria-selected:bg-accent/50 aria-selected:text-muted-foreground",
         day_disabled: "text-muted-foreground opacity-50",
@@ -55,7 +55,7 @@ function Calendar({
           row: "grid grid-cols-7",
           cell: "h-auto aspect-square border border-border/50 rounded-md relative",
           day: "h-full w-full",
-          day_today: "bg-accent/50 text-accent-foreground rounded-md",
+          day_today: "bg-primary text-primary-foreground rounded-md",
           day_outside: "text-muted-foreground/50",
         },
         ...classNames,
