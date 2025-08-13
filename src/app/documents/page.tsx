@@ -7,7 +7,7 @@ import type { Document } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { MoreHorizontal, PlusCircle, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Edit, Trash2, Search, X, Folder, Link as LinkIcon, Calendar, User, Building, ChevronDown, ChevronUp } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Edit, Trash2, Search, X, Folder, Link as LinkIcon, Calendar, User, Building, ChevronDown, ChevronUp, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -48,7 +48,7 @@ export default function DocumentsPage() {
   const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
 
-  const documentCategories = useMemo(() => ['all', ...Array.from(new Set(mockDocuments.map(d => d.category)))], [mockDocuments]);
+  const documentCategories = useMemo(() => ['all', ...Array.from(new Set(mockDocuments.map(d => d.category)))], []);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -208,6 +208,7 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
     const [type, setType] = useState<Document['type']>('Document');
     const [linkedToType, setLinkedToType] = useState<Document['linkedToType'] | ''>('');
     const [linkedToId, setLinkedToId] = useState('');
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const linkedOptions = useMemo(() => {
         if (linkedToType === 'Case') return mockCases.map(c => ({ value: c.id, label: c.subject }));
@@ -226,10 +227,39 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
         } else {
              setName(''); setDescription(''); setCategory('Other'); setType('Document'); setLinkedToType(''); setLinkedToId('');
         }
+        setSelectedFile(null);
     }, [document, open]);
 
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const file = e.target.files[0];
+            setSelectedFile(file);
+            if (!isEditMode) {
+                setName(file.name);
+            }
+        }
+    };
+
     const handleSubmit = () => {
-        onSave({ name, description, category, type, linkedToId, linkedToType, size: 'N/A' }, isEditMode);
+        const size = selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : (document?.size || 'N/A');
+        const fileType = selectedFile ? selectedFile.type.split('/')[0].toLowerCase() : document?.type.toLowerCase();
+        
+        let determinedType: Document['type'] = 'Document';
+        if (fileType?.includes('image')) determinedType = 'Image';
+        if (fileType?.includes('pdf')) determinedType = 'PDF';
+        if (fileType?.includes('sheet') || fileType?.includes('csv')) determinedType = 'Spreadsheet';
+
+
+        onSave({ 
+            name, 
+            description, 
+            category, 
+            type: determinedType, 
+            linkedToId, 
+            linkedToType, 
+            size,
+            previewUrl: selectedFile && determinedType === 'Image' ? URL.createObjectURL(selectedFile) : document?.previewUrl
+        }, isEditMode);
     };
 
     return (
@@ -239,17 +269,34 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
                     <DialogTitle>{isEditMode ? 'Edit Document' : 'Upload New Document'}</DialogTitle>
                 </DialogHeader>
                  <div className="grid gap-4 py-4">
+                    {!isEditMode && (
+                         <div className="grid grid-cols-4 items-center gap-4">
+                             <Label htmlFor="file-upload" className="text-right">File</Label>
+                             <div className="col-span-3">
+                                <Input id="file-upload" type="file" onChange={handleFileChange} className="pt-2" />
+                                {selectedFile && <p className="text-sm text-muted-foreground mt-2">Selected: {selectedFile.name}</p>}
+                             </div>
+                        </div>
+                    )}
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Name</Label><Input id="name" value={name} onChange={e => setName(e.target.value)} className="col-span-3" /></div>
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="desc" className="text-right">Description</Label><Textarea id="desc" value={description} onChange={e => setDescription(e.target.value)} className="col-span-3" /></div>
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="category" className="text-right">Category</Label>
                         <Select onValueChange={(v: Document['category']) => setCategory(v)} value={category}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Case File">Case File</SelectItem><SelectItem value="Contract">Contract</SelectItem><SelectItem value="Report">Report</SelectItem><SelectItem value="Meeting Notes">Meeting Notes</SelectItem><SelectItem value="Other">Other</SelectItem></SelectContent></Select>
                     </div>
-                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="type" className="text-right">File Type</Label>
-                        <Select onValueChange={(v: Document['type']) => setType(v)} value={type}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="PDF">PDF</SelectItem><SelectItem value="Document">Document</SelectItem><SelectItem value="Spreadsheet">Spreadsheet</SelectItem><SelectItem value="Image">Image</SelectItem></SelectContent></Select>
-                    </div>
                      <Separator className="my-2" />
+                     {isEditMode && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label className="text-right">Actions</Label>
+                            <div className="col-span-3">
+                                 <Button variant="outline" onClick={() => document.getElementById('replace-file-upload')?.click()}>
+                                    <Upload className="mr-2 h-4 w-4" /> Replace File
+                                 </Button>
+                                 <Input id="replace-file-upload" type="file" onChange={handleFileChange} className="sr-only" />
+                                  {selectedFile && <p className="text-sm text-muted-foreground mt-2">New file: {selectedFile.name}</p>}
+                            </div>
+                        </div>
+                     )}
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="linkType" className="text-right">Link To</Label>
                         <Select onValueChange={(v: Document['linkedToType']) => { setLinkedToType(v); setLinkedToId(''); }} value={linkedToType}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select type..." /></SelectTrigger><SelectContent><SelectItem value="Case">Case</SelectItem><SelectItem value="Account">Account</SelectItem></SelectContent></Select>
@@ -267,5 +314,7 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
         </Dialog>
     )
 }
+
+    
 
     
