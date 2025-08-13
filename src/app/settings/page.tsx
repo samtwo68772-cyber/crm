@@ -123,8 +123,8 @@ export default function SettingsPage() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-                <div className="overflow-x-auto">
-                     <TabsList className="inline-flex h-auto items-center justify-start rounded-none border-b bg-transparent p-0 gap-4">
+                <div className="overflow-x-auto pb-1">
+                     <TabsList className="inline-flex h-auto items-center justify-start rounded-lg bg-muted p-1 gap-1">
                         <TabsTrigger value="general">General</TabsTrigger>
                         <TabsTrigger value="users">Users & Roles</TabsTrigger>
                         <TabsTrigger value="security">Security</TabsTrigger>
