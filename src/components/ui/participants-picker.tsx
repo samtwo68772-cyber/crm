@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { X, User as UserIcon, Users, Search } from 'lucide-react';
+import { X, User as UserIcon, Users, Search, PlusCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -83,6 +83,9 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
         ) : (
             <span className="text-muted-foreground">Select participants...</span>
         )}
+        <button type="button" className="ml-auto text-muted-foreground hover:text-foreground" onClick={(e) => {e.stopPropagation(); setDialogOpen(true)}}>
+          <PlusCircle className="h-4 w-4" />
+        </button>
       </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
