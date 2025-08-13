@@ -12,23 +12,24 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
-import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell } from 'lucide-react';
+import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown } from 'lucide-react';
 import type { DateRange } from "react-day-picker";
-import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { isWithinInterval, startOfDay, endOfDay, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { MultiSelect, OptionType } from '@/components/ui/multi-select';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#dd84d8'];
 
 export default function ReportsPage() {
     const { user } = useAuth();
     if (!user) return <p>Loading...</p>;
 
     return (
-        <div className="flex-1 space-y-6 pt-6">
+        <div className="flex-1 space-y-6 pt-2">
             <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight font-headline">Reports</h1>
+                    <h1 className="text-3xl font-bold tracking-tight font-headline">Analytics Dashboard</h1>
                     <p className="text-muted-foreground">Analyze performance and trends across the system.</p>
                 </div>
             </header>
@@ -40,26 +41,30 @@ export default function ReportsPage() {
     );
 }
 
+// #region Staff View
 function StaffReportsView({ user }: { user: User }) {
     const userCases = useMemo(() => mockCases.filter(c => c.assignedTo === user.name), [user.name]);
     const userTasks = useMemo(() => mockTasks.filter(t => t.assignedTo === user.id), [user.id]);
     const userMeetings = useMemo(() => mockMeetings.filter(m => m.participants.includes(user.id)), [user.id]);
+    
+    const now = new Date();
+    const meetingsThisWeek = userMeetings.filter(m => isWithinInterval(new Date(m.date), { start: startOfWeek(now), end: endOfWeek(now) })).length;
+    const completionRate = userTasks.length > 0 ? (userTasks.filter(t => t.status === 'Done').length / userTasks.length) * 100 : 0;
 
-    const summaryStats = {
-        totalCases: userCases.length,
-        completedTasks: userTasks.filter(t => t.status === 'Done').length,
-        upcomingMeetings: userMeetings.filter(m => m.status === 'Upcoming').length,
-    };
+    const summaryStats = [
+        { title: "My Open Cases", value: userCases.filter(c => c.status !== 'Closed').length, icon: Briefcase },
+        { title: "Completed Tasks", value: userTasks.filter(t => t.status === 'Done').length, icon: CheckCircle },
+        { title: "Meetings This Week", value: meetingsThisWeek, icon: CalendarIcon },
+        { title: "Task Completion Rate", value: `${completionRate.toFixed(0)}%`, icon: Percent },
+    ];
     
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-3">
-                <StatCard title="My Open Cases" value={summaryStats.totalCases} icon={<Briefcase />} />
-                <StatCard title="My Completed Tasks" value={summaryStats.completedTasks} icon={<CheckCircle />} />
-                <StatCard title="My Upcoming Meetings" value={summaryStats.upcomingMeetings} icon={<CalendarIcon />} />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {summaryStats.map(stat => <StatCard key={stat.title} title={stat.title} value={stat.value} icon={React.createElement(stat.icon)} />)}
             </div>
             
-            <Tabs defaultValue="cases">
+            <Tabs defaultValue="cases" className="mt-6">
                 <TabsList>
                     <TabsTrigger value="cases">Case Reports</TabsTrigger>
                     <TabsTrigger value="tasks">Task Reports</TabsTrigger>
@@ -74,94 +79,104 @@ function StaffReportsView({ user }: { user: User }) {
         </div>
     );
 }
+// #endregion
 
+// #region Admin View
 function AdminReportsView() {
-    const [dateRange, setDateRange] = useState<DateRange | undefined>();
-    const [selectedStaff, setSelectedStaff] = useState('all');
-    const [reportType, setReportType] = useState('cases');
-
-    const filteredData = useMemo(() => {
-        let data: (Case | Task | Meeting)[] = [];
-        if (reportType === 'cases') data = mockCases;
-        else if (reportType === 'tasks') data = mockTasks;
-        else if (reportType === 'meetings') data = mockMeetings;
-
-        if (selectedStaff !== 'all') {
-            if (reportType === 'cases') {
-                const staffUser = mockUsers.find(u => u.id === selectedStaff);
-                data = (data as Case[]).filter(item => item.assignedTo === staffUser?.name);
-            } else if (reportType === 'tasks') {
-                data = (data as Task[]).filter(item => item.assignedTo === selectedStaff);
-            } else if (reportType === 'meetings') {
-                data = (data as Meeting[]).filter(item => item.participants.includes(selectedStaff));
-            }
-        }
-        
-        if (dateRange?.from) {
-             data = data.filter(item => {
-                const itemDate = new Date('createdAt' in item ? item.createdAt : item.date);
-                return isWithinInterval(itemDate, { start: startOfDay(dateRange.from!), end: endOfDay(dateRange.to || dateRange.from!) });
-            });
-        }
-        
-        return data;
-    }, [dateRange, selectedStaff, reportType]);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
+    const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
     
+    const staffOptions: OptionType[] = useMemo(() => mockUsers.map(u => ({ value: u.id, label: u.name })), []);
+
+    const filteredCases = useMemo(() => {
+        return mockCases.filter(c => {
+            const inDate = !dateRange?.from || isWithinInterval(new Date(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) });
+            const inStaff = selectedStaff.length === 0 || selectedStaff.includes(mockUsers.find(u => u.name === c.assignedTo)?.id || '');
+            return inDate && inStaff;
+        });
+    }, [dateRange, selectedStaff]);
+
+    const filteredTasks = useMemo(() => {
+        return mockTasks.filter(t => {
+            const inDate = !dateRange?.from || isWithinInterval(new Date(t.dueDate), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) });
+            const inStaff = selectedStaff.length === 0 || (t.assignedTo && selectedStaff.includes(t.assignedTo));
+            return inDate && inStaff;
+        });
+    }, [dateRange, selectedStaff]);
+    
+    const kpiData = useMemo(() => {
+        const totalOpen = filteredCases.filter(c => c.status !== 'Closed').length;
+        const totalCompleted = filteredTasks.filter(t => t.status === 'Done').length;
+        const meetingsThisMonth = mockMeetings.filter(m => isWithinInterval(new Date(m.date), { start: startOfMonth(new Date()), end: endOfMonth(new Date()) })).length;
+        return { totalOpen, totalCompleted, meetingsThisMonth };
+    }, [filteredCases, filteredTasks]);
+
     return (
-        <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Organization-Wide Reports</CardTitle>
-                    <CardDescription>Use the filters to generate reports for the entire organization.</CardDescription>
-                </CardHeader>
-                <CardContent className="flex flex-col md:flex-row items-center gap-4">
-                    <DateRangePicker onDateChange={setDateRange} />
-                    <Select value={selectedStaff} onValueChange={setSelectedStaff}>
-                        <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Select Staff" /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Staff</SelectItem>
-                            {mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={reportType} onValueChange={setReportType}>
-                         <SelectTrigger className="w-full md:w-[200px]"><SelectValue placeholder="Report Type" /></SelectTrigger>
-                         <SelectContent>
-                            <SelectItem value="cases">Cases</SelectItem>
-                            <SelectItem value="tasks">Tasks</SelectItem>
-                            <SelectItem value="meetings">Meetings</SelectItem>
-                         </SelectContent>
-                    </Select>
-                    <div className="flex-grow" />
-                    <div className="flex items-center gap-2">
-                         <ScheduleReportDialog />
-                         <Button variant="outline"><Download className="mr-2" /> Export</Button>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Tabs defaultValue="chart">
-                <div className="flex items-center justify-between">
-                    <TabsList>
-                        <TabsTrigger value="chart">Chart View</TabsTrigger>
-                        <TabsTrigger value="table">Table View</TabsTrigger>
-                    </TabsList>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3 space-y-6">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <StatCard title="Total Open Cases" value={kpiData.totalOpen} icon={<Briefcase />} />
+                    <StatCard title="Avg. Resolution Time" value="2.1d" icon={<Clock />} />
+                    <StatCard title="Total Completed Tasks" value={kpiData.totalCompleted} icon={<CheckCircle />} />
+                    <StatCard title="Meetings This Month" value={mockMeetings.filter(m => isWithinInterval(new Date(m.date), { start: startOfMonth(new Date()), end: endOfMonth(new Date()) })).length} icon={<CalendarIcon />} />
                 </div>
-                <TabsContent value="chart" className="mt-4">
-                    {reportType === 'cases' && <CaseReportChart data={filteredData as Case[]} />}
-                    {reportType === 'tasks' && <TaskReportChart data={filteredData as Task[]} />}
-                    {reportType === 'meetings' && <p className="text-center text-muted-foreground p-8">Meeting charts coming soon.</p>}
-                </TabsContent>
-                 <TabsContent value="table" className="mt-4">
-                    {reportType === 'cases' && <CaseReportTable data={filteredData as Case[]} />}
-                    {reportType === 'tasks' && <TaskReportTable data={filteredData as Task[]} />}
-                    {reportType === 'meetings' && <p className="text-center text-muted-foreground p-8">Meeting tables coming soon.</p>}
-                </TabsContent>
-            </Tabs>
-
+                
+                <Tabs defaultValue="cases" className="mt-6">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
+                        <TabsList>
+                            <TabsTrigger value="cases">Cases</TabsTrigger>
+                            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+                            <TabsTrigger value="performance">Staff Performance</TabsTrigger>
+                        </TabsList>
+                        <div className="flex items-center gap-2">
+                            <ScheduleReportDialog />
+                            <Button variant="outline"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
+                        </div>
+                    </div>
+                    <TabsContent value="cases" className="mt-4">
+                        <CaseReportChart data={filteredCases} />
+                        <CaseReportTable data={filteredCases} />
+                    </TabsContent>
+                    <TabsContent value="tasks" className="mt-4">
+                        <TaskReportChart data={filteredTasks} />
+                        <TaskReportTable data={filteredTasks} />
+                    </TabsContent>
+                     <TabsContent value="performance" className="mt-4">
+                        <StaffPerformanceChart />
+                    </TabsContent>
+                </Tabs>
+            </div>
+            
+            <aside className="lg:col-span-1 lg:sticky top-24 h-fit">
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Report Filters</CardTitle>
+                        <CardDescription>Refine the data shown in the dashboard.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div>
+                            <Label>Date Range</Label>
+                            <DateRangePicker onDateChange={setDateRange} />
+                        </div>
+                        <div>
+                            <Label>Staff Member(s)</Label>
+                            <MultiSelect 
+                                options={staffOptions} 
+                                selected={selectedStaff} 
+                                onChange={setSelectedStaff}
+                                placeholder="All Staff"
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
+            </aside>
         </div>
     );
 }
 
+// #endregion
+
+// #region Shared Components
 
 function StatCard({ title, value, icon }: { title: string; value: string | number; icon: React.ReactNode }) {
     return (
@@ -195,17 +210,17 @@ function CaseReportChart({ data }: { data: Case[] }) {
     }, [data]);
 
     return (
-        <div className="grid md:grid-cols-2 gap-6">
+        <div className="grid md:grid-cols-2 gap-6 mb-6">
             <Card>
                 <CardHeader><CardTitle>Cases by Status</CardTitle></CardHeader>
                 <CardContent>
                     <ResponsiveContainer width="100%" height={300}>
                         <BarChart data={dataByStatus}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" />
-                            <YAxis />
+                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
                             <Tooltip />
-                            <Bar dataKey="value" fill="#8884d8" />
+                            <Bar dataKey="value" fill="var(--color-cases)" radius={[4, 4, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </CardContent>
@@ -238,17 +253,49 @@ function TaskReportChart({ data }: { data: Task[] }) {
     }, [data]);
     
     return (
-         <Card>
+         <Card className="mb-6">
             <CardHeader><CardTitle>Tasks by Status</CardTitle></CardHeader>
             <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={dataByStatus}>
                         <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="name" />
-                        <YAxis />
+                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false}/>
+                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                        <Tooltip />
+                        <Bar dataKey="value" fill="var(--color-tasks)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </CardContent>
+        </Card>
+    );
+}
+
+function StaffPerformanceChart() {
+    const performanceData = useMemo(() => {
+        return mockUsers.map(user => {
+            const cases = mockCases.filter(c => c.assignedTo === user.name);
+            const tasks = mockTasks.filter(t => t.assignedTo === user.id);
+            return {
+                name: user.name,
+                resolvedCases: cases.filter(c => c.status === 'Resolved' || c.status === 'Closed').length,
+                completedTasks: tasks.filter(t => t.status === 'Done').length
+            }
+        });
+    }, []);
+
+    return (
+        <Card className="mb-6">
+            <CardHeader><CardTitle>Performance Snapshot</CardTitle></CardHeader>
+            <CardContent>
+                <ResponsiveContainer width="100%" height={350}>
+                    <BarChart data={performanceData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                        <YAxis fontSize={12} tickLine={false} axisLine={false} />
                         <Tooltip />
                         <Legend />
-                        <Bar dataKey="value" fill="#82ca9d" />
+                        <Bar dataKey="resolvedCases" name="Resolved Cases" fill="var(--color-cases)" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="completedTasks" name="Completed Tasks" fill="var(--color-tasks)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
             </CardContent>
@@ -292,7 +339,7 @@ function ScheduleReportDialog() {
     return (
         <Dialog>
             <DialogTrigger asChild>
-                <Button variant="outline"><Bell className="mr-2" /> Schedule</Button>
+                <Button variant="outline"><Bell className="mr-2 h-4 w-4" /> Schedule</Button>
             </DialogTrigger>
             <DialogContent>
                 <DialogHeader>
@@ -330,5 +377,12 @@ function ScheduleReportDialog() {
     );
 }
 
-
+// #endregion
+        
+<style jsx>{`
+    :root {
+        --color-cases: hsl(var(--chart-1));
+        --color-tasks: hsl(var(--chart-2));
+    }
+`}</style>
     
