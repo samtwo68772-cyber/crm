@@ -26,9 +26,9 @@ type TaskPriorityFilter = 'High' | 'Medium' | 'Low' | 'all';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
-    case 'High': return 'destructive';
-    case 'Medium': return 'yellow';
-    case 'Low': return 'green';
+    case 'High': return 'high';
+    case 'Medium': return 'medium';
+    case 'Low': return 'low';
     default: return 'default';
   }
 }

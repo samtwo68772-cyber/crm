@@ -24,19 +24,20 @@ import { format, isWithinInterval } from 'date-fns';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
-    case 'High': return 'destructive';
-    case 'Medium': return 'yellow';
-    case 'Low': return 'green';
+    case 'High': return 'high';
+    case 'Medium': return 'medium';
+    case 'Low': return 'low';
     default: return 'default';
   }
 }
 
 function getStatusVariant(status: Case['status']) {
     switch (status) {
-        case 'Closed': case 'Completed': return 'success';
-        case 'New': return 'secondary';
+        case 'New': return 'blue';
+        case 'In Progress': case 'Under Review': return 'teal';
+        case 'Resolved': case 'Completed': case 'Closed': return 'green';
         case 'Declined': return 'destructive';
-        default: return 'default';
+        default: return 'outline';
     }
 }
 
