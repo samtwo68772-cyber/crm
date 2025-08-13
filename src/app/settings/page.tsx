@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
 import type { User, Team } from '@/lib/types';
@@ -77,6 +77,11 @@ const initialApiLogs = [
 type ApiKey = typeof initialApiKeys[0];
 type ApiLog = typeof initialApiLogs[0];
 
+const initialWorkflows = [
+    { id: 'wf-1', name: 'Assign High-Priority Cases', trigger: 'case-created', condition: 'priority-high', action: 'assign-team-t2' },
+    { id: 'wf-2', name: 'Notify Customer on Resolution', trigger: 'case-status-changed', condition: 'status-resolved', action: 'send-email-customer' },
+];
+type Workflow = typeof initialWorkflows[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -870,44 +875,192 @@ function ApiSettings() {
 }
 
 function WorkflowsSettings() {
+    const [workflows, setWorkflows] = useState<Workflow[]>(initialWorkflows);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
+    const { toast } = useToast();
+
+    const handleAddWorkflow = (newWorkflow: Omit<Workflow, 'id'>) => {
+        const workflow = { ...newWorkflow, id: `wf-${Date.now()}` };
+        setWorkflows([...workflows, workflow]);
+        setIsFormOpen(false);
+        toast({ title: 'Workflow Created', description: `Workflow "${workflow.name}" has been created.` });
+    };
+    
+    const handleUpdateWorkflow = (updatedWorkflow: Workflow) => {
+        setWorkflows(workflows.map(wf => wf.id === updatedWorkflow.id ? updatedWorkflow : wf));
+        setEditingWorkflow(null);
+        setIsFormOpen(false);
+        toast({ title: 'Workflow Updated', description: `Workflow "${updatedWorkflow.name}" has been updated.` });
+    };
+
+    const handleDeleteWorkflow = (workflowId: string) => {
+        setWorkflows(workflows.filter(wf => wf.id !== workflowId));
+        toast({ title: 'Workflow Deleted', description: 'The workflow has been deleted.' });
+    };
+
+    const openCreateForm = () => {
+        setEditingWorkflow(null);
+        setIsFormOpen(true);
+    };
+
+    const openEditForm = (workflow: Workflow) => {
+        setEditingWorkflow(workflow);
+        setIsFormOpen(true);
+    };
+
+    const getWorkflowStepLabel = (type: 'trigger' | 'condition' | 'action', value: string) => {
+        const options = {
+            trigger: { 'case-created': 'Case is created', 'task-status-changed': 'Task status changes' },
+            condition: { 'priority-high': 'Priority is High', 'status-resolved': 'Status is Resolved' },
+            action: { 'assign-team-t2': 'Assign to Tier 2', 'send-email-customer': 'Send email to customer' }
+        };
+        return options[type][value as keyof typeof options[type]] || value;
+    };
+
+
     return (
-        <Card>
-            <CardHeader>
-                <div className="flex items-center gap-3">
-                    <Bot className="h-6 w-6" />
-                    <div>
-                        <CardTitle>Workflow Configuration</CardTitle>
-                        <CardDescription>Configure automated workflows and business rules</CardDescription>
+        <>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <Bot className="h-6 w-6" />
+                            <div>
+                                <CardTitle>Workflow Configuration</CardTitle>
+                                <CardDescription>Configure automated workflows and business rules.</CardDescription>
+                            </div>
+                        </div>
+                        <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Add Workflow</Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {workflows.map((workflow) => (
+                        <div key={workflow.id} className="border rounded-lg p-4">
+                            <div className="flex items-center justify-between">
+                                <h4 className="font-medium">{workflow.name}</h4>
+                                <div className="flex items-center gap-2">
+                                    <Button variant="ghost" size="sm" onClick={() => openEditForm(workflow)}>Edit</Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">Delete</Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Delete Workflow?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Are you sure you want to delete the "{workflow.name}" workflow? This action cannot be undone.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteWorkflow(workflow.id)}>Delete</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                                <Badge variant="secondary">{getWorkflowStepLabel('trigger', workflow.trigger)}</Badge>
+                                <ArrowRight className="h-4 w-4" />
+                                <Badge variant="secondary">{getWorkflowStepLabel('condition', workflow.condition)}</Badge>
+                                <ArrowRight className="h-4 w-4" />
+                                <Badge variant="secondary">{getWorkflowStepLabel('action', workflow.action)}</Badge>
+                            </div>
+                        </div>
+                    ))}
+                    {workflows.length === 0 && <p className="text-center text-muted-foreground py-8">No workflows configured.</p>}
+                </CardContent>
+            </Card>
+            <WorkflowFormDialog
+                key={editingWorkflow ? editingWorkflow.id : 'create'}
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                workflow={editingWorkflow}
+                onSave={(data, isEdit) => {
+                    if (isEdit && editingWorkflow) {
+                        handleUpdateWorkflow({ ...editingWorkflow, ...data });
+                    } else {
+                        handleAddWorkflow(data as Omit<Workflow, 'id'>);
+                    }
+                }}
+            />
+        </>
+    )
+}
+
+function WorkflowFormDialog({ open, onOpenChange, workflow, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, workflow: Workflow | null, onSave: (data: any, isEdit: boolean) => void }) {
+    const isEditMode = !!workflow;
+    const [name, setName] = useState('');
+    const [trigger, setTrigger] = useState('');
+    const [condition, setCondition] = useState('');
+    const [action, setAction] = useState('');
+    
+    useEffect(() => {
+        if(workflow) {
+            setName(workflow.name);
+            setTrigger(workflow.trigger);
+            setCondition(workflow.condition);
+            setAction(workflow.action);
+        } else {
+             setName(''); setTrigger(''); setCondition(''); setAction('');
+        }
+    }, [workflow, open]);
+
+    const handleSubmit = () => {
+        onSave({ name, trigger, condition, action }, isEditMode);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{isEditMode ? 'Edit Workflow' : 'Create New Workflow'}</DialogTitle>
+                </DialogHeader>
+                 <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Workflow Name</Label>
+                        <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., High-Priority Case Assignment" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="trigger">Trigger</Label>
+                        <Select onValueChange={setTrigger} value={trigger}>
+                            <SelectTrigger><SelectValue placeholder="When..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="case-created">A new case is created</SelectItem>
+                                <SelectItem value="task-status-changed">A task's status changes</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="condition">Condition</Label>
+                        <Select onValueChange={setCondition} value={condition}>
+                            <SelectTrigger><SelectValue placeholder="If..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="priority-high">Case priority is High</SelectItem>
+                                <SelectItem value="status-resolved">Case status is Resolved</SelectItem>
+                                <SelectItem value="task-overdue">Task is overdue</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="action">Action</Label>
+                        <Select onValueChange={setAction} value={action}>
+                            <SelectTrigger><SelectValue placeholder="Then..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="assign-team-t2">Assign to Tier 2 Support</SelectItem>
+                                <SelectItem value="send-email-customer">Send email to customer</SelectItem>
+                                <SelectItem value="create-followup-task">Create follow-up task</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-                <div className="border rounded-lg p-4 flex items-center justify-between">
-                    <div>
-                        <h4 className="font-medium">Case Auto-Assignment</h4>
-                        <p className="text-sm text-muted-foreground">Automatically assign new cases based on category and team availability</p>
-                    </div>
-                    <Button variant="outline">Configure Rules</Button>
-                </div>
-                 <div className="border rounded-lg p-4 flex items-center justify-between">
-                    <div>
-                        <h4 className="font-medium">Escalation Rules</h4>
-                        <p className="text-sm text-muted-foreground">Automatically escalate overdue cases to supervisors</p>
-                    </div>
-                    <Button variant="outline">Configure Rules</Button>
-                </div>
-                 <div className="border rounded-lg p-4 flex items-center justify-between">
-                    <div>
-                        <h4 className="font-medium">Automated Notifications</h4>
-                        <p className="text-sm text-muted-foreground">Send automated email updates to customers on case status changes</p>
-                    </div>
-                    <Button variant="outline">Configure Rules</Button>
-                </div>
-            </CardContent>
-             <CardFooter className="border-t pt-6 justify-end">
-                <Button>Add New Workflow</Button>
-            </CardFooter>
-        </Card>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Create Workflow'}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     )
 }
 
@@ -934,3 +1087,4 @@ function PlaceholderCard({ title, description, icon: Icon }: { title: string, de
         </Card>
     )
 }
+
