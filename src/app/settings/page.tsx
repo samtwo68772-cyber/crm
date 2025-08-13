@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
 import type { User, Team } from '@/lib/types';
@@ -26,7 +26,7 @@ import { MultiSelect, OptionType } from '@/components/ui/multi-select';
 
 const initialSettings = {
   general: {
-    systemName: 'Caseflow CRM',
+    systemName: 'MinT CRM',
     companyName: 'My Company',
     logoUrl: '',
     timeZone: 'UTC-5:00',
@@ -63,6 +63,19 @@ const initialAlerts = [
 ];
 
 type AlertSetting = typeof initialAlerts[0];
+
+const initialApiKeys = [
+    { id: 'key-1', key: 'sk_live_abc123xyz789', displayName: 'sk_...789', createdAt: '2024-01-15', lastUsed: '2024-05-20' },
+    { id: 'key-2', key: 'sk_live_def456uvw456', displayName: 'sk_...456', createdAt: '2024-03-10', lastUsed: '2024-04-12' },
+];
+const initialApiLogs = [
+    { id: 'log-1', endpoint: '/api/v1/cases', status: 'Success', timestamp: '2024-05-22 10:30 AM' },
+    { id: 'log-2', endpoint: '/api/v1/users', status: 'Success', timestamp: '2024-05-22 10:28 AM' },
+    { id: 'log-3', endpoint: '/api/v1/cases/case-101', status: 'Error', timestamp: '2024-05-22 10:25 AM' },
+];
+type ApiKey = typeof initialApiKeys[0];
+type ApiLog = typeof initialApiLogs[0];
+
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -128,9 +141,9 @@ export default function SettingsPage() {
                     <EmailSettings initialSettings={settings.email} onSave={(newSettings) => handleSettingChange('email', newSettings)} />
                 </TabsContent>
                 <TabsContent value="alerts" className="mt-6">
-                    <AlertsSettings initialAlerts={alerts} onSave={setAlerts} />
+                    <AlertsSettings initialAlerts={initialAlerts} onSave={setAlerts} />
                 </TabsContent>
-                <TabsContent value="api" className="mt-6"><PlaceholderCard title="API & Integrations" description="Manage API keys and connected third-party applications." icon={KeyRound} /></TabsContent>
+                <TabsContent value="api" className="mt-6"><ApiSettings /></TabsContent>
                 <TabsContent value="workflows" className="mt-6"><WorkflowsSettings /></TabsContent>
                 <TabsContent value="audit" className="mt-6"><PlaceholderCard title="Audit Log" description="Review a log of all administrative actions taken in the system." icon={FileText} /></TabsContent>
             </Tabs>
@@ -705,6 +718,154 @@ function AlertsSettings({ initialAlerts, onSave }: { initialAlerts: AlertSetting
     );
 }
 
+function ApiSettings() {
+    const { toast } = useToast();
+    const [apiKeys, setApiKeys] = useState<ApiKey[]>(initialApiKeys);
+    const [apiLogs] = useState<ApiLog[]>(initialApiLogs);
+    const [newlyGeneratedKey, setNewlyGeneratedKey] = useState<string | null>(null);
+
+    const generateKey = () => {
+        const newKey = `sk_live_${[...Array(24)].map(() => Math.random().toString(36)[2]).join('')}`;
+        const newKeyObject: ApiKey = {
+            id: `key-${Date.now()}`,
+            key: newKey,
+            displayName: `${newKey.slice(0, 9)}...${newKey.slice(-4)}`,
+            createdAt: new Date().toISOString().split('T')[0],
+            lastUsed: 'Never',
+        };
+        setApiKeys(prev => [...prev, newKeyObject]);
+        setNewlyGeneratedKey(newKey);
+    };
+
+    const copyToClipboard = (key: string, message: string) => {
+        navigator.clipboard.writeText(key).then(() => {
+            toast({ title: "Copied!", description: message });
+        });
+    };
+
+    const revokeKey = (keyId: string) => {
+        setApiKeys(prev => prev.filter(key => key.id !== keyId));
+        toast({ title: 'API Key Revoked', description: 'The selected API key has been deleted.' });
+    };
+
+    return (
+        <>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <KeyRound className="h-6 w-6" />
+                            <div>
+                                <CardTitle>API & Integrations</CardTitle>
+                                <CardDescription>Manage API keys and connected third-party applications.</CardDescription>
+                            </div>
+                        </div>
+                        <Button onClick={generateKey}><PlusCircle className="mr-2 h-4 w-4" /> Generate API Key</Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                    <div>
+                        <h4 className="font-medium text-lg mb-4">Active API Keys</h4>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Key</TableHead>
+                                        <TableHead>Created</TableHead>
+                                        <TableHead>Last Used</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {apiKeys.map((key) => (
+                                        <TableRow key={key.id}>
+                                            <TableCell className="font-mono">{key.displayName}</TableCell>
+                                            <TableCell>{key.createdAt}</TableCell>
+                                            <TableCell>{key.lastUsed}</TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="ghost" size="sm" onClick={() => copyToClipboard(key.key, "API key copied to clipboard.")}>
+                                                    <Copy className="mr-2 h-4 w-4" /> Copy
+                                                </Button>
+                                                <AlertDialogTrigger asChild>
+                                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                                        <Trash2 className="mr-2 h-4 w-4" /> Revoke
+                                                    </Button>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            This will permanently delete the API key. This action cannot be undone.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => revokeKey(key.id)}>Revoke Key</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="font-medium text-lg mb-4">Usage Logs</h4>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Endpoint</TableHead>
+                                        <TableHead>Timestamp</TableHead>
+                                        <TableHead>Status</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {apiLogs.map((log) => (
+                                        <TableRow key={log.id}>
+                                            <TableCell className="font-mono">{log.endpoint}</TableCell>
+                                            <TableCell>{log.timestamp}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={log.status === 'Success' ? 'success' : 'destructive'}>{log.status}</Badge>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Dialog open={!!newlyGeneratedKey} onOpenChange={(open) => !open && setNewlyGeneratedKey(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>New API Key Generated</DialogTitle>
+                        <DialogDescription>
+                            Please copy your new API key. For security reasons, you will not be able to see it again.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="relative rounded-md bg-muted p-4 font-mono text-sm break-all">
+                        {newlyGeneratedKey}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-2 top-1/2 -translate-y-1/2"
+                            onClick={() => copyToClipboard(newlyGeneratedKey!, "New API key copied to clipboard.")}
+                        >
+                            <Copy className="h-4 w-4" />
+                        </Button>
+                    </div>
+                    <DialogFooter>
+                        <Button onClick={() => setNewlyGeneratedKey(null)}>Done</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
+    );
+}
+
 function WorkflowsSettings() {
     return (
         <Card>
@@ -777,3 +938,4 @@ function PlaceholderCard({ title, description, icon: Icon }: { title: string, de
     
 
     
+
