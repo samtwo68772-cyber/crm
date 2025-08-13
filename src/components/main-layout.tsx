@@ -35,7 +35,6 @@ const navItemsAdmin = [
     { href: '/reports', label: 'Reports', icon: BarChart },
     { href: '/admin', label: 'Users & Roles', icon: Users },
     { href: '/settings', label: 'System Settings', icon: Settings },
-    { href: '/audit-logs', label: 'Audit Logs', icon: Shield },
     { href: '/notifications-settings', label: 'Notifications Settings', icon: Bell },
     { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
