@@ -47,7 +47,6 @@ const navItemsStaff = [
     { href: '/meetings', label: 'Meetings', icon: Calendar },
     { href: '/accounts', label: 'Accounts', icon: Contact },
     { href: '/documents', label: 'Documents', icon: FileText },
-    { href: '/calendar', label: 'Calendar', icon: Calendar },
     { href: '/emails', label: 'Emails / Messages', icon: Mail },
     { href: '/notifications-settings', label: 'Notifications', icon: Bell },
     { href: '/profile', label: 'Profile & Settings', icon: User },
