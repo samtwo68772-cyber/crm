@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -12,10 +11,10 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
-import type { User, Team } from '@/lib/types';
+import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
+import type { User, Team, AuditLog as AuditLogType } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +22,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { MultiSelect, OptionType } from '@/components/ui/multi-select';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
+import type { DateRange } from "react-day-picker";
+import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 
 
 const initialSettings = {
@@ -151,15 +153,16 @@ export default function SettingsPage() {
                 </TabsContent>
                 <TabsContent value="api" className="mt-6"><ApiSettings /></TabsContent>
                 <TabsContent value="workflows" className="mt-6"><WorkflowsSettings /></TabsContent>
-                <TabsContent value="audit" className="mt-6"><PlaceholderCard title="Audit Log" description="Review a log of all administrative actions taken in the system." icon={FileText} /></TabsContent>
+                <TabsContent value="audit" className="mt-6"><AuditLog /></TabsContent>
             </Tabs>
         </div>
     );
 }
 
-function GeneralSettings({ initialSettings, onSave }: { initialSettings: GeneralSettingsType, onSave: (data: GeneralSettingsType) => void }) {
+function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSettings: GeneralSettingsType, onSave: (data: GeneralSettingsType) => void }) {
     const [settings, setSettings] = useState<GeneralSettingsType>(initialSettings);
     const [logoPreview, setLogoPreview] = useState<string | null>(initialSettings.logoUrl);
+    const { toast } = useToast();
 
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialSettings) || logoPreview !== initialSettings.logoUrl;
 
@@ -173,7 +176,11 @@ function GeneralSettings({ initialSettings, onSave }: { initialSettings: General
         if (logoPreview && logoPreview !== initialSettings.logoUrl) {
             settingsToSave.logoUrl = logoPreview;
         }
-        onSave(settingsToSave);
+        onSaveProp(settingsToSave);
+        toast({
+            title: 'Settings Saved',
+            description: 'Your changes have been saved successfully.',
+        });
     };
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -910,12 +917,12 @@ function WorkflowsSettings() {
     };
 
     const getWorkflowStepLabel = (type: 'trigger' | 'condition' | 'action', value: string) => {
-        const options = {
+        const options: Record<string, Record<string, string>> = {
             trigger: { 'case-created': 'Case is created', 'task-status-changed': 'Task status changes' },
-            condition: { 'priority-high': 'Priority is High', 'status-resolved': 'Status is Resolved' },
-            action: { 'assign-team-t2': 'Assign to Tier 2', 'send-email-customer': 'Send email to customer' }
+            condition: { 'priority-high': 'Priority is High', 'status-resolved': 'Status is Resolved', 'task-overdue': 'Task is overdue' },
+            action: { 'assign-team-t2': 'Assign to Tier 2', 'send-email-customer': 'Send email to customer', 'create-followup-task': 'Create follow-up task' }
         };
-        return options[type][value as keyof typeof options[type]] || value;
+        return options[type][value] || value;
     };
 
 
@@ -1064,27 +1071,90 @@ function WorkflowFormDialog({ open, onOpenChange, workflow, onSave }: { open: bo
     )
 }
 
-function PlaceholderCard({ title, description, icon: Icon }: { title: string, description: string, icon: React.ElementType }) {
+function AuditLog() {
+    const [logs] = useState<AuditLogType[]>(mockAuditLogs);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [userFilter, setUserFilter] = useState('all');
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+    const filteredLogs = useMemo(() => {
+        return logs.filter(log => {
+            const matchesSearch = log.details.toLowerCase().includes(searchQuery.toLowerCase()) || log.action.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesUser = userFilter === 'all' || log.userId === userFilter;
+            const matchesDate = !dateRange?.from || isWithinInterval(new Date(log.timestamp), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) });
+            return matchesSearch && matchesUser && matchesDate;
+        });
+    }, [logs, searchQuery, userFilter, dateRange]);
+
+    const userOptions = useMemo(() => {
+        const uniqueUsers = [...new Map(logs.map(log => [log.userId, mockUsers.find(u => u.id === log.userId)])).values()];
+        return uniqueUsers.filter(Boolean) as User[];
+    }, [logs]);
+
+    const clearFilters = () => {
+        setSearchQuery('');
+        setUserFilter('all');
+        setDateRange(undefined);
+    };
+
     return (
         <Card>
             <CardHeader>
                 <div className="flex items-center gap-3">
-                    <Icon className="h-6 w-6" />
+                    <FileText className="h-6 w-6" />
                     <div>
-                        <CardTitle>{title}</CardTitle>
-                        <CardDescription>{description}</CardDescription>
+                        <CardTitle>Audit Log</CardTitle>
+                        <CardDescription>Review a log of all administrative actions taken in the system.</CardDescription>
                     </div>
                 </div>
             </CardHeader>
-            <CardContent>
-                <div className="text-center py-16 border-2 border-dashed rounded-lg">
-                    <p className="text-muted-foreground">Configuration options for this section will be available here.</p>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col md:flex-row gap-2">
+                    <Input 
+                        placeholder="Search by action or details..." 
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="max-w-sm"
+                    />
+                    <Select value={userFilter} onValueChange={setUserFilter}>
+                        <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filter by user" /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Users</SelectItem>
+                            {userOptions.map(user => <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <DateRangePicker onDateChange={setDateRange} />
+                    <Button variant="outline" onClick={clearFilters}><X className="mr-2 h-4 w-4" /> Clear Filters</Button>
                 </div>
+
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>User</TableHead>
+                                <TableHead>Action</TableHead>
+                                <TableHead>Details</TableHead>
+                                <TableHead>Timestamp</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredLogs.map(log => (
+                                <TableRow key={log.id}>
+                                    <TableCell>{mockUsers.find(u => u.id === log.userId)?.name || 'System'}</TableCell>
+                                    <TableCell><Badge variant="secondary">{log.action}</Badge></TableCell>
+                                    <TableCell>{log.details}</TableCell>
+                                    <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </div>
+                {filteredLogs.length === 0 && (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <p>No audit logs found for the selected filters.</p>
+                    </div>
+                )}
             </CardContent>
-             <CardFooter className="border-t pt-6 justify-end">
-                <Button disabled>Save Changes</Button>
-            </CardFooter>
         </Card>
     )
 }
-

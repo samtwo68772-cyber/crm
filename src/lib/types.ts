@@ -106,3 +106,11 @@ export type Meeting = {
   attachments?: { name: string; url: string }[];
   contactId?: string;
 }
+
+export type AuditLog = {
+    id: string;
+    userId: string;
+    action: string;
+    details: string;
+    timestamp: string;
+};

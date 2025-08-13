@@ -1,10 +1,5 @@
 
-
-
-
-
-
-import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
+import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
@@ -226,4 +221,13 @@ export const adminStats: { title: string; value: string; change: string; icon: R
     { title: "Resolved This Month", value: "128", change: "+15% from last month", icon: <CheckCircle className="h-4 w-4 text-muted-foreground" /> },
     { title: "Active Users", value: "4", change: "All users active", icon: <Users className="h-4 w-4 text-muted-foreground" /> },
     { title: "Avg. Resolution Time", value: "2.1 days", change: "-0.2 days from last month", icon: <Clock className="h-4 w-4 text-muted-foreground" /> },
+];
+
+export const auditLogs: AuditLog[] = [
+  { id: 'log-1', userId: 'user-1', action: 'User Login', details: 'Alex Johnson logged in.', timestamp: '2024-05-23T10:00:00Z' },
+  { id: 'log-2', userId: 'user-1', action: 'Update Settings', details: 'Updated General Settings: System Name to "MinT CRM Pro"', timestamp: '2024-05-23T10:05:00Z' },
+  { id: 'log-3', userId: 'user-2', action: 'Update Case', details: 'Updated status of Case #case-102 to "In Progress"', timestamp: '2024-05-23T11:20:00Z' },
+  { id: 'log-4', userId: 'user-1', action: 'Create User', details: 'Created new user: Patricia Williams (staff)', timestamp: '2024-05-22T14:15:00Z' },
+  { id: 'log-5', userId: 'user-3', action: 'Delete Task', details: 'Deleted task: "Review old tickets"', timestamp: '2024-05-22T09:45:00Z' },
+  { id: 'log-6', userId: 'user-1', action: 'Revoke API Key', details: 'Revoked API key "sk_...w456"', timestamp: '2024-05-21T18:00:00Z' },
 ];
