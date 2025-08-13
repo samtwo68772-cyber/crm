@@ -97,6 +97,7 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
                             id={`user-${user.id}`}
                             checked={tempSelectedIds.includes(user.id)}
                             onCheckedChange={() => handleToggleSelection(user.id)}
+                            onClick={(e) => e.stopPropagation()}
                         />
                         <Avatar className="h-8 w-8">
                             <AvatarImage src={user.avatar} alt={user.name} data-ai-hint="person avatar"/>
@@ -129,3 +130,4 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
     </div>
   );
 }
+
