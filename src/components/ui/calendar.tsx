@@ -52,6 +52,11 @@ function Calendar({
                 align-items: flex-start;
                 justify-content: flex-start;
                 transition: background-color 0.2s;
+                padding: 0.25rem;
+                min-width: 0;
+                min-height: 0;
+                box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+                border: 1px solid hsl(var(--border));
             }
             .meeting-calendar-wrapper .rdp-day:not([aria-selected="true"]):not(.rdp-day_today):hover {
                 background-color: hsl(var(--muted));
@@ -59,15 +64,17 @@ function Calendar({
             .meeting-calendar-wrapper .rdp-day_today {
                 background-color: hsl(var(--primary)) !important;
                 color: hsl(var(--primary-foreground)) !important;
+                border-color: hsl(var(--primary)) !important;
             }
             .meeting-calendar-wrapper .rdp-day_today .w-full.text-right {
                  color: hsl(var(--primary-foreground)) !important;
             }
             .meeting-calendar-wrapper .rdp-day_outside {
+                background-color: hsl(var(--background));
                 color: hsl(var(--muted-foreground));
                 opacity: 0.5;
             }
-            .meeting-calendar-wrapper .rdp-day_outside .w-full.text-right {
+             .meeting-calendar-wrapper .rdp-day_outside .w-full.text-right {
                 color: hsl(var(--muted-foreground));
             }
             .meeting-calendar-wrapper .rdp-caption_label {
@@ -103,8 +110,8 @@ function Calendar({
             day: "rdp-day",
             day_selected:
               "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-            day_today: "rdp-day_today bg-accent text-accent-foreground",
-            day_outside: "rdp-day_outside text-muted-foreground opacity-50",
+            day_today: "rdp-day_today",
+            day_outside: "rdp-day_outside",
             day_disabled: "text-muted-foreground opacity-50",
             day_range_middle:
               "aria-selected:bg-accent aria-selected:text-accent-foreground",
