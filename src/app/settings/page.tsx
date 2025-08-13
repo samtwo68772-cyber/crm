@@ -8,10 +8,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2 } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams } from '@/lib/data.tsx';
 import type { User, Team } from '@/lib/types';
@@ -19,7 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 
 
@@ -39,11 +39,20 @@ const initialSettings = {
     sessionTimeout: 30, // in minutes
     ipWhitelist: '192.168.1.1\n127.0.0.1',
   },
+  email: {
+      host: 'smtp.example.com',
+      port: 587,
+      username: 'user@example.com',
+      password: 'password123',
+      encryption: 'tls',
+      configured: false
+  }
 };
 
 type SettingsType = typeof initialSettings;
 type GeneralSettingsType = SettingsType['general'];
 type SecuritySettingsType = SettingsType['security'];
+type EmailSettingsType = SettingsType['email'];
 
 
 export default function SettingsPage() {
@@ -84,7 +93,7 @@ export default function SettingsPage() {
 
             <Tabs defaultValue="general" className="w-full">
                 <div className="overflow-x-auto">
-                    <TabsList className="border-b-0 justify-start p-0 bg-transparent">
+                     <TabsList className="inline-flex h-auto items-center justify-start rounded-none border-b bg-transparent p-0 gap-4">
                         <TabsTrigger value="general">General</TabsTrigger>
                         <TabsTrigger value="users">Users & Roles</TabsTrigger>
                         <TabsTrigger value="security">Security</TabsTrigger>
@@ -105,7 +114,9 @@ export default function SettingsPage() {
                 <TabsContent value="security" className="mt-6">
                     <SecuritySettings initialSettings={settings.security} onSave={(newSettings) => handleSettingChange('security', newSettings)} />
                 </TabsContent>
-                <TabsContent value="email" className="mt-6"><PlaceholderCard title="Email Configuration" description="Set up SMTP and default email templates." icon={Mail} /></TabsContent>
+                <TabsContent value="email" className="mt-6">
+                    <EmailSettings initialSettings={settings.email} onSave={(newSettings) => handleSettingChange('email', newSettings)} />
+                </TabsContent>
                 <TabsContent value="alerts" className="mt-6"><PlaceholderCard title="Alerts & Notifications" description="Define system-wide alert triggers and notification channels." icon={Bell} /></TabsContent>
                 <TabsContent value="api" className="mt-6"><PlaceholderCard title="API & Integrations" description="Manage API keys and connected third-party applications." icon={KeyRound} /></TabsContent>
                 <TabsContent value="workflows" className="mt-6"><WorkflowsSettings /></TabsContent>
@@ -488,6 +499,127 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
     );
 }
 
+function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSettingsType; onSave: (data: EmailSettingsType) => void; }) {
+    const [isDialogOpen, setDialogOpen] = useState(false);
+    const [settings, setSettings] = useState<EmailSettingsType>(initialSettings);
+    
+    useEffect(() => {
+        setSettings(initialSettings);
+    }, [initialSettings]);
+    
+    const handleSaveChanges = (newSettings: EmailSettingsType) => {
+        onSave(newSettings);
+        setDialogOpen(false);
+    }
+    
+    return (
+        <>
+            <Card>
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <Mail className="h-6 w-6" />
+                        <div>
+                            <CardTitle>Email Configuration</CardTitle>
+                            <CardDescription>Set up SMTP and default email templates.</CardDescription>
+                        </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="border rounded-lg p-4 flex items-center justify-between">
+                        <div>
+                            <h4 className="font-medium">SMTP Server</h4>
+                            <p className="text-sm text-muted-foreground">
+                                {settings.configured ? `Connected to ${settings.host}` : 'Not configured'}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                             <Badge variant={settings.configured ? 'success' : 'secondary'}>
+                                {settings.configured ? 'Connected' : 'Inactive'}
+                            </Badge>
+                            <Button variant="outline" onClick={() => setDialogOpen(true)}>Configure</Button>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+            <EmailSettingsDialog
+                open={isDialogOpen}
+                onOpenChange={setDialogOpen}
+                settings={settings}
+                onSave={handleSaveChanges}
+            />
+        </>
+    );
+}
+
+function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType, onSave: (data: EmailSettingsType) => void }) {
+    const [localSettings, setLocalSettings] = useState<EmailSettingsType>(settings);
+    const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setLocalSettings(settings);
+    }, [settings]);
+    
+    const handleFieldChange = (field: keyof EmailSettingsType, value: any) => {
+        setLocalSettings(prev => ({...prev, [field]: value}));
+    };
+
+    const handleSendTestEmail = () => {
+        setTestStatus('testing');
+        // Simulate API call
+        setTimeout(() => {
+            if (localSettings.host && localSettings.username && localSettings.password) {
+                setTestStatus('success');
+                toast({ title: "Connection Successful", description: "Test email sent successfully." });
+            } else {
+                setTestStatus('error');
+                 toast({ variant: 'destructive', title: "Connection Failed", description: "Please check your SMTP settings and try again." });
+            }
+        }, 1500);
+    };
+
+    const handleSubmit = () => {
+        onSave({ ...localSettings, configured: true });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>SMTP Configuration</DialogTitle>
+                    <DialogDescription>Enter your SMTP server details to send emails from the system.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="host" className="text-right">Host</Label><Input id="host" value={localSettings.host} onChange={(e) => handleFieldChange('host', e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="port" className="text-right">Port</Label><Input id="port" type="number" value={localSettings.port} onChange={(e) => handleFieldChange('port', parseInt(e.target.value, 10))} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="username" className="text-right">Username</Label><Input id="username" value={localSettings.username} onChange={(e) => handleFieldChange('username', e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="password" className="text-right">Password</Label><Input id="password" type="password" value={localSettings.password} onChange={(e) => handleFieldChange('password', e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="encryption" className="text-right">Encryption</Label>
+                        <Select onValueChange={(v: string) => handleFieldChange('encryption', v)} value={localSettings.encryption}>
+                            <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                            <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="ssl">SSL/TLS</SelectItem><SelectItem value="tls">STARTTLS</SelectItem></SelectContent>
+                        </Select>
+                    </div>
+                </div>
+                <DialogFooter className="justify-between">
+                     <div className="flex items-center gap-2">
+                        <Button variant="outline" onClick={handleSendTestEmail} disabled={testStatus === 'testing'}>
+                            {testStatus === 'testing' ? 'Testing...' : 'Send Test Email'}
+                        </Button>
+                        {testStatus === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
+                        {testStatus === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
+                    </div>
+                    <div className="flex gap-2">
+                         <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                         <Button onClick={handleSubmit}>Save Changes</Button>
+                    </div>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 function WorkflowsSettings() {
     return (
         <Card>
@@ -556,3 +688,5 @@ function PlaceholderCard({ title, description, icon: Icon }: { title: string, de
 
     
 
+
+    
