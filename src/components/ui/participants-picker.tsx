@@ -61,7 +61,7 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
   return (
     <div>
        <div 
-        className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-10"
+        className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-10 cursor-pointer"
         onClick={() => setDialogOpen(true)}
       >
         {selectedUsers.length > 0 ? (
@@ -81,13 +81,9 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
                 </Badge>
             ))
         ) : (
-            <span className="text-muted-foreground">No participants selected.</span>
+            <span className="text-muted-foreground">Select participants...</span>
         )}
       </div>
-      <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(true)} className="mt-2">
-        <Users className="mr-2 h-4 w-4" />
-        Select Participants
-      </Button>
 
       <Dialog open={isDialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl">
