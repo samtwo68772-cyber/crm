@@ -53,30 +53,20 @@ export function ParticipantsPicker({ allUsers, selectedUserIds, onChange }: Part
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };
-
-  const removeParticipant = (userId: string) => {
-    onChange(selectedUserIds.filter(id => id !== userId));
-  };
   
   return (
     <div>
-      <div className="flex items-center gap-2 flex-wrap rounded-md border p-2 min-h-10">
-        {selectedUsers.length > 0 ? (
-          selectedUsers.map(user => (
-            <Badge key={user.id} variant="secondary" className="flex items-center gap-1">
-              {user.name}
-              <button
-                type="button"
-                onClick={() => removeParticipant(user.id)}
-                className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </Badge>
-          ))
-        ) : (
-          <span className="text-sm text-muted-foreground">No participants selected.</span>
-        )}
+       <div 
+        className="flex items-center justify-between w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground min-h-10 cursor-text"
+        onClick={() => setDialogOpen(true)}
+      >
+        <div className="flex-1">
+            {selectedUsers.length > 0 ? (
+                <span className="text-foreground">{selectedUsers.map(u => u.name).join(', ')}</span>
+            ) : (
+                <span>No participants selected.</span>
+            )}
+        </div>
       </div>
       <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(true)} className="mt-2">
         <Users className="mr-2 h-4 w-4" />
