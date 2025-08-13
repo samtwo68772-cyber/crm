@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +26,8 @@ const initialSettings = {
 };
 
 type SettingsType = typeof initialSettings;
+type GeneralSettingsType = SettingsType['general'];
+
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -33,24 +35,20 @@ export default function SettingsPage() {
     const [settings, setSettings] = useState<SettingsType>(initialSettings);
     const isAdmin = user?.role === 'admin';
 
-    const handleSettingChange = (section: keyof SettingsType, key: string, value: any) => {
+    const handleSettingChange = (section: keyof SettingsType, newSettings: Partial<SettingsType[keyof SettingsType]>) => {
         setSettings(prev => ({
             ...prev,
             [section]: {
                 ...prev[section],
-                [key]: value
+                ...newSettings
             }
         }));
-    };
-
-    const onSave = () => {
-        console.log('Saving settings:', settings);
-        toast({
+         toast({
             title: 'Settings Saved',
             description: 'Your changes have been saved successfully.',
         });
     };
-
+    
     if (!isAdmin) {
         return (
             <div className="p-8">
@@ -80,7 +78,7 @@ export default function SettingsPage() {
                 </TabsList>
                 
                 <TabsContent value="general" className="mt-6">
-                    <GeneralSettings settings={settings.general} onChange={handleSettingChange} onSave={onSave} />
+                    <GeneralSettings initialSettings={settings.general} onSave={(newSettings) => handleSettingChange('general', newSettings)} />
                 </TabsContent>
                 <TabsContent value="users" className="mt-6"><PlaceholderCard title="User Management" description="Manage staff accounts, roles, and permissions." icon={Users} /></TabsContent>
                 <TabsContent value="security" className="mt-6"><PlaceholderCard title="Security Settings" description="Configure password policies, 2FA, and session management." icon={Shield} /></TabsContent>
@@ -94,7 +92,42 @@ export default function SettingsPage() {
     );
 }
 
-function GeneralSettings({ settings, onChange, onSave }: { settings: SettingsType['general'], onChange: Function, onSave: () => void }) {
+function GeneralSettings({ initialSettings, onSave }: { initialSettings: GeneralSettingsType, onSave: (data: GeneralSettingsType) => void }) {
+    const [settings, setSettings] = useState<GeneralSettingsType>(initialSettings);
+    const [logoPreview, setLogoPreview] = useState<string | null>(initialSettings.logoUrl);
+
+    const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialSettings) || logoPreview !== initialSettings.logoUrl;
+
+    const handleCancel = () => {
+        setSettings(initialSettings);
+        setLogoPreview(initialSettings.logoUrl);
+    };
+
+    const handleSave = () => {
+        const settingsToSave = { ...settings };
+        if (logoPreview && logoPreview !== initialSettings.logoUrl) {
+            settingsToSave.logoUrl = logoPreview;
+        }
+        onSave(settingsToSave);
+    };
+
+    const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLogoPreview(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    useEffect(() => {
+        setSettings(initialSettings);
+        setLogoPreview(initialSettings.logoUrl);
+    }, [initialSettings]);
+
+
     return (
         <Card>
             <CardHeader>
@@ -110,27 +143,30 @@ function GeneralSettings({ settings, onChange, onSave }: { settings: SettingsTyp
                  <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label htmlFor="systemName">System Name</Label>
-                        <Input id="systemName" value={settings.systemName} onChange={(e) => onChange('general', 'systemName', e.target.value)} />
+                        <Input id="systemName" value={settings.systemName} onChange={(e) => setSettings(s => ({...s, systemName: e.target.value}))} />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="companyName">Company Name</Label>
-                        <Input id="companyName" value={settings.companyName} onChange={(e) => onChange('general', 'companyName', e.target.value)} />
+                        <Input id="companyName" value={settings.companyName} onChange={(e) => setSettings(s => ({...s, companyName: e.target.value}))} />
                     </div>
                  </div>
                  <div className="space-y-2">
                     <Label>Company Logo</Label>
                     <div className="flex items-center gap-4">
                         <div className="w-16 h-16 bg-muted rounded-md flex items-center justify-center">
-                            <Building className="h-8 w-8 text-muted-foreground" />
+                            {logoPreview ? (
+                                <img src={logoPreview} alt="Logo Preview" data-ai-hint="logo" className="h-full w-full object-contain rounded-md" />
+                            ) : (
+                                <Building className="h-8 w-8 text-muted-foreground" />
+                            )}
                         </div>
-                        <Input id="logoUrl" type="file" className="max-w-xs" />
-                        <Button variant="outline">Upload</Button>
+                        <Input id="logoUrl" type="file" className="max-w-xs" onChange={handleLogoChange} accept="image/*" />
                     </div>
                 </div>
                  <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                         <Label>Timezone</Label>
-                        <Select value={settings.timeZone} onValueChange={(v) => onChange('general', 'timeZone', v)}>
+                        <Select value={settings.timeZone} onValueChange={(v) => setSettings(s => ({...s, timeZone: v}))}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="UTC-8:00">Pacific Time (UTC-8:00)</SelectItem>
@@ -142,7 +178,7 @@ function GeneralSettings({ settings, onChange, onSave }: { settings: SettingsTyp
                     </div>
                     <div className="space-y-2">
                         <Label>Default Language</Label>
-                        <Select value={settings.language} onValueChange={(v) => onChange('general', 'language', v)}>
+                        <Select value={settings.language} onValueChange={(v) => setSettings(s => ({...s, language: v}))}>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="en-US">English (United States)</SelectItem>
@@ -154,8 +190,9 @@ function GeneralSettings({ settings, onChange, onSave }: { settings: SettingsTyp
                     </div>
                  </div>
             </CardContent>
-            <CardFooter className="border-t pt-6 justify-end">
-                <Button onClick={onSave}>Save Changes</Button>
+            <CardFooter className="border-t pt-6 justify-end flex gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
             </CardFooter>
         </Card>
     );
