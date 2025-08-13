@@ -54,7 +54,7 @@ function MultiSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={`w-full justify-between ${selected.length > 1 ? 'h-full' : 'h-10'}`}
+          className={cn(`w-full justify-between`, selected.length > 1 ? 'h-full' : 'h-10', className)}
           onClick={(e) => { e.preventDefault(); setOpen(!open);}}
         >
           <div className="flex gap-1 flex-wrap">

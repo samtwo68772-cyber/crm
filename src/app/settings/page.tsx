@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { MultiSelect, OptionType } from '@/components/ui/multi-select';
 
 
 const initialSettings = {
@@ -54,11 +55,20 @@ type GeneralSettingsType = SettingsType['general'];
 type SecuritySettingsType = SettingsType['security'];
 type EmailSettingsType = SettingsType['email'];
 
+const initialAlerts = [
+    { id: 'new-case', name: 'New Case Created', description: 'Notify when a new case is created.', enabled: true, channels: ['in-app', 'email'], threshold: null },
+    { id: 'task-overdue', name: 'Task Overdue', description: 'Notify when a task becomes overdue.', enabled: true, channels: ['in-app'], threshold: 1 },
+    { id: 'case-closed', name: 'Case Closed', description: 'Notify when a case is marked as closed.', enabled: false, channels: ['email'], threshold: null },
+    { id: 'user-signup', name: 'New User Sign-up', description: 'Notify admins when a new user signs up.', enabled: true, channels: ['email'], threshold: null },
+];
+
+type AlertSetting = typeof initialAlerts[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
     const { toast } = useToast();
     const [settings, setSettings] = useState<SettingsType>(initialSettings);
+    const [alerts, setAlerts] = useState<AlertSetting[]>(initialAlerts);
     const isAdmin = user?.role === 'admin';
 
     const handleSettingChange = (section: keyof SettingsType, newSettings: Partial<SettingsType[keyof SettingsType]>) => {
@@ -117,7 +127,9 @@ export default function SettingsPage() {
                 <TabsContent value="email" className="mt-6">
                     <EmailSettings initialSettings={settings.email} onSave={(newSettings) => handleSettingChange('email', newSettings)} />
                 </TabsContent>
-                <TabsContent value="alerts" className="mt-6"><PlaceholderCard title="Alerts & Notifications" description="Define system-wide alert triggers and notification channels." icon={Bell} /></TabsContent>
+                <TabsContent value="alerts" className="mt-6">
+                    <AlertsSettings initialAlerts={alerts} onSave={setAlerts} />
+                </TabsContent>
                 <TabsContent value="api" className="mt-6"><PlaceholderCard title="API & Integrations" description="Manage API keys and connected third-party applications." icon={KeyRound} /></TabsContent>
                 <TabsContent value="workflows" className="mt-6"><WorkflowsSettings /></TabsContent>
                 <TabsContent value="audit" className="mt-6"><PlaceholderCard title="Audit Log" description="Review a log of all administrative actions taken in the system." icon={FileText} /></TabsContent>
@@ -618,6 +630,79 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
             </DialogContent>
         </Dialog>
     )
+}
+
+function AlertsSettings({ initialAlerts, onSave }: { initialAlerts: AlertSetting[]; onSave: (data: AlertSetting[]) => void; }) {
+    const [alerts, setAlerts] = useState<AlertSetting[]>(initialAlerts);
+    const { toast } = useToast();
+
+    const handleAlertChange = (id: string, field: keyof AlertSetting, value: any) => {
+        setAlerts(prev => prev.map(alert => alert.id === id ? { ...alert, [field]: value } : alert));
+    };
+
+    const handleSave = () => {
+        onSave(alerts);
+        toast({ title: 'Alerts Saved', description: 'Your alert settings have been updated.' });
+    };
+    
+    const channelOptions: OptionType[] = [
+        { label: 'In-App', value: 'in-app' },
+        { label: 'Email', value: 'email' },
+        { label: 'SMS', value: 'sms' },
+    ];
+    
+    return (
+        <Card>
+            <CardHeader>
+                <div className="flex items-center gap-3">
+                    <Bell className="h-6 w-6" />
+                    <div>
+                        <CardTitle>Alerts & Notifications</CardTitle>
+                        <CardDescription>Define system-wide alert triggers and notification channels.</CardDescription>
+                    </div>
+                </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {alerts.map((alert) => (
+                    <div key={alert.id} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex-1">
+                            <h4 className="font-medium">{alert.name}</h4>
+                            <p className="text-sm text-muted-foreground">{alert.description}</p>
+                        </div>
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            <Switch
+                                checked={alert.enabled}
+                                onCheckedChange={(checked) => handleAlertChange(alert.id, 'enabled', checked)}
+                            />
+                            <div className="flex-1 min-w-[200px]">
+                                <MultiSelect
+                                    options={channelOptions}
+                                    selected={alert.channels}
+                                    onChange={(channels) => handleAlertChange(alert.id, 'channels', channels)}
+                                    placeholder="Select channels"
+                                    className="w-full"
+                                />
+                            </div>
+                            {alert.threshold !== null && (
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="number"
+                                        value={alert.threshold}
+                                        onChange={(e) => handleAlertChange(alert.id, 'threshold', parseInt(e.target.value, 10))}
+                                        className="w-20"
+                                    />
+                                    <span className="text-sm text-muted-foreground">days</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </CardContent>
+            <CardFooter className="border-t pt-6 justify-end">
+                <Button onClick={handleSave}>Save Changes</Button>
+            </CardFooter>
+        </Card>
+    );
 }
 
 function WorkflowsSettings() {
