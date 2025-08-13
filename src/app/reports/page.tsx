@@ -34,6 +34,7 @@ function getStatusVariant(status: Case['status']) {
         case 'New': return 'blue';
         case 'In Progress': return 'teal';
         case 'Resolved': return 'green';
+        case 'Closed': return 'destructive';
         default: return 'outline';
     }
 }
@@ -64,17 +65,24 @@ export default function ReportsPage() {
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
 
     const filteredCases = useMemo(() => {
+        if (!dateRange?.from) return mockCases;
+        const fromDate = startOfDay(dateRange.from);
+        const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
         return mockCases.filter(c => 
-            !dateRange?.from || isWithinInterval(new Date(c.createdAt), { start: startOfDay(dateRange.from), end: endOfDay(dateRange.to || dateRange.from) })
+            isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate })
         );
     }, [dateRange]);
 
-    const kpiData = {
-        totalCases: { value: '1,234', change: '+12.5%', type: 'positive' },
-        avgResolutionTime: { value: '2.1d', change: '-5.2%', type: 'positive' },
-        customerSatisfaction: { value: '92%', change: '+1.8%', type: 'positive' },
-        activeUsers: { value: '45', change: '-2.1%', type: 'negative' },
-    };
+    const kpiData = useMemo(() => {
+        const totalCases = filteredCases.length;
+        // Mock data for other KPIs as they require more complex data/logic
+        return {
+            totalCases: { value: totalCases.toString(), change: '+12.5%', type: 'positive' },
+            avgResolutionTime: { value: '2.1d', change: '-5.2%', type: 'positive' },
+            customerSatisfaction: { value: '92%', change: '+1.8%', type: 'positive' },
+            activeUsers: { value: `${mockUsers.filter(u => u.status === 'Active').length}`, change: `of ${mockUsers.length}`, type: 'positive' },
+        }
+    }, [filteredCases]);
     
     const caseStatusData = useMemo(() => {
         const counts = filteredCases.reduce((acc, curr) => {
@@ -94,7 +102,7 @@ export default function ReportsPage() {
 
     const performanceData = useMemo(() => {
         return mockUsers.map(user => {
-            const cases = mockCases.filter(c => c.assignedTo === user.name);
+            const cases = filteredCases.filter(c => c.assignedTo === user.name);
             const tasks = mockTasks.filter(t => t.assignedTo === user.id);
             return {
                 name: user.name,
@@ -103,7 +111,16 @@ export default function ReportsPage() {
                 avgResolution: (Math.random() * 5).toFixed(1) + 'd', // mock data
             };
         });
-    }, []);
+    }, [filteredCases]);
+    
+    const handleExport = (format: 'pdf' | 'excel') => {
+        console.log(`Exporting ${reportType} report as ${format} for date range:`, dateRange);
+        console.log("Data:", {
+            cases: filteredCases,
+            performance: performanceData
+        });
+        alert(`Exporting as ${format}... Check console for data.`);
+    };
 
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
@@ -124,7 +141,6 @@ export default function ReportsPage() {
                         </SelectContent>
                     </Select>
                     <DateRangePicker onDateChange={setDateRange} />
-                    <Button>Generate</Button>
                 </div>
             </header>
 
@@ -136,10 +152,10 @@ export default function ReportsPage() {
             </div>
 
             <main className="mt-8">
-                <Tabs defaultValue="overview">
+                <Tabs defaultValue="overview" value={reportType} onValueChange={setReportType}>
                     <TabsList>
                         <TabsTrigger value="overview">Overview</TabsTrigger>
-                        <TabsTrigger value="case-reports">Case Reports</TabsTrigger>
+                        <TabsTrigger value="cases">Case Reports</TabsTrigger>
                         <TabsTrigger value="performance">Performance</TabsTrigger>
                         <TabsTrigger value="export">Export</TabsTrigger>
                     </TabsList>
@@ -180,7 +196,7 @@ export default function ReportsPage() {
                             </Card>
                         </div>
                     </TabsContent>
-                    <TabsContent value="case-reports" className="mt-6">
+                    <TabsContent value="cases" className="mt-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Detailed Case Report</CardTitle>
@@ -197,7 +213,7 @@ export default function ReportsPage() {
                                                 <TableCell><Badge variant={getStatusVariant(c.status)}>{c.status}</Badge></TableCell>
                                                 <TableCell><Badge variant={getPriorityVariant(c.priority)}>{c.priority}</Badge></TableCell>
                                                 <TableCell>{c.assignedTo}</TableCell>
-                                                <TableCell>{c.createdAt}</TableCell>
+                                                <TableCell>{new Date(c.createdAt).toLocaleDateString()}</TableCell>
                                             </TableRow>
                                         )}
                                     </TableBody>
@@ -236,7 +252,7 @@ export default function ReportsPage() {
                                     <CardDescription>Generate a comprehensive PDF document of the current report view.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <Button className="w-full"><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
+                                    <Button className="w-full" onClick={() => handleExport('pdf')}><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
                                 </CardContent>
                             </Card>
                             <Card className="flex flex-col justify-between">
@@ -245,7 +261,7 @@ export default function ReportsPage() {
                                     <CardDescription>Download the raw data in an Excel-compatible format for further analysis.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <Button className="w-full"><FileDown className="mr-2 h-4 w-4" /> Export Excel</Button>
+                                    <Button className="w-full" onClick={() => handleExport('excel')}><FileDown className="mr-2 h-4 w-4" /> Export Excel</Button>
                                 </CardContent>
                             </Card>
                         </div>
@@ -255,3 +271,4 @@ export default function ReportsPage() {
         </div>
     );
 }
+
