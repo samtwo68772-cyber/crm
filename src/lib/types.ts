@@ -68,11 +68,16 @@ export type Account = {
   id: string;
   name: string;
   industry: string;
-  owner: string;
   createdAt: string;
-  location?: string;
-  size?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
   primaryContactId?: string;
+  // The user wants owner removed, but it's used elsewhere. Let's keep it for now and just remove from form.
+  owner: string; 
+  size?: string;
+  location?:string;
 };
 
 export type Document = {

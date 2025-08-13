@@ -3,6 +3,7 @@
 
 
 
+
 import type { Case, Task, Contact, User, Team, Account, Document, Meeting } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
@@ -15,11 +16,11 @@ export const users: User[] = [
 ];
 
 export const accounts: Account[] = [
-    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15', location: 'San Francisco, CA', size: '500-1000 employees', primaryContactId: 'contact-1' },
-    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20', location: 'New York, NY', size: '10,000+ employees', primaryContactId: 'contact-2' },
-    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10', location: 'Gotham City', size: '50,000+ employees', primaryContactId: 'contact-3' },
-    { id: 'acc-4', name: 'Cyberdyne Systems', industry: 'Robotics', owner: 'Alex Johnson', createdAt: '2023-04-01', location: 'Sunnyvale, CA', size: '1000-5000 employees' },
-    { id: 'acc-5', name: 'Globex Corporation', industry: 'Energy', owner: 'Maria Garcia', createdAt: '2023-05-22', location: 'Cypress Creek, USA', size: '5000-10000 employees' },
+    { id: 'acc-1', name: 'Acme Inc.', industry: 'Technology', owner: 'Alex Johnson', createdAt: '2023-01-15', address: '123 Acme St, San Francisco, CA', phone: '123-456-7890', email: 'contact@acme.com', website: 'https://acme.com', primaryContactId: 'contact-1' },
+    { id: 'acc-2', name: 'Stark Industries', industry: 'Defense', owner: 'Maria Garcia', createdAt: '2023-02-20', address: '1 Stark Tower, New York, NY', phone: '212-970-4133', email: 'contact@starkindustries.com', website: 'https://starkindustries.com', primaryContactId: 'contact-2' },
+    { id: 'acc-3', name: 'Wayne Enterprises', industry: 'Conglomerate', owner: 'James Smith', createdAt: '2023-03-10', address: '1007 Mountain Drive, Gotham City', phone: '555-WAYNE-ENT', email: 'info@wayne-enterprises.com', website: 'https://wayne-enterprises.com', primaryContactId: 'contact-3' },
+    { id: 'acc-4', name: 'Cyberdyne Systems', industry: 'Robotics', owner: 'Alex Johnson', createdAt: '2023-04-01', address: '18144 El Camino Real, Sunnyvale, CA', phone: '800-555-CYBR', email: 'inquiries@cyberdyne.com', website: 'https://cyberdyne.com' },
+    { id: 'acc-5', name: 'Globex Corporation', industry: 'Energy', owner: 'Maria Garcia', createdAt: '2023-05-22', address: '1 Globex Plaza, Cypress Creek, USA', phone: '800-GLOBEX-1', email: 'ceo@globex.com', website: 'https://globex.com' },
 ];
 
 export const contacts: Contact[] = [

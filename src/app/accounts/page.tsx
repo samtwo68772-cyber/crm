@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { MoreHorizontal, PlusCircle, Trash2, Edit, X, Building2, Users, Briefcase, ListTodo, Calendar, Globe, Users2, Search, Mail, Phone, ChevronDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Edit, X, Building2, Users, Briefcase, ListTodo, Calendar, Globe, Users2, Search, Mail, Phone, ChevronDown, Link as LinkIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -216,11 +216,12 @@ function AccountDetailSheet({ open, onOpenChange, account, onEdit, onDelete }: {
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-3 overflow-hidden">
                         <div className="col-span-1 border-r p-6 space-y-6 overflow-y-auto bg-card">
                             <h4 className="font-semibold text-lg">Account Details</h4>
-                            <div className="space-y-4 text-sm">
-                                <div className="flex items-start gap-3"><Globe className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Location</p><p>{account.location}</p></div></div>
-                                <div className="flex items-start gap-3"><Users2 className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Company Size</p><p>{account.size}</p></div></div>
+                             <div className="space-y-4 text-sm">
+                                <div className="flex items-start gap-3"><Globe className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Address</p><p>{account.address || 'N/A'}</p></div></div>
+                                <div className="flex items-start gap-3"><Phone className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Phone</p><p>{account.phone || 'N/A'}</p></div></div>
+                                <div className="flex items-start gap-3"><Mail className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Email</p><p>{account.email || 'N/A'}</p></div></div>
+                                <div className="flex items-start gap-3"><LinkIcon className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Website</p><p>{account.website || 'N/A'}</p></div></div>
                                 <div className="flex items-start gap-3"><Building2 className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Industry</p><p>{account.industry}</p></div></div>
-                                <div className="flex items-start gap-3"><Users className="h-4 w-4 mt-1 text-muted-foreground" /><div><p className="text-muted-foreground">Owner</p><p>{account.owner}</p></div></div>
                             </div>
                         </div>
                         <div className="col-span-2 overflow-y-auto p-6">
@@ -262,24 +263,26 @@ function AccountFormDialog({ open, onOpenChange, account, onSave }: { open: bool
     const isEditMode = !!account;
     const [name, setName] = useState('');
     const [industry, setIndustry] = useState('');
-    const [location, setLocation] = useState('');
-    const [size, setSize] = useState('');
-    const [owner, setOwner] = useState('');
+    const [address, setAddress] = useState('');
+    const [phone, setPhone] = useState('');
+    const [email, setEmail] = useState('');
+    const [website, setWebsite] = useState('');
 
     useEffect(() => {
         if(account) {
             setName(account.name);
             setIndustry(account.industry);
-            setLocation(account.location || '');
-            setSize(account.size || '');
-            setOwner(account.owner || '');
+            setAddress(account.address || '');
+            setPhone(account.phone || '');
+            setEmail(account.email || '');
+            setWebsite(account.website || '');
         } else {
-            setName(''); setIndustry(''); setLocation(''); setSize(''); setOwner('');
+            setName(''); setIndustry(''); setAddress(''); setPhone(''); setEmail(''); setWebsite('');
         }
     }, [account, open]);
 
     const handleSubmit = () => {
-        onSave({ name, industry, location, size, owner }, isEditMode);
+        onSave({ name, industry, address, phone, email, website }, isEditMode);
     };
 
     return (
@@ -290,17 +293,25 @@ function AccountFormDialog({ open, onOpenChange, account, onSave }: { open: bool
                     <DialogDescription>{isEditMode ? 'Update the details for this account.' : 'Fill in the details for the new account.'}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Name</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="industry" className="text-right">Industry</Label><Input id="industry" value={industry} onChange={(e) => setIndustry(e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="location" className="text-right">Location</Label><Input id="location" value={location} onChange={(e) => setLocation(e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="size" className="text-right">Size</Label><Input id="size" value={size} onChange={(e) => setSize(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Account Name</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" /></div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="owner" className="text-right">Owner</Label>
-                        <Select onValueChange={setOwner} value={owner}>
-                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select an owner" /></SelectTrigger>
-                            <SelectContent>{mockContacts.map(c => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}</SelectContent>
+                        <Label htmlFor="industry" className="text-right">Industry/Type</Label>
+                        <Select onValueChange={setIndustry} value={industry}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select an industry" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Government">Government</SelectItem>
+                                <SelectItem value="NGO">NGO</SelectItem>
+                                <SelectItem value="Private">Private</SelectItem>
+                                <SelectItem value="Technology">Technology</SelectItem>
+                                <SelectItem value="Finance">Finance</SelectItem>
+                                <SelectItem value="Healthcare">Healthcare</SelectItem>
+                            </SelectContent>
                         </Select>
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="address" className="text-right">Address</Label><Textarea id="address" value={address} onChange={(e) => setAddress(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="phone" className="text-right">Phone Number</Label><Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email Address</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="website" className="text-right">Website</Label><Input id="website" type="url" value={website} onChange={(e) => setWebsite(e.target.value)} className="col-span-3" placeholder="https://example.com"/></div>
                 </div>
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
