@@ -3,20 +3,17 @@
 
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker, DayProps, useDayRender } from "react-day-picker"
+import { DayPicker } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 
-export type CalendarProps = React.ComponentProps<typeof DayPicker> & {
-  dayClassName?: string;
-}
+export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
 function Calendar({
   className,
   classNames,
   showOutsideDays = true,
-  dayClassName,
   ...props
 }: CalendarProps) {
   return (
@@ -27,24 +24,17 @@ function Calendar({
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4 w-full",
         caption: "flex justify-center pt-1 relative items-center text-lg font-medium",
-        caption_label: "font-medium",
-        nav: "space-x-1 flex items-center",
-        nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-8 w-8 bg-transparent p-0 opacity-50 hover:opacity-100"
-        ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        caption_label: "hidden",
+        nav: "hidden",
+        nav_button: "hidden",
         table: "w-full border-collapse space-y-1",
         head_row: "flex w-full",
-        head_cell:
-          "text-muted-foreground rounded-md w-full font-normal text-[0.8rem]",
+        head_cell: "text-muted-foreground rounded-md w-full font-normal text-[0.8rem]",
         row: "flex w-full mt-2",
         cell: "aspect-square size-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
           "h-full w-full p-0 font-normal aria-selected:opacity-100",
-          dayClassName
         ),
         day_range_end: "day-range-end",
         day_selected:
@@ -56,15 +46,23 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
+
+        // Custom scoped styles for the meeting calendar
+        ...Object.keys(classNames || {}).length === 0 && {
+          table: "w-full border-collapse",
+          head_row: "grid grid-cols-7",
+          head_cell: "text-center text-muted-foreground font-normal text-sm p-2",
+          row: "grid grid-cols-7",
+          cell: "h-auto aspect-square border border-border/50 rounded-md relative",
+          day: "h-full w-full",
+          day_today: "bg-accent/50 text-accent-foreground rounded-md",
+          day_outside: "text-muted-foreground/50",
+        },
         ...classNames,
       }}
       components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-5 w-5", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-5 w-5", className)} {...props} />
-        ),
+        IconLeft: ({ ...props }) => <ChevronLeft className="h-4 w-4" />,
+        IconRight: ({ ...props }) => <ChevronRight className="h-4 w-4" />,
       }}
       {...props}
     />
@@ -73,5 +71,3 @@ function Calendar({
 Calendar.displayName = "Calendar"
 
 export { Calendar }
-
-    

@@ -16,11 +16,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ParticipantsPicker } from '@/components/ui/participants-picker';
-import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
-import { format, isValid, isSameDay } from 'date-fns';
+import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 
 function getStatusVariant(status: Meeting['status']) {
@@ -53,19 +54,108 @@ const safeFormat = (date: string | Date, formatString: string) => {
     }
 }
 
+function AllMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], onMeetingClick: (meeting: Meeting) => void }) {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState('all');
+
+    const filteredMeetings = useMemo(() => {
+        return meetings.filter(m => {
+            const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
+            const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase());
+            return matchesStatus && matchesSearch;
+        });
+    }, [meetings, statusFilter, searchQuery]);
+
+    return (
+        <div className="space-y-6 mt-6">
+            <div className="flex items-center gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search meetings..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                </div>
+                <Select value={statusFilter} onValueChange={(v: "all" | "Upcoming" | "Completed" | "Canceled") => setStatusFilter(v)}>
+                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="Upcoming">Upcoming</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                        <SelectItem value="Canceled">Canceled</SelectItem>
+                    </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => { setSearchQuery(''); setStatusFilter('all'); }}>Clear</Button>
+            </div>
+            <div className="space-y-4 h-[60vh] overflow-y-auto pr-4">
+                {filteredMeetings.length > 0 ? filteredMeetings.map(meeting => (
+                    <Card key={meeting.id} onClick={() => onMeetingClick(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-semibold text-lg">{meeting.title}</h3>
+                                    <p className="text-sm text-muted-foreground">{meeting.description}</p>
+                                </div>
+                                <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
+                            </div>
+                            <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
+                                <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP')}</div>
+                                <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {safeFormat(meeting.date, 'p')}</div>
+                                <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )) : (
+                    <div className="text-center py-16 text-muted-foreground">
+                        <p>No meetings found for the selected criteria.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], onMeetingClick: (meeting: Meeting) => void }) {
+    return (
+        <Card className="mt-6">
+            <CardHeader>
+                <CardTitle>Upcoming Meetings</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {meetings.length > 0 ? meetings.map(meeting => (
+                    <Card key={meeting.id} onClick={() => onMeetingClick(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
+                        <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="font-semibold text-lg">{meeting.title}</h3>
+                                    <p className="text-sm text-muted-foreground">{meeting.description}</p>
+                                </div>
+                                <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
+                            </div>
+                            <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
+                                <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP')}</div>
+                                <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {safeFormat(meeting.date, 'p')}</div>
+                                <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )) : (
+                    <p className="text-muted-foreground mt-2 text-center py-8">No upcoming meetings scheduled.</p>
+                )}
+            </CardContent>
+        </Card>
+    );
+}
+
+
 export default function MeetingsPage() {
   const [meetings, setMeetings] = useState<Meeting[]>(mockMeetings);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
-
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
 
   const handleUpdateMeeting = (updatedMeeting: Meeting) => {
     setMeetings(meetings.map(m => m.id === updatedMeeting.id ? updatedMeeting : m));
@@ -97,14 +187,6 @@ export default function MeetingsPage() {
     if (isAdmin) return meetings;
     return meetings.filter(m => m.participants.includes(user.id));
   }, [meetings, user, isAdmin]);
-
-  const filteredMeetings = useMemo(() => {
-    return userMeetings.filter(m => {
-        const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
-        const matchesSearch = m.title.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesStatus && matchesSearch;
-    })
-  }, [userMeetings, statusFilter, searchQuery]);
   
   const upcomingMeetings = useMemo(() => {
     return userMeetings.filter(m => m.status === 'Upcoming');
@@ -114,6 +196,9 @@ export default function MeetingsPage() {
       setSelectedMeeting(meeting);
       setIsSheetOpen(true);
   }
+
+  const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
+  const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
 
   return (
@@ -132,111 +217,71 @@ export default function MeetingsPage() {
               <TabsTrigger value="meetings">All Meetings</TabsTrigger>
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
           </TabsList>
-          <TabsContent value="calendar" className="mt-6">
-              <Card>
-                <CardContent className="p-0">
-                    <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        className="w-full"
-                        classNames={{
-                           cell: "border bg-muted/30"
-                        }}
-                        components={{
-                            DayContent: ({ date }) => {
-                                const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
-                                return (
-                                    <div className="relative h-full w-full flex flex-col items-center justify-between p-2">
-                                        <span className="self-start">{safeFormat(date, 'd')}</span>
-                                        {dayMeetings.length > 0 && 
-                                            <div className="flex -space-x-1">
-                                            {dayMeetings.slice(0, 3).map(m => (
-                                                <div key={m.id} onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }} 
-                                                     className={`h-2 w-2 rounded-full border border-card ${getStatusColor(m.status)} cursor-pointer hover:scale-125 transition-transform`}
-                                                     title={m.title}
-                                                />
-                                            ))}
+          <TabsContent value="calendar" className="mt-6 meeting-calendar-wrapper">
+               <Card>
+                    <CardHeader className="flex flex-row items-center justify-between">
+                        <CardTitle className="font-headline text-xl">{format(currentMonth, 'MMMM yyyy')}</CardTitle>
+                        <div className="flex items-center gap-2">
+                            <Button variant="outline" size="icon" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
+                            <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-2">
+                       <Calendar
+                            month={currentMonth}
+                            onMonthChange={setCurrentMonth}
+                            mode="single"
+                            className="w-full"
+                            components={{
+                                DayContent: ({ date }) => {
+                                    const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
+                                    return (
+                                        <TooltipProvider>
+                                            <div className="relative h-full w-full flex flex-col items-start p-2">
+                                                <span className="font-semibold text-sm mb-1">{format(date, 'd')}</span>
+                                                {dayMeetings.length > 0 &&
+                                                    <div className="flex flex-col gap-1 w-full">
+                                                        {dayMeetings.slice(0, 2).map(m => (
+                                                            <Tooltip key={m.id}>
+                                                                <TooltipTrigger asChild>
+                                                                     <div onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }}
+                                                                         className={cn(
+                                                                            "w-full text-left text-xs px-1.5 py-0.5 rounded-sm truncate cursor-pointer text-white",
+                                                                            getStatusColor(m.status)
+                                                                         )}
+                                                                         title={m.title}
+                                                                    >
+                                                                        {m.title}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p className="font-bold">{m.title}</p>
+                                                                    <p>{safeFormat(m.date, 'p')}</p>
+                                                                    <p>{m.participants.length} participants</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        ))}
+                                                        {dayMeetings.length > 2 && (
+                                                            <div className="text-xs text-muted-foreground mt-1">
+                                                                + {dayMeetings.length - 2} more
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                }
                                             </div>
-                                        }
-                                    </div>
-                                );
-                            }
-                        }}
-                    />
-                  </CardContent>
-              </Card>
+                                        </TooltipProvider>
+                                    );
+                                }
+                            }}
+                        />
+                    </CardContent>
+                </Card>
           </TabsContent>
-          <TabsContent value="meetings" className="space-y-6 mt-6">
-            <div className="flex items-center gap-4">
-                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search meetings..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                </div>
-                 <Select value={statusFilter} onValueChange={(v: "all" | "Upcoming" | "Completed" | "Canceled") => setStatusFilter(v)}>
-                    <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Upcoming">Upcoming</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                        <SelectItem value="Canceled">Canceled</SelectItem>
-                    </SelectContent>
-                 </Select>
-                 <Button variant="outline" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setSelectedDate(undefined); }}>Clear</Button>
-            </div>
-            <div className="space-y-4 h-[60vh] overflow-y-auto pr-4">
-                {filteredMeetings.length > 0 ? filteredMeetings.map(meeting => (
-                    <Card key={meeting.id} onClick={() => handleMeetingClick(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                        <CardContent className="p-4">
-                             <div className="flex justify-between items-start">
-                                <div>
-                                    <h3 className="font-semibold text-lg">{meeting.title}</h3>
-                                    <p className="text-sm text-muted-foreground">{meeting.description}</p>
-                                </div>
-                                <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
-                            </div>
-                            <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
-                                <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP')}</div>
-                                <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {safeFormat(meeting.date, 'p')}</div>
-                                <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )) : (
-                    <div className="text-center py-16 text-muted-foreground">
-                        <p>No meetings found for the selected criteria.</p>
-                    </div>
-                )}
-            </div>
+          <TabsContent value="meetings">
+            <AllMeetingsView meetings={userMeetings} onMeetingClick={handleMeetingClick} />
           </TabsContent>
-          <TabsContent value="upcoming" className="mt-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle>Upcoming Meetings</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {upcomingMeetings.length > 0 ? upcomingMeetings.map(meeting => (
-                        <Card key={meeting.id} onClick={() => handleMeetingClick(meeting)} className="cursor-pointer hover:bg-muted/50 transition-colors">
-                            <CardContent className="p-4">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h3 className="font-semibold text-lg">{meeting.title}</h3>
-                                        <p className="text-sm text-muted-foreground">{meeting.description}</p>
-                                    </div>
-                                    <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
-                                </div>
-                                <div className="flex items-center gap-6 text-sm text-muted-foreground mt-4">
-                                    <div className="flex items-center gap-1.5"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP')}</div>
-                                    <div className="flex items-center gap-1.5"><Clock className="h-4 w-4" /> {safeFormat(meeting.date, 'p')}</div>
-                                    <div className="flex items-center gap-1.5"><Users className="h-4 w-4" /> {meeting.participants.length}</div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    )) : (
-                        <p className="text-muted-foreground mt-2 text-center py-8">No upcoming meetings scheduled.</p>
-                    )}
-                </CardContent>
-            </Card>
+          <TabsContent value="upcoming">
+            <UpcomingMeetingsView meetings={upcomingMeetings} onMeetingClick={handleMeetingClick} />
           </TabsContent>
       </Tabs>
       
@@ -329,7 +374,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
      <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-                <DialogTitle className="font-headline text-2xl">Edit Meeting</DialogTitle>
+                <DialogTitle className="font-headline text-xl">Edit Meeting</DialogTitle>
                 <DialogDescription>Update the details for this meeting.</DialogDescription>
             </DialogHeader>
              <div className="grid gap-4 py-4">
@@ -342,8 +387,8 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                         <SelectContent><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Canceled">Canceled</SelectItem></SelectContent>
                     </Select>
                 </div>
-                 <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="participants" className="text-right">Participants</Label>
+                 <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="participants" className="text-right pt-2">Participants</Label>
                     <div className="col-span-3">
                         <ParticipantsPicker
                             allUsers={users}
@@ -435,8 +480,8 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
                     {errors.date && <p className="text-sm text-destructive mt-1">{errors.date}</p>}
                 </div>
             </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="participants" className="text-right">Participants</Label>
+            <div className="grid grid-cols-4 items-start gap-4">
+                <Label htmlFor="participants" className="text-right pt-2">Participants</Label>
                 <div className="col-span-3">
                     <ParticipantsPicker
                         allUsers={users}
