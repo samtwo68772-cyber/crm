@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -786,23 +787,25 @@ function ApiSettings() {
                                                 <Button variant="ghost" size="sm" onClick={() => copyToClipboard(key.key, "API key copied to clipboard.")}>
                                                     <Copy className="mr-2 h-4 w-4" /> Copy
                                                 </Button>
-                                                <AlertDialogTrigger asChild>
-                                                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                                        <Trash2 className="mr-2 h-4 w-4" /> Revoke
-                                                    </Button>
-                                                </AlertDialogTrigger>
-                                                <AlertDialogContent>
-                                                    <AlertDialogHeader>
-                                                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                                        <AlertDialogDescription>
-                                                            This will permanently delete the API key. This action cannot be undone.
-                                                        </AlertDialogDescription>
-                                                    </AlertDialogHeader>
-                                                    <AlertDialogFooter>
-                                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={() => revokeKey(key.id)}>Revoke Key</AlertDialogAction>
-                                                    </AlertDialogFooter>
-                                                </AlertDialogContent>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                                                            <Trash2 className="mr-2 h-4 w-4" /> Revoke
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>
+                                                                This will permanently delete the API key. This action cannot be undone.
+                                                            </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => revokeKey(key.id)}>Revoke Key</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -931,11 +934,3 @@ function PlaceholderCard({ title, description, icon: Icon }: { title: string, de
         </Card>
     )
 }
-
-    
-
-
-    
-
-    
-
