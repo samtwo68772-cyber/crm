@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose, SheetFooter } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -20,13 +20,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { MoreHorizontal, PlusCircle, Trash2, Edit, X, Building2, Users, Briefcase, ListTodo, Calendar, Globe, Users2, Search, Mail, Phone, ChevronDown } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function CustomersPage() {
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
                 <div>
-                    <h2 className="text-3xl font-bold tracking-tight font-headline">Contacts</h2>
+                    <h2 className="text-3xl font-bold tracking-tight font-headline">Accounts</h2>
                     <p className="text-muted-foreground">Manage your accounts and contacts.</p>
                 </div>
             </div>
@@ -366,7 +367,8 @@ function ContactsView() {
 
   const openEditForm = (contact: Contact) => {
     setEditingContact(contact);
-    setIsFormOpen(true);
+    setDetailSheetOpen(false); // Close detail sheet if open
+    setTimeout(() => setIsFormOpen(true), 150);
   }
   
   const openDetailSheet = (contact: Contact) => {
@@ -406,36 +408,55 @@ function ContactsView() {
         </CardContent>
        </Card>
 
-      <div className="border rounded-lg">
-        {filteredContacts.map((contact, index) => (
-            <div key={contact.id} className="grid grid-cols-[auto_1fr_1fr_1fr_auto] md:grid-cols-[auto_minmax(0,2fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_minmax(0,1fr)_auto] items-center p-4 gap-x-4 gap-y-2 hover:bg-muted/50 transition-colors even:bg-muted/30">
-                <Avatar className="h-10 w-10">
-                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
-                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <p className="font-semibold truncate">{contact.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{contact.role}</p>
-                </div>
-                 <div className="text-sm text-muted-foreground truncate">{contact.company}</div>
-                 <div className="text-sm text-muted-foreground truncate hidden md:block">{contact.email}</div>
-                 <div className="text-sm text-muted-foreground truncate hidden md:block">{contact.phone}</div>
-                 <div className="flex gap-2 items-center justify-end">
-                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
-                        <Mail className="h-4 w-4" />
-                        <span className="sr-only">Email</span>
-                    </Button>
-                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
-                        <Phone className="h-4 w-4" />
-                        <span className="sr-only">Call</span>
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openEditForm(contact)}}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Edit Contact</span>
-                    </Button>
-                 </div>
-            </div>
-        ))}
+      <div className="border rounded-lg bg-card overflow-hidden">
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead className="w-[250px]">Name</TableHead>
+                    <TableHead>Company</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
+                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {filteredContacts.map((contact) => (
+                    <TableRow key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
+                        <TableCell>
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
+                                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-semibold">{contact.name}</p>
+                                    <p className="text-sm text-muted-foreground">{contact.role}</p>
+                                </div>
+                            </div>
+                        </TableCell>
+                        <TableCell>{contact.company}</TableCell>
+                        <TableCell className="hidden md:table-cell">{contact.email}</TableCell>
+                        <TableCell className="hidden lg:table-cell">{contact.phone}</TableCell>
+                        <TableCell className="text-right">
+                             <div className="flex gap-1 items-center justify-end">
+                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                                    <Mail className="h-4 w-4" />
+                                    <span className="sr-only">Email</span>
+                                </Button>
+                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                                    <Phone className="h-4 w-4" />
+                                    <span className="sr-only">Call</span>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetailSheet(contact)}}>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    <span className="sr-only">View Details</span>
+                                </Button>
+                             </div>
+                        </TableCell>
+                    </TableRow>
+                ))}
+            </TableBody>
+        </Table>
          {filteredContacts.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
                 <p className="text-lg font-semibold">No contacts found</p>
@@ -443,6 +464,16 @@ function ContactsView() {
             </div>
         )}
       </div>
+      
+      {selectedContact && (
+        <ContactDetailSheet
+            open={isDetailSheetOpen}
+            onOpenChange={setDetailSheetOpen}
+            contact={selectedContact}
+            onEdit={() => openEditForm(selectedContact)}
+            onDelete={() => handleDeleteContact(selectedContact.id)}
+        />
+      )}
       
       <ContactFormDialog
         key={editingContact ? editingContact.id : 'create'}
@@ -462,26 +493,65 @@ function ContactsView() {
 }
 
 
-function ContactDetails({ contact }: { contact: Contact }) {
+function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact, onEdit: () => void, onDelete: () => void }) {
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
     const relatedCases = useMemo(() => mockCases.filter(c => c.contactId === contact.id), [contact.id]);
     const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId === contact.id), [contact.id]);
     const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId === contact.id), [contact.id]);
 
     return (
-        <Tabs defaultValue="related" className="w-full">
-            <TabsList>
-                <TabsTrigger value="related">Related Items</TabsTrigger>
-                <TabsTrigger value="notes">Notes</TabsTrigger>
-            </TabsList>
-            <TabsContent value="related" className="mt-4 space-y-6">
-                <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
-                <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
-                <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
-            </TabsContent>
-            <TabsContent value="notes" className="mt-4">
-                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{contact.notes || "No notes for this contact."}</p>
-            </TabsContent>
-        </Tabs>
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent className="w-full sm:max-w-2xl p-0">
+                 <div className="flex flex-col h-full">
+                    <SheetHeader className="p-6 border-b bg-card">
+                         <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                                <Avatar className="h-16 w-16">
+                                    <AvatarImage src={`https://placehold.co/64x64.png`} data-ai-hint="person avatar" alt={contact.name} />
+                                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <SheetTitle className="font-headline text-2xl">{contact.name}</SheetTitle>
+                                    <SheetDescription>{contact.role} at {contact.company}</SheetDescription>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
+                                {isAdmin && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
+                                <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
+                            </div>
+                        </div>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <Tabs defaultValue="details">
+                            <TabsList>
+                                <TabsTrigger value="details">Details</TabsTrigger>
+                                <TabsTrigger value="related">Related Items</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="details" className="mt-4 space-y-4">
+                                <div>
+                                    <h4 className="font-semibold mb-2">Contact Information</h4>
+                                    <div className="text-sm space-y-2">
+                                        <p><span className="text-muted-foreground w-20 inline-block">Email:</span> {contact.email}</p>
+                                        <p><span className="text-muted-foreground w-20 inline-block">Phone:</span> {contact.phone}</p>
+                                    </div>
+                                </div>
+                                 <div>
+                                    <h4 className="font-semibold mb-2">Notes</h4>
+                                    <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{contact.notes || "No notes for this contact."}</p>
+                                 </div>
+                            </TabsContent>
+                            <TabsContent value="related" className="mt-4 space-y-6">
+                                <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
+                                <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
+                                <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
     )
 }
 
