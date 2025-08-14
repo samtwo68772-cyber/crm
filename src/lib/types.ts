@@ -114,3 +114,16 @@ export type AuditLog = {
     details: string;
     timestamp: string;
 };
+
+export type Email = {
+    id: string;
+    from: { name: string, email: string };
+    to: { name: string, email: string };
+    subject: string;
+    body: string;
+    date: string;
+    type: 'inbox' | 'sent';
+    read: boolean;
+    linkedCaseId?: string;
+    attachments?: { name: string, size: string, type: 'PDF' | 'Image' | 'Document' }[];
+};

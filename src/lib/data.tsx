@@ -1,5 +1,6 @@
 
-import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog } from './types';
+
+import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
@@ -230,4 +231,63 @@ export const auditLogs: AuditLog[] = [
   { id: 'log-4', userId: 'user-1', action: 'Create User', details: 'Created new user: Patricia Williams (staff)', timestamp: '2024-05-22T14:15:00Z' },
   { id: 'log-5', userId: 'user-3', action: 'Delete Task', details: 'Deleted task: "Review old tickets"', timestamp: '2024-05-22T09:45:00Z' },
   { id: 'log-6', userId: 'user-1', action: 'Revoke API Key', details: 'Revoked API key "sk_...w456"', timestamp: '2024-05-21T18:00:00Z' },
+];
+
+export const emails: Email[] = [
+    {
+        id: 'email-1',
+        from: { name: 'John Doe', email: 'john.d@customer.com' },
+        to: { name: 'Support Team', email: 'support@mint-crm.com' },
+        subject: 'Re: Login issue on mobile',
+        body: 'Thanks for looking into this. Here is the screenshot of the error message I mentioned.',
+        date: '2024-05-21T14:30:00Z',
+        type: 'inbox',
+        read: false,
+        linkedCaseId: 'case-101',
+        attachments: [
+            { name: 'error_screenshot.png', size: '350 KB', type: 'Image' }
+        ]
+    },
+    {
+        id: 'email-2',
+        from: { name: 'Maria Garcia', email: 'maria.g@example.com' },
+        to: { name: 'John Doe', email: 'john.d@customer.com' },
+        subject: 'Re: Login issue on mobile',
+        body: 'Hi John, thanks for sending that over. We have identified the issue and are working on a fix. We will notify you once it is resolved.',
+        date: '2024-05-22T09:15:00Z',
+        type: 'sent',
+        read: true,
+        linkedCaseId: 'case-101'
+    },
+    {
+        id: 'email-3',
+        from: { name: 'New Prospect', email: 'new.prospect@company.com' },
+        to: { name: 'Sales Team', email: 'sales@mint-crm.com' },
+        subject: 'Inquiry about Enterprise Plan',
+        body: 'Hello, my team is interested in learning more about your Enterprise plan features and pricing. Can someone from your sales team reach out to me?',
+        date: '2024-05-22T11:00:00Z',
+        type: 'inbox',
+        read: true,
+    },
+    {
+        id: 'email-4',
+        from: { name: 'Jane Roe', email: 'jane.r@customer.com' },
+        to: { name: 'Support Team', email: 'support@mint-crm.com' },
+        subject: 'Follow-up on billing question',
+        body: 'Hi, just wanted to follow up on my previous email about the invoice. Have you had a chance to look at it?',
+        date: '2024-05-22T15:00:00Z',
+        type: 'inbox',
+        read: false,
+        linkedCaseId: 'case-102'
+    },
+    {
+        id: 'email-5',
+        from: { name: 'Alex Johnson', email: 'alex.j@example.com' },
+        to: { name: 'All Staff', email: 'staff@mint-crm.com' },
+        subject: 'Q3 All-Hands Meeting',
+        body: 'Team, a friendly reminder that our Q3 all-hands meeting is scheduled for next Friday. Please be sure to add it to your calendars.',
+        date: '2024-05-20T10:00:00Z',
+        type: 'sent',
+        read: true,
+    }
 ];
