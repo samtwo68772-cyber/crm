@@ -1,10 +1,10 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { emails as mockEmails, contacts as mockContacts, cases as mockCases } from '@/lib/data.tsx';
-import type { Email, Contact, Case } from '@/lib/types';
+import { emails as mockEmails, contacts as mockContacts, cases as mockCases, accounts as mockAccounts } from '@/lib/data.tsx';
+import type { Email, Contact, Case, Account } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -34,6 +34,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 export default function EmailsPage() {
@@ -45,6 +46,8 @@ export default function EmailsPage() {
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
     const { toast } = useToast();
+    const [isContactCreateOpen, setContactCreateOpen] = useState(false);
+    const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
 
     const filteredEmails = useMemo(() => {
         return emails.filter(email => 
@@ -67,11 +70,8 @@ export default function EmailsPage() {
         const relatedContact = allContacts.find(c => c.email === email.from.email);
         
         if (!relatedContact) {
-            toast({
-                variant: 'destructive',
-                title: 'Contact not found',
-                description: `No contact found for ${email.from.email}. Please create a contact first.`,
-            });
+            setEmailForNewContact(email);
+            setContactCreateOpen(true);
             return;
         }
 
@@ -106,6 +106,18 @@ export default function EmailsPage() {
             description: `New case "${newCase.subject}" has been created and linked to this email.`,
         });
     };
+    
+    const handleAddContact = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
+        const newContact: Contact = {
+          id: `contact-${Date.now()}`,
+          avatar: '/avatars/placeholder.png',
+          ...newContactData
+        };
+        setAllContacts([newContact, ...allContacts]);
+        setContactCreateOpen(false);
+        setEmailForNewContact(null);
+        toast({ title: "Contact Created", description: `Contact "${newContact.name}" has been successfully created. You can now create a case from their email.` });
+      };
 
     return (
         <div className="flex-1 p-0 flex flex-col h-[calc(100vh_-_5rem)]">
@@ -221,6 +233,65 @@ export default function EmailsPage() {
                     )}
                 </main>
             </div>
+             <ContactFormDialog
+                key={emailForNewContact?.id}
+                open={isContactCreateOpen}
+                onOpenChange={setContactCreateOpen}
+                initialEmail={emailForNewContact?.from.email}
+                initialName={emailForNewContact?.from.name}
+                onSave={handleAddContact}
+              />
         </div>
+    );
+}
+
+function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void }) {
+    const [name, setName] = useState(initialName || '');
+    const [email, setEmail] = useState(initialEmail || '');
+    const [phone, setPhone] = useState('');
+    const [company, setCompany] = useState('');
+    const [role, setRole] = useState('');
+    const [notes, setNotes] = useState('');
+    
+    useEffect(() => {
+        if(open) {
+            setName(initialName || '');
+            setEmail(initialEmail || '');
+            setPhone(''); setCompany(''); setRole(''); setNotes('');
+        }
+    }, [initialEmail, initialName, open]);
+
+    const handleSubmit = () => {
+        const selectedAccount = mockAccounts.find(acc => acc.name === company);
+        onSave({ name, email, phone, company, accountId: selectedAccount?.id || '', role, notes });
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Create New Contact</DialogTitle>
+                    <DialogDescription>This contact was not found. Please fill in their details to create a new contact record.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Name</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="phone" className="text-right">Phone</Label><Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} className="col-span-3" /></div>
+                     <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="company" className="text-right">Company</Label>
+                        <Select onValueChange={setCompany} value={company}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a company" /></SelectTrigger>
+                            <SelectContent>{mockAccounts.map(acc => <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="role" className="text-right">Role</Label><Input id="role" value={role} onChange={(e) => setRole(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="notes" className="text-right">Notes</Label><Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} className="col-span-3" /></div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" onClick={handleSubmit}>Create Contact</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

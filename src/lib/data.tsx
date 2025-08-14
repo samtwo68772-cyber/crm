@@ -103,7 +103,8 @@ export const cases: Case[] = [
     assignedTo: 'Unassigned', 
     createdAt: '2024-05-21', 
     description: 'The main dashboard is taking over 10 seconds to load.', 
-    communications: [] 
+    communications: [] ,
+    contactId: 'contact-5'
   },
   { 
     id: 'case-106', 
