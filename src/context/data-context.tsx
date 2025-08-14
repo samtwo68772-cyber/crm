@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User } from '@/lib/types';
+import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType } from '@/lib/types';
 import { 
     accounts as mockAccounts, 
     cases as mockCases, 
@@ -14,6 +14,20 @@ import {
     teams as mockTeams,
     users as mockUsers
 } from '@/lib/data.tsx';
+
+const initialEmailSettings: EmailSettingsType = {
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUser: '',
+    smtpPass: '',
+    smtpEncryption: 'tls',
+    imapHost: '',
+    imapPort: 993,
+    imapUser: '',
+    imapPass: '',
+    imapEncryption: 'ssl',
+    configured: false
+};
 
 interface DataContextType {
   accounts: Account[];
@@ -34,6 +48,8 @@ interface DataContextType {
   setTeams: React.Dispatch<React.SetStateAction<Team[]>>;
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  emailSettings: EmailSettingsType;
+  setEmailSettings: React.Dispatch<React.SetStateAction<EmailSettingsType>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -48,6 +64,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [tasks, setTasks] = useState<Task[]>(mockTasks);
   const [teams, setTeams] = useState<Team[]>(mockTeams);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const [emailSettings, setEmailSettings] = useState<EmailSettingsType>(initialEmailSettings);
   
 
   const value = {
@@ -60,6 +77,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     tasks, setTasks,
     teams, setTeams,
     users, setUsers,
+    emailSettings, setEmailSettings,
   };
 
   return (

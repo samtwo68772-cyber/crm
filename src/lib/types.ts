@@ -126,3 +126,17 @@ export type Email = {
     linkedCaseId?: string;
     attachments?: { name: string, size: string, type: 'PDF' | 'Image' | 'Document' }[];
 };
+
+export type EmailSettingsType = {
+    smtpHost: string;
+    smtpPort: number;
+    smtpUser: string;
+    smtpPass: string;
+    smtpEncryption: string;
+    imapHost: string;
+    imapPort: number;
+    imapUser: string;
+    imapPass: string;
+    imapEncryption: string;
+    configured: boolean;
+};

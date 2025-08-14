@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { useData } from '@/context/data-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
-import type { User, Team, AuditLog as AuditLogType } from '@/lib/types';
+import type { User, Team, AuditLog as AuditLogType, EmailSettingsType } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,7 @@ import { MultiSelect, OptionType } from '@/components/ui/multi-select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
+import { useSearchParams } from 'next/navigation'
 
 
 const initialSettings = {
@@ -43,25 +45,12 @@ const initialSettings = {
     sessionTimeout: 30, // in minutes
     ipWhitelist: '192.168.1.1\n127.0.0.1',
   },
-  email: {
-      smtpHost: 'smtp.example.com',
-      smtpPort: 587,
-      smtpUser: 'user@example.com',
-      smtpPass: 'password123',
-      smtpEncryption: 'tls',
-      imapHost: 'imap.example.com',
-      imapPort: 993,
-      imapUser: 'user@example.com',
-      imapPass: 'password123',
-      imapEncryption: 'ssl',
-      configured: false
-  }
 };
 
 type SettingsType = typeof initialSettings;
 type GeneralSettingsType = SettingsType['general'];
 type SecuritySettingsType = SettingsType['security'];
-type EmailSettingsType = SettingsType['email'];
+
 
 const initialAlerts = [
     { id: 'new-case', name: 'New Case Created', description: 'Notify when a new case is created.', enabled: true, channels: ['in-app', 'email'], threshold: null },
@@ -92,10 +81,13 @@ type Workflow = typeof initialWorkflows[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
+    const { emailSettings, setEmailSettings } = useData();
     const { toast } = useToast();
     const [settings, setSettings] = useState<SettingsType>(initialSettings);
     const [alerts, setAlerts] = useState<AlertSetting[]>(initialAlerts);
     const isAdmin = user?.role === 'admin';
+    const searchParams = useSearchParams()
+    const defaultTab = searchParams.get('tab') || "general";
 
     const handleSettingChange = (section: keyof SettingsType, newSettings: Partial<SettingsType[keyof SettingsType]>) => {
         setSettings(prev => ({
@@ -123,7 +115,7 @@ export default function SettingsPage() {
                 <p className="text-muted-foreground">Configure system-wide settings and preferences</p>
             </div>
 
-            <Tabs defaultValue="general" className="w-full">
+            <Tabs defaultValue={defaultTab} className="w-full">
                  <div className="overflow-x-auto pb-1">
                      <TabsList className="inline-flex h-auto items-center justify-start rounded-lg bg-muted p-1 gap-1 text-muted-foreground">
                         <TabsTrigger value="general" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">General</TabsTrigger>
@@ -147,7 +139,7 @@ export default function SettingsPage() {
                     <SecuritySettings initialSettings={settings.security} onSave={(newSettings) => handleSettingChange('security', newSettings)} />
                 </TabsContent>
                 <TabsContent value="email" className="mt-6">
-                    <EmailSettings initialSettings={settings.email} onSave={(newSettings) => handleSettingChange('email', newSettings)} />
+                    <EmailSettings initialSettings={emailSettings} onSave={setEmailSettings} />
                 </TabsContent>
                 <TabsContent value="alerts" className="mt-6">
                     <AlertsSettings initialAlerts={initialAlerts} onSave={setAlerts} />
@@ -540,16 +532,6 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
 
 function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSettingsType; onSave: (data: EmailSettingsType) => void; }) {
     const [isDialogOpen, setDialogOpen] = useState(false);
-    const [settings, setSettings] = useState<EmailSettingsType>(initialSettings);
-    
-    useEffect(() => {
-        setSettings(initialSettings);
-    }, [initialSettings]);
-    
-    const handleSaveChanges = (newSettings: EmailSettingsType) => {
-        onSave(newSettings);
-        setDialogOpen(false);
-    }
     
     return (
         <>
@@ -568,12 +550,12 @@ function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSett
                         <div>
                             <h4 className="font-medium">Email Server</h4>
                             <p className="text-sm text-muted-foreground">
-                                {settings.configured ? `Connected to ${settings.smtpHost} / ${settings.imapHost}` : 'Not configured'}
+                                {initialSettings.configured ? `Connected to ${initialSettings.smtpHost} / ${initialSettings.imapHost}` : 'Not configured'}
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                             <Badge variant={settings.configured ? 'success' : 'secondary'}>
-                                {settings.configured ? 'Connected' : 'Inactive'}
+                             <Badge variant={initialSettings.configured ? 'success' : 'secondary'}>
+                                {initialSettings.configured ? 'Connected' : 'Inactive'}
                             </Badge>
                             <Button variant="outline" onClick={() => setDialogOpen(true)}>Configure</Button>
                         </div>
@@ -583,8 +565,8 @@ function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSett
             <EmailSettingsDialog
                 open={isDialogOpen}
                 onOpenChange={setDialogOpen}
-                settings={settings}
-                onSave={handleSaveChanges}
+                settings={initialSettings}
+                onSave={onSave}
             />
         </>
     );
@@ -625,6 +607,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
     const handleSubmit = () => {
         onSave({ ...localSettings, configured: true });
         toast({ title: 'Email Settings Saved', description: 'Your email configuration has been updated.' });
+        onOpenChange(false);
     };
 
     return (
@@ -642,7 +625,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
                     <TabsContent value="smtp" className="pt-4">
                         <div className="grid gap-4 py-4">
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpHost" className="text-right">Host</Label><Input id="smtpHost" value={localSettings.smtpHost} onChange={(e) => handleFieldChange('smtpHost', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPort" className="text-right">Port</Label><Input id="smtpPort" type="number" value={localSettings.smtpPort} onChange={(e) => handleFieldChange('smtpPort', parseInt(e.target.value, 10))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPort" className="text-right">Port</Label><Input id="smtpPort" type="number" value={localSettings.smtpPort} onChange={(e) => handleFieldChange('smtpPort', parseInt(e.target.value, 10) || 0)} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpUser" className="text-right">Username</Label><Input id="smtpUser" value={localSettings.smtpUser} onChange={(e) => handleFieldChange('smtpUser', e.target.value)} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPass" className="text-right">Password</Label><Input id="smtpPass" type="password" value={localSettings.smtpPass} onChange={(e) => handleFieldChange('smtpPass', e.target.value)} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -657,7 +640,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
                     <TabsContent value="imap" className="pt-4">
                         <div className="grid gap-4 py-4">
                              <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapHost" className="text-right">Host</Label><Input id="imapHost" value={localSettings.imapHost} onChange={(e) => handleFieldChange('imapHost', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPort" className="text-right">Port</Label><Input id="imapPort" type="number" value={localSettings.imapPort} onChange={(e) => handleFieldChange('imapPort', parseInt(e.target.value, 10))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPort" className="text-right">Port</Label><Input id="imapPort" type="number" value={localSettings.imapPort} onChange={(e) => handleFieldChange('imapPort', parseInt(e.target.value, 10) || 0)} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapUser" className="text-right">Username</Label><Input id="imapUser" value={localSettings.imapUser} onChange={(e) => handleFieldChange('imapUser', e.target.value)} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPass" className="text-right">Password</Label><Input id="imapPass" type="password" value={localSettings.imapPass} onChange={(e) => handleFieldChange('imapPass', e.target.value)} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4">
@@ -897,7 +880,7 @@ function ApiSettings() {
                             variant="ghost"
                             size="icon"
                             className="absolute right-2 top-1/2 -translate-y-1/2"
-                            onClick={() => copyToClipboard(newlyGeneratedKey!, "New API key copied to clipboard.")}
+                            onClick={() => newlyGeneratedKey && copyToClipboard(newlyGeneratedKey, "New API key copied to clipboard.")}
                         >
                             <Copy className="h-4 w-4" />
                         </Button>
