@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { emails as mockEmails, contacts as mockContacts, cases as mockCases, accounts as mockAccounts } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Email, Contact, Case, Account } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,9 +40,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 export default function EmailsPage() {
     const { user } = useAuth();
-    const [emails, setEmails] = useState<Email[]>(mockEmails);
-    const [allCases, setAllCases] = useState<Case[]>(mockCases);
-    const [allContacts, setAllContacts] = useState<Contact[]>(mockContacts);
+    const { emails, setEmails, cases, setCases, contacts, setContacts, accounts } = useData();
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(emails.find(e => e.type === 'inbox') || null);
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
@@ -91,7 +89,7 @@ export default function EmailsPage() {
             contactId: contact.id
         };
         
-        setAllCases(prev => [newCase, ...prev]);
+        setCases(prev => [newCase, ...prev]);
         setEmails(prev => prev.map(e => e.id === email.id ? {...e, linkedCaseId: newCase.id} : e));
         setSelectedEmail(prev => prev ? {...prev, linkedCaseId: newCase.id} : null);
 
@@ -102,7 +100,7 @@ export default function EmailsPage() {
     }
     
     const handleCreateCaseFromEmail = (email: Email) => {
-        const relatedContact = allContacts.find(c => c.email === email.from.email);
+        const relatedContact = contacts.find(c => c.email === email.from.email);
         
         if (relatedContact) {
             createCaseForContact(relatedContact, email);
@@ -118,7 +116,7 @@ export default function EmailsPage() {
           avatar: '/avatars/placeholder.png',
           ...newContactData
         };
-        setAllContacts([newContact, ...allContacts]);
+        setContacts(prev => [newContact, ...prev]);
         setContactCreateOpen(false);
         
         toast({ title: "Contact Created", description: `Contact "${newContact.name}" has been successfully created. Now creating case.` });
@@ -273,6 +271,7 @@ export default function EmailsPage() {
 }
 
 function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave, onCancel }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void, onCancel: () => void }) {
+    const { accounts } = useData();
     const [name, setName] = useState(initialName || '');
     const [email, setEmail] = useState(initialEmail || '');
     const [phone, setPhone] = useState('');
@@ -289,7 +288,7 @@ function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSa
     }, [initialEmail, initialName, open]);
 
     const handleSubmit = () => {
-        const selectedAccount = mockAccounts.find(acc => acc.name === company);
+        const selectedAccount = accounts.find(acc => acc.name === company);
         onSave({ name, email, phone, company, accountId: selectedAccount?.id || '', role, notes });
     };
     
@@ -315,7 +314,7 @@ function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSa
                         <Label htmlFor="company" className="text-right">Company</Label>
                         <Select onValueChange={setCompany} value={company}>
                             <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a company" /></SelectTrigger>
-                            <SelectContent>{mockAccounts.map(acc => <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="role" className="text-right">Role</Label><Input id="role" value={role} onChange={(e) => setRole(e.target.value)} className="col-span-3" /></div>

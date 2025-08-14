@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { meetings as mockMeetings, cases as mockCases, users as mockUsers } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Meeting, Case, User } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -146,7 +146,7 @@ function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[
 
 
 export default function MeetingsPage() {
-  const [meetings, setMeetings] = useState<Meeting[]>(mockMeetings);
+  const { meetings, setMeetings, cases, users } = useData();
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -294,8 +294,8 @@ export default function MeetingsPage() {
                 meeting={selectedMeeting} 
                 onUpdate={handleUpdateMeeting} 
                 onDelete={handleDeleteMeeting}
-                users={mockUsers}
-                cases={mockCases}
+                users={users}
+                cases={cases}
             />
         </>
       )}
@@ -303,8 +303,8 @@ export default function MeetingsPage() {
         open={isCreateDialogOpen} 
         onOpenChange={setCreateDialogOpen} 
         onCreate={handleCreateMeeting} 
-        users={mockUsers}
-        cases={mockCases}
+        users={users}
+        cases={cases}
       />
     </div>
   );
@@ -312,8 +312,9 @@ export default function MeetingsPage() {
 
 function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void }) {
     const { user } = useAuth();
+    const { cases, users } = useData();
     const isAdmin = user?.role === 'admin';
-    const linkedCase = useMemo(() => mockCases.find(c => c.id === meeting.linkedRecord), [meeting]);
+    const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -339,7 +340,7 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
                          <div>
                             <h4 className="font-semibold mb-2">Participants</h4>
                             <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
-                                const participant = mockUsers.find(u => u.id === pId);
+                                const participant = users.find(u => u.id === pId);
                                 return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
                             })}</div>
                         </div>

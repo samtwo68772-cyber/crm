@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { accounts as mockAccounts, contacts as mockContacts, cases as mockCases, tasks as mockTasks, meetings as mockMeetings } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Account, Contact, Case, Task, Meeting } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -49,7 +49,7 @@ export default function CustomersPage() {
 
 
 function AccountsView() {
-  const [accounts, setAccounts] = useState<Account[]>(mockAccounts);
+  const { accounts, setAccounts, contacts: mockContacts, cases: mockCases, tasks: mockTasks, meetings: mockMeetings } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -181,14 +181,15 @@ function AccountsView() {
 
 function AccountDetailSheet({ open, onOpenChange, account, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, account: Account, onEdit: () => void, onDelete: () => void }) {
     const { user } = useAuth();
+    const { contacts: mockContacts, cases: mockCases, tasks: mockTasks, meetings: mockMeetings } = useData();
     const isAdmin = user?.role === 'admin';
     
-    const relatedContacts = useMemo(() => mockContacts.filter(c => c.accountId === account.id), [account.id]);
+    const relatedContacts = useMemo(() => mockContacts.filter(c => c.accountId === account.id), [account.id, mockContacts]);
     const relatedContactIds = useMemo(() => relatedContacts.map(c => c.id), [relatedContacts]);
 
-    const relatedCases = useMemo(() => mockCases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)), [relatedContactIds]);
-    const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)), [relatedContactIds]);
-    const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId && relatedContactIds.includes(m.contactId)), [relatedContactIds]);
+    const relatedCases = useMemo(() => mockCases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)), [relatedContactIds, mockCases]);
+    const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)), [relatedContactIds, mockTasks]);
+    const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId && relatedContactIds.includes(m.contactId)), [relatedContactIds, mockMeetings]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -323,7 +324,7 @@ function AccountFormDialog({ open, onOpenChange, account, onSave }: { open: bool
 }
 
 function ContactsView() {
-  const [contacts, setContacts] = useState<Contact[]>(mockContacts);
+  const { contacts, setContacts, accounts } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -336,8 +337,8 @@ function ContactsView() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const companies = useMemo(() => ['all', ...Array.from(new Set(mockContacts.map(c => c.company)))], []);
-  const roles = useMemo(() => ['all', ...Array.from(new Set(mockContacts.map(c => c.role)))], []);
+  const companies = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.company)))], [contacts]);
+  const roles = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.role)))], [contacts]);
 
   const filteredContacts = useMemo(() => {
     return contacts.filter(contact =>
@@ -506,10 +507,11 @@ function ContactsView() {
 
 function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact, onEdit: () => void, onDelete: () => void }) {
     const { user } = useAuth();
+    const { cases: mockCases, tasks: mockTasks, meetings: mockMeetings } = useData();
     const isAdmin = user?.role === 'admin';
-    const relatedCases = useMemo(() => mockCases.filter(c => c.contactId === contact.id), [contact.id]);
-    const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId === contact.id), [contact.id]);
-    const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId === contact.id), [contact.id]);
+    const relatedCases = useMemo(() => mockCases.filter(c => c.contactId === contact.id), [contact.id, mockCases]);
+    const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId === contact.id), [contact.id, mockTasks]);
+    const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId === contact.id), [contact.id, mockMeetings]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -567,6 +569,7 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
 }
 
 function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact | null, onSave: (data: any, isEdit: boolean) => void }) {
+    const { accounts: mockAccounts } = useData();
     const isEditMode = !!contact;
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -655,5 +658,3 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
         </div>
     )
 }
-
-    

@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { DateRange } from "react-day-picker"
-import { cases as mockCases, users as mockUsers, tasks as mockTasks } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Case, User, Communication, Task } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ function getStatusVariant(status: Case['status']) {
 
 
 export default function CasesPage() {
-  const [cases, setCases] = useState<Case[]>(mockCases);
+  const { cases, setCases, users: mockUsers, tasks: mockTasks } = useData();
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
@@ -195,6 +195,7 @@ export default function CasesPage() {
 }
 
 function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void }) {
+  const { users: mockUsers, tasks: mockTasks } = useData();
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
   const [communications, setCommunications] = useState(caseItem.communications || []);
@@ -454,5 +455,3 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
-
-    

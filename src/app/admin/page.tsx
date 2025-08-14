@@ -3,8 +3,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { useData } from '@/context/data-context';
 import { useRouter } from 'next/navigation';
-import { users as mockUsers, teams as mockTeams, cases as mockCases, tasks as mockTasks } from '@/lib/data.tsx';
 import type { User, Team, Case, Task } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -63,7 +63,7 @@ export default function AdminPage() {
 }
 
 function UserManagement() {
-    const [users, setUsers] = useState<User[]>(mockUsers);
+    const { users, setUsers, teams: mockTeams } = useData();
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -245,7 +245,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
 }
 
 function TeamManagement() {
-    const [teams, setTeams] = React.useState<Team[]>(mockTeams);
+    const { teams, users: mockUsers } = useData();
     const usersInTeam = (teamName: string) => mockUsers.filter(u => u.team === teamName).length;
 
     return (
@@ -284,5 +284,3 @@ function TeamManagement() {
         </div>
     );
 }
-
-    

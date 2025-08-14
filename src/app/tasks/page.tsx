@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { tasks as mockTasks, users as mockUsers, cases as mockCases } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Task, User, Case } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -43,7 +43,7 @@ function getStatusIcon(status: Task['status']) {
 
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks);
+  const { tasks, setTasks, users: mockUsers, cases: mockCases } = useData();
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -100,7 +100,7 @@ export default function TasksPage() {
                               (task.linkedCase && mockCases.find(c => c.id === task.linkedCase)?.subject.toLowerCase().includes(searchQuery.toLowerCase()));
         return matchesStatus && matchesPriority && matchesSearch;
      });
-  }, [userTasks, statusFilter, priorityFilter, searchQuery]);
+  }, [userTasks, statusFilter, priorityFilter, searchQuery, mockCases]);
 
   const summaryStats = useMemo(() => {
     const toDo = userTasks.filter(t => t.status === 'To Do').length;
@@ -230,6 +230,7 @@ export default function TasksPage() {
 
 function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task) => void; }) {
     const { user } = useAuth();
+    const { users: mockUsers, cases: mockCases } = useData();
     const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
     const linkedCase = mockCases.find(c => c.id === task.linkedCase);
     const isAdmin = user?.role === 'admin';
@@ -297,6 +298,7 @@ interface TaskDialogProps {
 }
 
 function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
+    const { users: mockUsers, cases: mockCases } = useData();
     const isEditMode = task !== null;
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -305,8 +307,8 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
     const [assignedTo, setAssignedTo] = useState<string | undefined>();
     const [linkedCase, setLinkedCase] = useState<string | undefined>();
     
-    const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), []);
-    const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id })), []);
+    const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), [mockUsers]);
+    const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id })), [mockCases]);
 
     useEffect(() => {
         if (isEditMode && task) {

@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { documents as mockDocuments, cases as mockCases, accounts as mockAccounts } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Document } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -28,16 +28,9 @@ const fileTypeIcons: { [key in Document['type']]: React.ReactNode } = {
     'Meeting': <Calendar className="h-10 w-10 text-purple-500" />,
 };
 
-const getLinkedItemName = (doc: Document) => {
-    switch (doc.linkedToType) {
-        case 'Case': return mockCases.find(c => c.id === doc.linkedToId)?.subject || doc.linkedToId;
-        case 'Account': return mockAccounts.find(a => a.id === doc.linkedToId)?.name || doc.linkedToId;
-        default: return doc.linkedToId;
-    }
-}
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
+  const { documents, setDocuments, cases, accounts } = useData();
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
@@ -48,7 +41,15 @@ export default function DocumentsPage() {
   const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
 
-  const documentCategories = useMemo(() => ['all', ...Array.from(new Set(mockDocuments.map(d => d.category)))], []);
+  const getLinkedItemName = (doc: Document) => {
+    switch (doc.linkedToType) {
+        case 'Case': return cases.find(c => c.id === doc.linkedToId)?.subject || doc.linkedToId;
+        case 'Account': return accounts.find(a => a.id === doc.linkedToId)?.name || doc.linkedToId;
+        default: return doc.linkedToId;
+    }
+  }
+
+  const documentCategories = useMemo(() => ['all', ...Array.from(new Set(documents.map(d => d.category)))], [documents]);
 
   const filteredDocuments = useMemo(() => {
     return documents.filter(doc => {
@@ -247,6 +248,7 @@ export default function DocumentsPage() {
 }
 
 function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, document: Document | null, onSave: (data: any, isEdit: boolean) => void }) {
+    const { cases: mockCases, accounts: mockAccounts } = useData();
     const isEditMode = !!document;
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -260,7 +262,7 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
         if (linkedToType === 'Case') return mockCases.map(c => ({ value: c.id, label: c.subject }));
         if (linkedToType === 'Account') return mockAccounts.map(a => ({ value: a.id, label: a.name }));
         return [];
-    }, [linkedToType]);
+    }, [linkedToType, mockCases, mockAccounts]);
     
     React.useEffect(() => {
         if(document) {
@@ -360,7 +362,3 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
         </Dialog>
     )
 }
-
-    
-
-    

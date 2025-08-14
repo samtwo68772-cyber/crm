@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { cases as mockCases, tasks as mockTasks, meetings as mockMeetings, users as mockUsers } from '@/lib/data.tsx';
+import { useData } from '@/context/data-context';
 import type { Case, Task, Meeting, User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -61,6 +61,7 @@ function KpiCard({ title, value, change, changeType, icon: Icon }: { title: stri
 }
 
 export default function ReportsPage() {
+    const { cases: mockCases, tasks: mockTasks, users: mockUsers } = useData();
     const [reportType, setReportType] = useState('overview');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
 
@@ -71,7 +72,7 @@ export default function ReportsPage() {
         return mockCases.filter(c => 
             isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate })
         );
-    }, [dateRange]);
+    }, [dateRange, mockCases]);
 
     const kpiData = useMemo(() => {
         const totalCases = filteredCases.length;
@@ -82,7 +83,7 @@ export default function ReportsPage() {
             customerSatisfaction: { value: '92%', change: '+1.8%', type: 'positive' },
             activeUsers: { value: `${mockUsers.filter(u => u.status === 'Active').length}`, change: `of ${mockUsers.length}`, type: 'positive' },
         }
-    }, [filteredCases]);
+    }, [filteredCases, mockUsers]);
     
     const caseStatusData = useMemo(() => {
         const counts = filteredCases.reduce((acc, curr) => {
@@ -111,7 +112,7 @@ export default function ReportsPage() {
                 avgResolution: (Math.random() * 5).toFixed(1) + 'd', // mock data
             };
         });
-    }, [filteredCases]);
+    }, [filteredCases, mockUsers, mockTasks]);
     
     const handleExport = (format: 'pdf' | 'excel') => {
         console.log(`Exporting ${reportType} report as ${format} for date range:`, dateRange);
@@ -271,4 +272,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
