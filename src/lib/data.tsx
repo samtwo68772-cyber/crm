@@ -290,5 +290,25 @@ export const emails: Email[] = [
         date: '2024-05-20T10:00:00Z',
         type: 'sent',
         read: true,
+    },
+    {
+        id: 'email-6',
+        from: { name: 'Potential Customer', email: 'potential.customer@email.com' },
+        to: { name: 'Support Team', email: 'support@mint-crm.com' },
+        subject: 'Urgent: Server is down',
+        body: 'Our main application server seems to be down. We are unable to access any of our services. Please investigate immediately.',
+        date: new Date().toISOString(),
+        type: 'inbox',
+        read: false,
+    },
+    {
+        id: 'email-7',
+        from: { name: 'Another Inquiry', email: 'another.inquiry@email.com' },
+        to: { name: 'Support Team', email: 'support@mint-crm.com' },
+        subject: 'Question about your API',
+        body: 'I was looking at your API documentation and had a question about the authentication method. Can you provide more details?',
+        date: new Date().toISOString(),
+        type: 'inbox',
+        read: false,
     }
 ];

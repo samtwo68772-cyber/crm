@@ -52,6 +52,100 @@ function EmailClientView() {
     const [isConfirmCreateContactOpen, setConfirmCreateContactOpen] = useState(false);
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [processedEmailIds, setProcessedEmailIds] = useState(new Set<string>());
+
+    const processIncomingEmails = () => {
+        setIsProcessing(true);
+        let processedCount = 0;
+        let casesCreated = 0;
+        let contactsCreated = 0;
+    
+        const emailsToProcess = emails.filter(e => e.type === 'inbox' && !processedEmailIds.has(e.id) && !e.linkedCaseId);
+    
+        if (emailsToProcess.length === 0) {
+            setIsProcessing(false);
+            return;
+        }
+
+        let updatedEmails = [...emails];
+        let updatedContacts = [...contacts];
+        let newCases: Case[] = [];
+        
+        emailsToProcess.forEach(email => {
+            processedCount++;
+            let contact = updatedContacts.find(c => c.email === email.from.email);
+
+            if (!contact) {
+                const newContact: Contact = {
+                    id: `contact-${Date.now()}`,
+                    name: email.from.name,
+                    email: email.from.email,
+                    phone: '',
+                    company: 'Unknown',
+                    role: 'Unknown',
+                    avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
+                    accountId: ''
+                };
+                updatedContacts = [newContact, ...updatedContacts];
+                contact = newContact;
+                contactsCreated++;
+            }
+            
+            const newCase: Case = {
+                id: `case-${Date.now()}`,
+                subject: email.subject,
+                customer: contact.name,
+                email: contact.email,
+                priority: 'Medium',
+                type: 'General Question',
+                status: 'New',
+                assignedTo: 'Unassigned',
+                createdAt: new Date().toISOString().split('T')[0],
+                description: email.body,
+                communications: [{
+                    id: `comm-${Date.now()}`,
+                    type: 'Email',
+                    content: `Original email from ${email.from.name}:\n\n${email.body}`,
+                    author: email.from.name,
+                    authorRole: 'staff',
+                    timestamp: new Date(email.date).toLocaleString(),
+                }],
+                contactId: contact.id
+            };
+            newCases.push(newCase);
+            casesCreated++;
+    
+            updatedEmails = updatedEmails.map(e => e.id === email.id ? { ...e, linkedCaseId: newCase.id } : e);
+            setProcessedEmailIds(prev => new Set(prev).add(email.id));
+        });
+    
+        setTimeout(() => {
+            setEmails(updatedEmails);
+            setContacts(updatedContacts);
+            setCases(prev => [...newCases, ...prev]);
+
+            if (processedCount > 0) {
+                 toast({
+                    title: "Email Processing Complete",
+                    description: `Processed ${processedCount} emails. Created ${casesCreated} cases and ${contactsCreated} new contacts.`,
+                });
+            }
+           
+            setIsProcessing(false);
+        }, 500);
+    };
+    
+    useEffect(() => {
+        const interval = setInterval(() => {
+            processIncomingEmails();
+        }, 120000); // 2 minutes
+
+        // Initial processing on load
+        processIncomingEmails();
+        
+        return () => clearInterval(interval);
+    }, [emails]); // Rerun if emails data changes
+
 
     const filteredEmails = useMemo(() => {
         return emails.filter(email => 
@@ -133,77 +227,10 @@ function EmailClientView() {
         setEmailForNewContact(null);
     };
 
-    const handleProcessEmails = () => {
-        setIsProcessing(true);
-        let processedCount = 0;
-        let casesCreated = 0;
-        let contactsCreated = 0;
-
-        const emailsToProcess = emails.filter(e => e.type === 'inbox' && !e.linkedCaseId);
-
-        let updatedEmails = [...emails];
-        let updatedContacts = [...contacts];
-        let newCases: Case[] = [];
-        
-        emailsToProcess.forEach(email => {
-            processedCount++;
-            let contact = updatedContacts.find(c => c.email === email.from.email);
-
-            if (!contact) {
-                const newContact: Contact = {
-                    id: `contact-${Date.now()}`,
-                    name: email.from.name,
-                    email: email.from.email,
-                    phone: '',
-                    company: 'Unknown',
-                    role: 'Unknown',
-                    avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
-                    accountId: ''
-                };
-                updatedContacts = [newContact, ...updatedContacts];
-                contact = newContact;
-                contactsCreated++;
-            }
-            
-            const newCase: Case = {
-                id: `case-${Date.now()}`,
-                subject: email.subject,
-                customer: contact.name,
-                email: contact.email,
-                priority: 'Medium',
-                type: 'General Question',
-                status: 'New',
-                assignedTo: 'Unassigned',
-                createdAt: new Date().toISOString().split('T')[0],
-                description: email.body,
-                communications: [{
-                    id: `comm-${Date.now()}`,
-                    type: 'Email',
-                    content: `Original email from ${email.from.name}:\n\n${email.body}`,
-                    author: email.from.name,
-                    authorRole: 'staff',
-                    timestamp: new Date(email.date).toLocaleString(),
-                }],
-                contactId: contact.id
-            };
-            newCases.push(newCase);
-            casesCreated++;
-
-            updatedEmails = updatedEmails.map(e => e.id === email.id ? { ...e, linkedCaseId: newCase.id } : e);
-        });
-
-        // Batch update state
-        setTimeout(() => {
-            setEmails(updatedEmails);
-            setContacts(updatedContacts);
-            setCases(prev => [...newCases, ...prev]);
-
-            toast({
-                title: "Email Processing Complete",
-                description: `Processed ${processedCount} emails. Created ${casesCreated} cases and ${contactsCreated} contacts.`,
-            });
-            setIsProcessing(false);
-        }, 1000); // Simulate network delay
+    const handleProcessEmailsManual = () => {
+        if (!isProcessing) {
+             processIncomingEmails();
+        }
     };
     
     return (
@@ -224,7 +251,7 @@ function EmailClientView() {
                         </Button>
                     </div>
                      <Button 
-                        onClick={handleProcessEmails} 
+                        onClick={handleProcessEmailsManual} 
                         disabled={isProcessing}
                         className="w-full"
                     >
