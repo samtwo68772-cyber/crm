@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -92,7 +91,7 @@ export default function EmailsPage() {
                 type: 'Email',
                 content: `Original email received from ${email.from.name}:\n\n${email.body}`,
                 author: email.from.name,
-                authorRole: 'staff', // This should be 'customer' but type doesn't allow
+                authorRole: 'staff',
                 timestamp: new Date(email.date).toLocaleString(),
             }],
             contactId: relatedContact.id

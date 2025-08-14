@@ -74,7 +74,6 @@ export type Account = {
   email?: string;
   website?: string;
   primaryContactId?: string;
-  // The user wants owner removed, but it's used elsewhere. Let's keep it for now and just remove from form.
   owner: string; 
   size?: string;
   location?:string;
