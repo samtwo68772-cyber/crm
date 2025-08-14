@@ -11,6 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -47,6 +48,7 @@ export default function EmailsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const { toast } = useToast();
     const [isContactCreateOpen, setContactCreateOpen] = useState(false);
+    const [isConfirmCreateContactOpen, setConfirmCreateContactOpen] = useState(false);
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
 
     const filteredEmails = useMemo(() => {
@@ -66,20 +68,12 @@ export default function EmailsPage() {
         }
     };
     
-    const handleCreateCaseFromEmail = (email: Email) => {
-        const relatedContact = allContacts.find(c => c.email === email.from.email);
-        
-        if (!relatedContact) {
-            setEmailForNewContact(email);
-            setContactCreateOpen(true);
-            return;
-        }
-
-        const newCase: Case = {
+    const createCaseForContact = (contact: Contact, email: Email) => {
+         const newCase: Case = {
             id: `case-${Date.now()}`,
             subject: email.subject,
-            customer: relatedContact.name,
-            email: relatedContact.email,
+            customer: contact.name,
+            email: contact.email,
             priority: 'Medium',
             type: 'General Question',
             status: 'New',
@@ -94,7 +88,7 @@ export default function EmailsPage() {
                 authorRole: 'staff',
                 timestamp: new Date(email.date).toLocaleString(),
             }],
-            contactId: relatedContact.id
+            contactId: contact.id
         };
         
         setAllCases(prev => [newCase, ...prev]);
@@ -105,9 +99,20 @@ export default function EmailsPage() {
             title: "Case Created",
             description: `New case "${newCase.subject}" has been created and linked to this email.`,
         });
+    }
+    
+    const handleCreateCaseFromEmail = (email: Email) => {
+        const relatedContact = allContacts.find(c => c.email === email.from.email);
+        
+        if (relatedContact) {
+            createCaseForContact(relatedContact, email);
+        } else {
+            setEmailForNewContact(email);
+            setConfirmCreateContactOpen(true);
+        }
     };
     
-    const handleAddContact = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
+    const handleAddContactAndCreateCase = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
         const newContact: Contact = {
           id: `contact-${Date.now()}`,
           avatar: '/avatars/placeholder.png',
@@ -115,9 +120,14 @@ export default function EmailsPage() {
         };
         setAllContacts([newContact, ...allContacts]);
         setContactCreateOpen(false);
+        
+        toast({ title: "Contact Created", description: `Contact "${newContact.name}" has been successfully created. Now creating case.` });
+
+        if(emailForNewContact) {
+            createCaseForContact(newContact, emailForNewContact);
+        }
         setEmailForNewContact(null);
-        toast({ title: "Contact Created", description: `Contact "${newContact.name}" has been successfully created. You can now create a case from their email.` });
-      };
+    };
 
     return (
         <div className="flex-1 p-0 flex flex-col h-[calc(100vh_-_5rem)]">
@@ -233,19 +243,36 @@ export default function EmailsPage() {
                     )}
                 </main>
             </div>
+            
+            <AlertDialog open={isConfirmCreateContactOpen} onOpenChange={setConfirmCreateContactOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Contact Not Found</AlertDialogTitle>
+                        <AlertDialogDescription>
+                           The sender <span className="font-medium">{emailForNewContact?.from.email}</span> was not found in your contacts. Would you like to create a new contact record for them?
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setEmailForNewContact(null)}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => { setConfirmCreateContactOpen(false); setContactCreateOpen(true); }}>Create Contact</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
              <ContactFormDialog
                 key={emailForNewContact?.id}
                 open={isContactCreateOpen}
                 onOpenChange={setContactCreateOpen}
                 initialEmail={emailForNewContact?.from.email}
                 initialName={emailForNewContact?.from.name}
-                onSave={handleAddContact}
+                onSave={handleAddContactAndCreateCase}
+                onCancel={() => setEmailForNewContact(null)}
               />
         </div>
     );
 }
 
-function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void }) {
+function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave, onCancel }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void, onCancel: () => void }) {
     const [name, setName] = useState(initialName || '');
     const [email, setEmail] = useState(initialEmail || '');
     const [phone, setPhone] = useState('');
@@ -265,9 +292,16 @@ function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSa
         const selectedAccount = mockAccounts.find(acc => acc.name === company);
         onSave({ name, email, phone, company, accountId: selectedAccount?.id || '', role, notes });
     };
+    
+    const handleOpenChange = (isOpen: boolean) => {
+        if (!isOpen) {
+            onCancel();
+        }
+        onOpenChange(isOpen);
+    }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create New Contact</DialogTitle>
