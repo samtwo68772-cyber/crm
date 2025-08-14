@@ -337,8 +337,8 @@ function ContactsView() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const companies = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.company)))], [contacts]);
-  const roles = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.role)))], [contacts]);
+  const companies = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.company).filter(Boolean)))], [contacts]);
+  const roles = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.role).filter(Boolean)))], [contacts]);
 
   const filteredContacts = useMemo(() => {
     return contacts.filter(contact =>
@@ -658,3 +658,5 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
         </div>
     )
 }
+
+    
