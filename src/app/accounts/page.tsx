@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -351,7 +352,7 @@ function ContactsView() {
   
   const handleAddContact = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
     const newContact: Contact = {
-      id: `contact-${Date.now()}`,
+      id: `contact-${Date.now()}-${Math.random()}`,
       avatar: '/avatars/placeholder.png',
       ...newContactData
     };
@@ -658,5 +659,7 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
         </div>
     )
 }
+
+    
 
     

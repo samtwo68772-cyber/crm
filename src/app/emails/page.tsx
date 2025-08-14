@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -77,7 +78,7 @@ function EmailClientView() {
 
             if (!contact) {
                 const newContact: Contact = {
-                    id: `contact-${Date.now()}`,
+                    id: `contact-${Date.now()}-${Math.random()}`,
                     name: email.from.name,
                     email: email.from.email,
                     phone: '',
@@ -212,7 +213,7 @@ function EmailClientView() {
     
     const handleAddContactAndCreateCase = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
         const newContact: Contact = {
-          id: `contact-${Date.now()}`,
+          id: `contact-${Date.now()}-${Math.random()}`,
           avatar: '/avatars/placeholder.png',
           ...newContactData
         };
@@ -468,3 +469,5 @@ export default function EmailsPage() {
         </div>
     );
 }
+
+    
