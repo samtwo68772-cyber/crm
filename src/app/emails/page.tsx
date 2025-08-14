@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,6 +39,7 @@ import {
   Settings,
   RefreshCw,
   ArrowLeft,
+  X,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,6 +49,7 @@ import Link from 'next/link';
 function EmailClientView() {
     const { emails, setEmails, cases, setCases, contacts, setContacts, accounts } = useData();
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
     const { toast } = useToast();
@@ -166,17 +169,10 @@ function EmailClientView() {
         );
     }, [emails, mailbox, searchQuery]);
     
-    useEffect(() => {
-        if (filteredEmails.length > 0 && !selectedEmail) {
-            setSelectedEmail(filteredEmails[0]);
-        }
-         if (!filteredEmails.some(e => e.id === selectedEmail?.id)) {
-            setSelectedEmail(filteredEmails[0] || null);
-        }
-    }, [filteredEmails, selectedEmail]);
 
     const handleSelectEmail = (email: Email) => {
         setSelectedEmail(email);
+        setIsSheetOpen(true);
         if (!email.read) {
             setEmails(emails.map(e => e.id === email.id ? { ...e, read: true } : e));
         }
@@ -208,7 +204,7 @@ function EmailClientView() {
         setCases(prev => [newCase, ...prev]);
         setEmails(prev => prev.map(e => e.id === email.id ? {...e, linkedCaseId: newCase.id} : e));
         setSelectedEmail(prev => prev ? {...prev, linkedCaseId: newCase.id} : null);
-
+        
         toast({
             title: "Case Created",
             description: `New case "${newCase.subject}" has been created and linked to this email.`,
@@ -252,129 +248,67 @@ function EmailClientView() {
     };
     
     return (
-         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,_1fr)_2fr] lg:grid-cols-[minmax(0,_350px)_1fr] flex-1 overflow-hidden h-full">
-            <aside className={cn("border-r flex-col hidden md:flex", selectedEmail && "md:hidden lg:flex")}>
-                <div className="p-4 space-y-4">
-                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Search emails..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                    </div>
-                    <div className="space-y-1">
-                        <Button variant={mailbox === 'inbox' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setMailbox('inbox')}>
+        <div className="flex flex-col h-full">
+            <div className="p-4 space-y-4 border-b">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search emails..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                </div>
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <Button variant={mailbox === 'inbox' ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => setMailbox('inbox')}>
                             <Inbox className="h-4 w-4" /> Inbox
                             <Badge variant="default" className="ml-auto">{emails.filter(e => e.type === 'inbox' && !e.read).length}</Badge>
                         </Button>
-                        <Button variant={mailbox === 'sent' ? 'secondary' : 'ghost'} className="w-full justify-start gap-2" onClick={() => setMailbox('sent')}>
+                        <Button variant={mailbox === 'sent' ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => setMailbox('sent')}>
                             <Send className="h-4 w-4" /> Sent
                         </Button>
                     </div>
-                     <Button 
+                    <Button 
                         onClick={handleProcessEmailsManual} 
                         disabled={isProcessing}
-                        className="w-full"
+                        variant="outline"
+                        size="sm"
                     >
                         <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")} />
-                        {isProcessing ? 'Processing...' : 'Process Incoming Mail'}
+                        {isProcessing ? 'Processing...' : 'Process Mail'}
                     </Button>
                 </div>
-                <Separator />
-                <div className="flex-1 overflow-y-auto">
-                    {filteredEmails.length > 0 ? (
-                        filteredEmails.map(email => (
-                            <div 
-                                key={email.id} 
-                                className={cn(
-                                    "p-4 border-b cursor-pointer transition-colors",
-                                    selectedEmail?.id === email.id ? "bg-muted" : "hover:bg-muted/50",
-                                    !email.read && "bg-primary/5"
-                                )}
-                                onClick={() => handleSelectEmail(email)}
-                            >
-                                <div className="flex justify-between items-start">
-                                    <p className={cn("truncate text-sm", !email.read && "font-bold")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
-                                    <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
-                                </div>
-                                <p className={cn("text-sm truncate", !email.read && "text-foreground font-semibold")}>{email.subject}</p>
-                                <p className={cn("text-xs text-muted-foreground truncate", !email.read && "font-normal")}>{email.body}</p>
-                                {email.linkedCaseId && <Badge variant="secondary" className="mt-2 text-xs">Linked</Badge>}
-                            </div>
-                        ))
-                    ) : (
-                        <p className="p-4 text-center text-muted-foreground">No emails in {mailbox}.</p>
-                    )}
-                </div>
-            </aside>
-            <main className={cn("flex-col overflow-y-auto hidden md:flex", selectedEmail && "md:flex")}>
-                {selectedEmail ? (
-                    <div className="flex flex-col h-full">
-                        <div className="p-2 md:p-4 border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2 min-w-0">
-                                     <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedEmail(null)}>
-                                        <ArrowLeft className="h-4 w-4" />
-                                    </Button>
-                                    <h2 className="text-lg md:text-xl font-semibold truncate shrink">{selectedEmail.subject}</h2>
-                                </div>
-                                 <div className="flex items-center gap-1 md:gap-2 shrink-0">
-                                    <TooltipProvider>
-                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Reply className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Reply</p></TooltipContent></Tooltip>
-                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Forward className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Forward</p></TooltipContent></Tooltip>
-                                        <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Delete</p></TooltipContent></Tooltip>
-                                    </TooltipProvider>
-                                    <Separator orientation="vertical" className="h-6 mx-1" />
-                                    {selectedEmail.linkedCaseId ? (
-                                        <Button variant="secondary" size="sm" className="gap-2"><LinkIcon className="h-4 w-4"/>Linked</Button>
-                                    ) : (
-                                        <Button variant="outline" size="sm" className="gap-2" onClick={() => handleCreateCaseFromEmail(selectedEmail)}><PlusCircle className="h-4 w-4" /> Create Case</Button>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                         <div className="flex-1 overflow-y-auto">
-                            <div className="p-4 border-b">
-                                <div className="flex items-center gap-4">
-                                     <Avatar>
-                                        <AvatarFallback>{selectedEmail.from.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1">
-                                        <p className="font-semibold">{selectedEmail.from.name} <span className="text-muted-foreground font-normal text-sm">&lt;{selectedEmail.from.email}&gt;</span></p>
-                                        <p className="text-sm text-muted-foreground">To: {selectedEmail.to.name}</p>
-                                    </div>
-                                    <p className="text-sm text-muted-foreground ml-auto shrink-0">{format(parseISO(selectedEmail.date), 'PPpp')}</p>
-                                </div>
-                            </div>
-                            <div className="p-6 whitespace-pre-wrap font-serif text-base/relaxed">
-                                {selectedEmail.body}
-                            </div>
-                            {selectedEmail.attachments && selectedEmail.attachments.length > 0 && (
-                                <div className="p-4 border-t">
-                                    <h4 className="font-semibold mb-2">Attachments ({selectedEmail.attachments.length})</h4>
-                                    <div className="flex gap-4">
-                                        {selectedEmail.attachments.map(att => (
-                                            <div key={att.name} className="p-2 border rounded-md flex items-center gap-2 text-sm">
-                                                <Paperclip className="h-4 w-4 text-muted-foreground" />
-                                                <span>{att.name} ({att.size})</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+                {filteredEmails.length > 0 ? (
+                    filteredEmails.map(email => (
+                        <div 
+                            key={email.id} 
+                            className={cn(
+                                "p-4 border-b cursor-pointer transition-colors hover:bg-muted/50",
+                                !email.read && "bg-primary/5 hover:bg-primary/10"
                             )}
-                        </div>
-                        <div className="p-4 border-t bg-muted/50 mt-auto">
-                            <Textarea placeholder={`Reply to ${selectedEmail.from.name}...`} />
-                            <div className="flex justify-end mt-2">
-                                 <Button><Send className="mr-2 h-4 w-4"/>Send Reply</Button>
+                            onClick={() => handleSelectEmail(email)}
+                        >
+                            <div className="flex justify-between items-start">
+                                <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
+                                <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
                             </div>
+                            <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
+                            <p className="text-xs text-muted-foreground truncate">{email.body}</p>
+                            {email.linkedCaseId && <Badge variant="secondary" className="mt-2 text-xs">Linked</Badge>}
                         </div>
-                    </div>
+                    ))
                 ) : (
-                    <div className="flex-col items-center justify-center h-full text-muted-foreground hidden lg:flex">
-                        <Mail className="h-24 w-24 text-muted-foreground/30 mb-4" />
-                        <p>Select an email to read</p>
-                    </div>
+                    <p className="p-8 text-center text-muted-foreground">No emails in {mailbox}.</p>
                 )}
-            </main>
-            
+            </div>
+             
+            {selectedEmail && (
+                <EmailDetailSheet
+                    open={isSheetOpen}
+                    onOpenChange={setIsSheetOpen}
+                    email={selectedEmail}
+                    onCreateCase={handleCreateCaseFromEmail}
+                />
+            )}
+
             <AlertDialog open={isConfirmCreateContactOpen} onOpenChange={setConfirmCreateContactOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -390,7 +324,7 @@ function EmailClientView() {
                 </AlertDialogContent>
             </AlertDialog>
             
-             <ContactFormDialog
+            <ContactFormDialog
                 key={emailForNewContact?.id}
                 open={isContactCreateOpen}
                 onOpenChange={setContactCreateOpen}
@@ -398,8 +332,76 @@ function EmailClientView() {
                 initialName={emailForNewContact?.from.name}
                 onSave={handleAddContactAndCreateCase}
                 onCancel={() => setEmailForNewContact(null)}
-              />
+            />
         </div>
+    );
+}
+
+function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: boolean, onOpenChange: (open: boolean) => void, email: Email, onCreateCase: (email: Email) => void }) {
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent className="w-full sm:max-w-[45%] p-0 flex flex-col">
+                <SheetHeader className="p-4 border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                    <div className="flex items-center justify-between">
+                         <div className="flex items-center gap-2 min-w-0">
+                            <h2 className="text-lg font-semibold truncate shrink">{email.subject}</h2>
+                        </div>
+                        <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                            <TooltipProvider>
+                                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Reply className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Reply</p></TooltipContent></Tooltip>
+                                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Forward className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Forward</p></TooltipContent></Tooltip>
+                                <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Delete</p></TooltipContent></Tooltip>
+                            </TooltipProvider>
+                            <Separator orientation="vertical" className="h-6 mx-1" />
+                            {email.linkedCaseId ? (
+                                <Button variant="secondary" size="sm" className="gap-2"><LinkIcon className="h-4 w-4"/>Linked</Button>
+                            ) : (
+                                <Button variant="outline" size="sm" className="gap-2" onClick={() => onCreateCase(email)}><PlusCircle className="h-4 w-4" /> Create Case</Button>
+                            )}
+                            <SheetClose asChild>
+                                <Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button>
+                            </SheetClose>
+                        </div>
+                    </div>
+                </SheetHeader>
+                 <div className="flex-1 overflow-y-auto">
+                    <div className="p-4 border-b">
+                        <div className="flex items-center gap-4">
+                             <Avatar>
+                                <AvatarFallback>{email.from.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                                <p className="font-semibold">{email.from.name} <span className="text-muted-foreground font-normal text-sm">&lt;{email.from.email}&gt;</span></p>
+                                <p className="text-sm text-muted-foreground">To: {email.to.name}</p>
+                            </div>
+                            <p className="text-sm text-muted-foreground ml-auto shrink-0">{format(parseISO(email.date), 'PPpp')}</p>
+                        </div>
+                    </div>
+                    <div className="p-6 whitespace-pre-wrap font-serif text-base/relaxed">
+                        {email.body}
+                    </div>
+                    {email.attachments && email.attachments.length > 0 && (
+                        <div className="p-4 border-t">
+                            <h4 className="font-semibold mb-2">Attachments ({email.attachments.length})</h4>
+                            <div className="flex gap-4">
+                                {email.attachments.map(att => (
+                                    <div key={att.name} className="p-2 border rounded-md flex items-center gap-2 text-sm">
+                                        <Paperclip className="h-4 w-4 text-muted-foreground" />
+                                        <span>{att.name} ({att.size})</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+                <div className="p-4 border-t bg-muted/50 mt-auto">
+                    <Textarea placeholder={`Reply to ${email.from.name}...`} />
+                    <div className="flex justify-end mt-2">
+                         <Button><Send className="mr-2 h-4 w-4"/>Send Reply</Button>
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
     );
 }
 
@@ -492,7 +494,9 @@ export default function EmailsPage() {
                 </div>
                 {emailSettings.configured && <Button><Edit className="mr-2 h-4 w-4" /> Compose</Button>}
             </header>
-            {emailSettings.configured ? <EmailClientView /> : <NotConfiguredView />}
+            <div className="flex-1 overflow-hidden">
+                {emailSettings.configured ? <EmailClientView /> : <NotConfiguredView />}
+            </div>
         </div>
     );
 }

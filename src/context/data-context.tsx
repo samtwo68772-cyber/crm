@@ -16,15 +16,15 @@ import {
 } from '@/lib/data.tsx';
 
 const initialEmailSettings: EmailSettingsType = {
-    smtpHost: '',
+    smtpHost: '9890',
     smtpPort: 587,
-    smtpUser: '',
-    smtpPass: '',
+    smtpUser: 'iop',
+    smtpPass: 'op09',
     smtpEncryption: 'tls',
-    imapHost: '',
+    imapHost: '1098',
     imapPort: 993,
-    imapUser: '',
-    imapPass: '',
+    imapUser: 'poilo',
+    imapPass: 'ploi09',
     imapEncryption: 'ssl',
     configured: false
 };
