@@ -35,6 +35,7 @@ import {
   AlertCircle,
   Mail,
   Settings,
+  RefreshCw,
 } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -42,7 +43,7 @@ import Link from 'next/link';
 
 
 function EmailClientView() {
-    const { emails, setEmails, cases, setCases, contacts, setContacts } = useData();
+    const { emails, setEmails, cases, setCases, contacts, setContacts, accounts } = useData();
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(emails.find(e => e.type === 'inbox') || null);
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +51,7 @@ function EmailClientView() {
     const [isContactCreateOpen, setContactCreateOpen] = useState(false);
     const [isConfirmCreateContactOpen, setConfirmCreateContactOpen] = useState(false);
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
 
     const filteredEmails = useMemo(() => {
         return emails.filter(email => 
@@ -99,6 +101,8 @@ function EmailClientView() {
             title: "Case Created",
             description: `New case "${newCase.subject}" has been created and linked to this email.`,
         });
+
+        return newCase;
     }
     
     const handleCreateCaseFromEmail = (email: Email) => {
@@ -128,6 +132,79 @@ function EmailClientView() {
         }
         setEmailForNewContact(null);
     };
+
+    const handleProcessEmails = () => {
+        setIsProcessing(true);
+        let processedCount = 0;
+        let casesCreated = 0;
+        let contactsCreated = 0;
+
+        const emailsToProcess = emails.filter(e => e.type === 'inbox' && !e.linkedCaseId);
+
+        let updatedEmails = [...emails];
+        let updatedContacts = [...contacts];
+        let newCases: Case[] = [];
+        
+        emailsToProcess.forEach(email => {
+            processedCount++;
+            let contact = updatedContacts.find(c => c.email === email.from.email);
+
+            if (!contact) {
+                const newContact: Contact = {
+                    id: `contact-${Date.now()}`,
+                    name: email.from.name,
+                    email: email.from.email,
+                    phone: '',
+                    company: 'Unknown',
+                    role: 'Unknown',
+                    avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
+                    accountId: ''
+                };
+                updatedContacts = [newContact, ...updatedContacts];
+                contact = newContact;
+                contactsCreated++;
+            }
+            
+            const newCase: Case = {
+                id: `case-${Date.now()}`,
+                subject: email.subject,
+                customer: contact.name,
+                email: contact.email,
+                priority: 'Medium',
+                type: 'General Question',
+                status: 'New',
+                assignedTo: 'Unassigned',
+                createdAt: new Date().toISOString().split('T')[0],
+                description: email.body,
+                communications: [{
+                    id: `comm-${Date.now()}`,
+                    type: 'Email',
+                    content: `Original email from ${email.from.name}:\n\n${email.body}`,
+                    author: email.from.name,
+                    authorRole: 'staff',
+                    timestamp: new Date(email.date).toLocaleString(),
+                }],
+                contactId: contact.id
+            };
+            newCases.push(newCase);
+            casesCreated++;
+
+            updatedEmails = updatedEmails.map(e => e.id === email.id ? { ...e, linkedCaseId: newCase.id } : e);
+        });
+
+        // Batch update state
+        setTimeout(() => {
+            setEmails(updatedEmails);
+            setContacts(updatedContacts);
+            setCases(prev => [...newCases, ...prev]);
+
+            toast({
+                title: "Email Processing Complete",
+                description: `Processed ${processedCount} emails. Created ${casesCreated} cases and ${contactsCreated} contacts.`,
+            });
+            setIsProcessing(false);
+        }, 1000); // Simulate network delay
+    };
     
     return (
          <div className="grid grid-cols-1 md:grid-cols-4 flex-1 overflow-hidden h-full">
@@ -146,6 +223,14 @@ function EmailClientView() {
                             <Send className="h-4 w-4" /> Sent
                         </Button>
                     </div>
+                     <Button 
+                        onClick={handleProcessEmails} 
+                        disabled={isProcessing}
+                        className="w-full"
+                    >
+                        <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")} />
+                        {isProcessing ? 'Processing...' : 'Process Incoming Mail'}
+                    </Button>
                 </div>
                 <Separator />
                 <div className="flex-1 overflow-y-auto">
