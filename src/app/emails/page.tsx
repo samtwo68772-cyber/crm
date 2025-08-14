@@ -170,6 +170,9 @@ function EmailClientView() {
         if (filteredEmails.length > 0 && !selectedEmail) {
             setSelectedEmail(filteredEmails[0]);
         }
+         if (!filteredEmails.some(e => e.id === selectedEmail?.id)) {
+            setSelectedEmail(filteredEmails[0] || null);
+        }
     }, [filteredEmails, selectedEmail]);
 
     const handleSelectEmail = (email: Email) => {
@@ -249,7 +252,7 @@ function EmailClientView() {
     };
     
     return (
-         <div className="grid grid-cols-1 md:grid-cols-1 lg:grid-cols-[350px_1fr] flex-1 overflow-hidden h-full">
+         <div className="grid grid-cols-1 md:grid-cols-[minmax(0,_1fr)_2fr] lg:grid-cols-[minmax(0,_350px)_1fr] flex-1 overflow-hidden h-full">
             <aside className={cn("border-r flex-col hidden md:flex", selectedEmail && "md:hidden lg:flex")}>
                 <div className="p-4 space-y-4">
                      <div className="relative">
@@ -281,8 +284,9 @@ function EmailClientView() {
                             <div 
                                 key={email.id} 
                                 className={cn(
-                                    "p-4 border-b cursor-pointer hover:bg-muted/50 transition-colors",
-                                    selectedEmail?.id === email.id && "bg-muted",
+                                    "p-4 border-b cursor-pointer transition-colors",
+                                    selectedEmail?.id === email.id ? "bg-muted" : "hover:bg-muted/50",
+                                    !email.read && "bg-primary/5"
                                 )}
                                 onClick={() => handleSelectEmail(email)}
                             >
@@ -305,19 +309,19 @@ function EmailClientView() {
                     <div className="flex flex-col h-full">
                         <div className="p-2 md:p-4 border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                             <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 min-w-0">
                                      <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setSelectedEmail(null)}>
                                         <ArrowLeft className="h-4 w-4" />
                                     </Button>
                                     <h2 className="text-lg md:text-xl font-semibold truncate shrink">{selectedEmail.subject}</h2>
                                 </div>
-                                 <div className="flex items-center gap-1 md:gap-2">
+                                 <div className="flex items-center gap-1 md:gap-2 shrink-0">
                                     <TooltipProvider>
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Reply className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Reply</p></TooltipContent></Tooltip>
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Forward className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Forward</p></TooltipContent></Tooltip>
                                         <Tooltip><TooltipTrigger asChild><Button variant="ghost" size="icon"><Trash2 className="h-4 w-4"/></Button></TooltipTrigger><TooltipContent><p>Delete</p></TooltipContent></Tooltip>
                                     </TooltipProvider>
-                                    <Separator orientation="vertical" className="h-6" />
+                                    <Separator orientation="vertical" className="h-6 mx-1" />
                                     {selectedEmail.linkedCaseId ? (
                                         <Button variant="secondary" size="sm" className="gap-2"><LinkIcon className="h-4 w-4"/>Linked</Button>
                                     ) : (
