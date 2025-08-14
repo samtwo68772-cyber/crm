@@ -44,11 +44,16 @@ const initialSettings = {
     ipWhitelist: '192.168.1.1\n127.0.0.1',
   },
   email: {
-      host: 'smtp.example.com',
-      port: 587,
-      username: 'user@example.com',
-      password: 'password123',
-      encryption: 'tls',
+      smtpHost: 'smtp.example.com',
+      smtpPort: 587,
+      smtpUser: 'user@example.com',
+      smtpPass: 'password123',
+      smtpEncryption: 'tls',
+      imapHost: 'imap.example.com',
+      imapPort: 993,
+      imapUser: 'user@example.com',
+      imapPass: 'password123',
+      imapEncryption: 'ssl',
       configured: false
   }
 };
@@ -100,10 +105,6 @@ export default function SettingsPage() {
                 ...newSettings
             }
         }));
-         toast({
-            title: 'Settings Saved',
-            description: 'Your changes have been saved successfully.',
-        });
     };
     
     if (!isAdmin) {
@@ -123,16 +124,16 @@ export default function SettingsPage() {
             </div>
 
             <Tabs defaultValue="general" className="w-full">
-                <div className="overflow-x-auto pb-1">
-                     <TabsList className="inline-flex h-auto items-center justify-start rounded-lg bg-muted p-1 gap-1">
-                        <TabsTrigger value="general">General</TabsTrigger>
-                        <TabsTrigger value="users">Users & Roles</TabsTrigger>
-                        <TabsTrigger value="security">Security</TabsTrigger>
-                        <TabsTrigger value="email">Email</TabsTrigger>
-                        <TabsTrigger value="alerts">Alerts</TabsTrigger>
-                        <TabsTrigger value="api">API & Integrations</TabsTrigger>
-                        <TabsTrigger value="workflows">Workflows</TabsTrigger>
-                        <TabsTrigger value="audit">Audit Log</TabsTrigger>
+                 <div className="overflow-x-auto pb-1">
+                     <TabsList className="inline-flex h-auto items-center justify-start rounded-lg bg-muted p-1 gap-1 text-muted-foreground">
+                        <TabsTrigger value="general" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">General</TabsTrigger>
+                        <TabsTrigger value="users" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Users & Roles</TabsTrigger>
+                        <TabsTrigger value="security" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Security</TabsTrigger>
+                        <TabsTrigger value="email" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Email</TabsTrigger>
+                        <TabsTrigger value="alerts" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Alerts</TabsTrigger>
+                        <TabsTrigger value="api" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">API & Integrations</TabsTrigger>
+                        <TabsTrigger value="workflows" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Workflows</TabsTrigger>
+                        <TabsTrigger value="audit" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Audit Log</TabsTrigger>
                     </TabsList>
                 </div>
                 
@@ -558,16 +559,16 @@ function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSett
                         <Mail className="h-6 w-6" />
                         <div>
                             <CardTitle>Email Configuration</CardTitle>
-                            <CardDescription>Set up SMTP and default email templates.</CardDescription>
+                            <CardDescription>Set up SMTP (sending) and IMAP (receiving) email accounts.</CardDescription>
                         </div>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="border rounded-lg p-4 flex items-center justify-between">
                         <div>
-                            <h4 className="font-medium">SMTP Server</h4>
+                            <h4 className="font-medium">Email Server</h4>
                             <p className="text-sm text-muted-foreground">
-                                {settings.configured ? `Connected to ${settings.host}` : 'Not configured'}
+                                {settings.configured ? `Connected to ${settings.smtpHost} / ${settings.imapHost}` : 'Not configured'}
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -594,63 +595,92 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const { toast } = useToast();
 
+    const isFormValid = localSettings.smtpHost && localSettings.smtpPort && localSettings.smtpUser && localSettings.smtpPass && localSettings.imapHost && localSettings.imapPort && localSettings.imapUser && localSettings.imapPass;
+
     useEffect(() => {
-        setLocalSettings(settings);
-    }, [settings]);
+        if(open) {
+            setLocalSettings(settings);
+            setTestStatus('idle');
+        }
+    }, [settings, open]);
     
     const handleFieldChange = (field: keyof EmailSettingsType, value: any) => {
         setLocalSettings(prev => ({...prev, [field]: value}));
     };
 
-    const handleSendTestEmail = () => {
+    const handleTestConnection = () => {
         setTestStatus('testing');
-        // Simulate API call
+        // Simulate API call to test both SMTP and IMAP
         setTimeout(() => {
-            if (localSettings.host && localSettings.username && localSettings.password) {
+            if (isFormValid) {
                 setTestStatus('success');
-                toast({ title: "Connection Successful", description: "Test email sent successfully." });
+                toast({ title: "Connection Successful", description: "SMTP and IMAP connections verified." });
             } else {
                 setTestStatus('error');
-                 toast({ variant: 'destructive', title: "Connection Failed", description: "Please check your SMTP settings and try again." });
+                 toast({ variant: 'destructive', title: "Connection Failed", description: "Please check all your settings and try again." });
             }
         }, 1500);
     };
 
     const handleSubmit = () => {
         onSave({ ...localSettings, configured: true });
+        toast({ title: 'Email Settings Saved', description: 'Your email configuration has been updated.' });
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
-                    <DialogTitle>SMTP Configuration</DialogTitle>
-                    <DialogDescription>Enter your SMTP server details to send emails from the system.</DialogDescription>
+                    <DialogTitle>Email Server Configuration</DialogTitle>
+                    <DialogDescription>Enter your email server details for sending and receiving emails.</DialogDescription>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="host" className="text-right">Host</Label><Input id="host" value={localSettings.host} onChange={(e) => handleFieldChange('host', e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="port" className="text-right">Port</Label><Input id="port" type="number" value={localSettings.port} onChange={(e) => handleFieldChange('port', parseInt(e.target.value, 10))} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="username" className="text-right">Username</Label><Input id="username" value={localSettings.username} onChange={(e) => handleFieldChange('username', e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="password" className="text-right">Password</Label><Input id="password" type="password" value={localSettings.password} onChange={(e) => handleFieldChange('password', e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                        <Label htmlFor="encryption" className="text-right">Encryption</Label>
-                        <Select onValueChange={(v: string) => handleFieldChange('encryption', v)} value={localSettings.encryption}>
-                            <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                            <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="ssl">SSL/TLS</SelectItem><SelectItem value="tls">STARTTLS</SelectItem></SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <DialogFooter className="justify-between">
+                <Tabs defaultValue="smtp">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="smtp">Sending (SMTP)</TabsTrigger>
+                        <TabsTrigger value="imap">Receiving (IMAP)</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="smtp" className="pt-4">
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpHost" className="text-right">Host</Label><Input id="smtpHost" value={localSettings.smtpHost} onChange={(e) => handleFieldChange('smtpHost', e.target.value)} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPort" className="text-right">Port</Label><Input id="smtpPort" type="number" value={localSettings.smtpPort} onChange={(e) => handleFieldChange('smtpPort', parseInt(e.target.value, 10))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpUser" className="text-right">Username</Label><Input id="smtpUser" value={localSettings.smtpUser} onChange={(e) => handleFieldChange('smtpUser', e.target.value)} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPass" className="text-right">Password</Label><Input id="smtpPass" type="password" value={localSettings.smtpPass} onChange={(e) => handleFieldChange('smtpPass', e.target.value)} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="smtpEncryption" className="text-right">Encryption</Label>
+                                <Select onValueChange={(v: string) => handleFieldChange('smtpEncryption', v)} value={localSettings.smtpEncryption}>
+                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="ssl">SSL/TLS</SelectItem><SelectItem value="tls">STARTTLS</SelectItem></SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="imap" className="pt-4">
+                        <div className="grid gap-4 py-4">
+                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapHost" className="text-right">Host</Label><Input id="imapHost" value={localSettings.imapHost} onChange={(e) => handleFieldChange('imapHost', e.target.value)} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPort" className="text-right">Port</Label><Input id="imapPort" type="number" value={localSettings.imapPort} onChange={(e) => handleFieldChange('imapPort', parseInt(e.target.value, 10))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapUser" className="text-right">Username</Label><Input id="imapUser" value={localSettings.imapUser} onChange={(e) => handleFieldChange('imapUser', e.target.value)} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPass" className="text-right">Password</Label><Input id="imapPass" type="password" value={localSettings.imapPass} onChange={(e) => handleFieldChange('imapPass', e.target.value)} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="imapEncryption" className="text-right">Encryption</Label>
+                                <Select onValueChange={(v: string) => handleFieldChange('imapEncryption', v)} value={localSettings.imapEncryption}>
+                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                                    <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="ssl">SSL/TLS</SelectItem></SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
+                <DialogFooter className="justify-between pt-4 border-t">
                      <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleSendTestEmail} disabled={testStatus === 'testing'}>
-                            {testStatus === 'testing' ? 'Testing...' : 'Send Test Email'}
+                        <Button variant="outline" onClick={handleTestConnection} disabled={testStatus === 'testing' || !isFormValid}>
+                            {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
                         </Button>
                         {testStatus === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
                         {testStatus === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
                     </div>
                     <div className="flex gap-2">
                          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                         <Button onClick={handleSubmit}>Save Changes</Button>
+                         <Button onClick={handleSubmit} disabled={!isFormValid}>Save Changes</Button>
                     </div>
                 </DialogFooter>
             </DialogContent>

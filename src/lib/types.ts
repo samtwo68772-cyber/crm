@@ -83,7 +83,7 @@ export type Account = {
 export type Document = {
     id: string;
     name: string;
-    type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image';
+    type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image' | 'Meeting';
     size: string;
     uploadedAt: string;
     uploadedBy: string;
