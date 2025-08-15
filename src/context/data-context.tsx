@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType } from '@/lib/types';
+import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType, AuditLog } from '@/lib/types';
 import { 
     accounts as mockAccounts, 
     cases as mockCases, 
@@ -12,7 +12,8 @@ import {
     meetings as mockMeetings, 
     tasks as mockTasks,
     teams as mockTeams,
-    users as mockUsers
+    users as mockUsers,
+    auditLogs as mockAuditLogs
 } from '@/lib/data.tsx';
 
 const initialEmailSettings: EmailSettingsType = {
@@ -50,6 +51,8 @@ interface DataContextType {
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   emailSettings: EmailSettingsType;
   setEmailSettings: React.Dispatch<React.SetStateAction<EmailSettingsType>>;
+  auditLogs: AuditLog[];
+  setAuditLogs: React.Dispatch<React.SetStateAction<AuditLog[]>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -65,6 +68,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [teams, setTeams] = useState<Team[]>(mockTeams);
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [emailSettings, setEmailSettings] = useState<EmailSettingsType>(initialEmailSettings);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(mockAuditLogs);
   
 
   const value = {
@@ -78,6 +82,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     teams, setTeams,
     users, setUsers,
     emailSettings, setEmailSettings,
+    auditLogs, setAuditLogs,
   };
 
   return (

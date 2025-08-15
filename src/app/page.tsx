@@ -21,7 +21,7 @@ import {
     PlusCircle,
     ChevronDown,
 } from 'lucide-react';
-import type { Case, Task, Meeting, Email } from '@/lib/types';
+import type { Case, Task, Meeting, Email, AuditLog } from '@/lib/types';
 import { format, parseISO, formatDistanceToNow, subDays, isAfter } from 'date-fns';
 import React, { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -119,7 +119,7 @@ function RecentCases() {
 }
 
 function RecentActivity() {
-    const { users, cases, tasks, meetings } = useData();
+    const { users, cases, tasks, meetings, auditLogs } = useData();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
 
@@ -155,11 +155,22 @@ function RecentActivity() {
                 timestamp: m.date,
                 user: users.find(u => m.participants.includes(u.id))
             }));
+        
+        const auditActivities = (auditLogs || [])
+            .filter((log: AuditLog) => isAfter(new Date(log.timestamp), twoWeeksAgo))
+            .map((log: AuditLog) => ({
+                id: `audit-${log.id}`,
+                type: 'audit',
+                description: log.details,
+                timestamp: log.timestamp,
+                user: users.find(u => u.id === log.userId)
+            }));
 
-        return [...caseActivities, ...taskActivities, ...meetingActivities]
+
+        return [...caseActivities, ...taskActivities, ...meetingActivities, ...auditActivities]
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    }, [cases, tasks, meetings, users]);
+    }, [cases, tasks, meetings, users, auditLogs]);
     
 
     const getActivityDot = (type: string) => {
@@ -167,7 +178,7 @@ function RecentActivity() {
             case 'case': return <div className="h-2 w-2 rounded-full bg-blue-500" />;
             case 'task': return <div className="h-2 w-2 rounded-full bg-green-500" />;
             case 'meeting': return <div className="h-2 w-2 rounded-full bg-purple-500" />;
-            case 'email': return <div className="h-2 w-2 rounded-full bg-orange-500" />;
+            case 'audit': return <div className="h-2 w-2 rounded-full bg-gray-400" />;
             default: return <div className="h-2 w-2 rounded-full bg-gray-400" />;
         }
     };
@@ -235,7 +246,7 @@ export default function DashboardPage() {
     if (!user) return null;
 
     return (
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
             <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>

@@ -22,8 +22,19 @@ import { MoreHorizontal, PlusCircle, Trash2, Edit, X, Building2, Users, Briefcas
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useSearchParams } from 'next/navigation';
 
 export default function CustomersPage() {
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = useState('accounts');
+
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'contacts' || tab === 'accounts') {
+            setActiveTab(tab);
+        }
+    }, [searchParams]);
+
     return (
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between space-y-2">
@@ -32,7 +43,7 @@ export default function CustomersPage() {
                     <p className="text-muted-foreground">Manage your accounts and contacts.</p>
                 </div>
             </div>
-             <Tabs defaultValue="accounts">
+             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList>
                     <TabsTrigger value="accounts">Accounts</TabsTrigger>
                     <TabsTrigger value="contacts">Contacts</TabsTrigger>
