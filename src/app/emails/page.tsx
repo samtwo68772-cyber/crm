@@ -98,7 +98,7 @@ function EmailClientView() {
             }
             
             const newCase: Case = {
-                id: `case-${Date.now()}`,
+                id: `case-${Date.now()}-${Math.random()}`,
                 subject: email.subject,
                 customer: contact.name,
                 email: contact.email,
@@ -181,7 +181,7 @@ function EmailClientView() {
     
     const createCaseForContact = (contact: Contact, email: Email) => {
          const newCase: Case = {
-            id: `case-${Date.now()}`,
+            id: `case-${Date.now()}-${Math.random()}`,
             subject: email.subject,
             customer: contact.name,
             email: contact.email,

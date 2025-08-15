@@ -58,7 +58,7 @@ export default function CasesPage() {
 
   const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'>) => {
     const newCase: Case = {
-      id: `case-${Date.now()}`,
+      id: `case-${Date.now()}-${Math.random()}`,
       createdAt: new Date().toISOString().split('T')[0],
       description: "Initial case description.",
       communications: [],
