@@ -164,24 +164,23 @@ export default function ReportsPage() {
 
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
-            <header className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-6 border-b">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight font-headline">Reports & Analytics</h1>
-                    <p className="text-muted-foreground">Gain insights into your team's performance and customer interactions.</p>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                    <DateRangePicker onDateChange={setDateRange} />
-                     <Select value={userFilter} onValueChange={setUserFilter}>
-                        <SelectTrigger className="w-full sm:w-[180px] bg-background">
-                            <SelectValue placeholder="Select user" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Users</SelectItem>
-                            {mockUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </div>
+            <header className="pb-6 border-b">
+                <h1 className="text-3xl font-bold tracking-tight font-headline">Reports & Analytics</h1>
+                <p className="text-muted-foreground">Gain insights into your team's performance and customer interactions.</p>
             </header>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-4">
+                <DateRangePicker onDateChange={setDateRange} />
+                 <Select value={userFilter} onValueChange={setUserFilter}>
+                    <SelectTrigger className="w-full sm:w-[180px] bg-background">
+                        <SelectValue placeholder="Select user" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Users</SelectItem>
+                        {mockUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
                 <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType="positive" icon={Briefcase} />
@@ -345,4 +344,5 @@ export default function ReportsPage() {
             </main>
         </div>
     );
-}
+
+    
