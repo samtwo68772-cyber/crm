@@ -106,6 +106,7 @@ function getActivityIcon(action: string) {
 
 function RecentActivity() {
     const { users, auditLogs } = useData();
+    const router = useRouter();
 
     const activities = useMemo(() => {
         if (!auditLogs) return [];
