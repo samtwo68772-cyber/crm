@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -161,7 +163,49 @@ export default function ReportsPage() {
     }, [filteredData, dateRange]);
     
     const handleExport = (formatType: 'pdf' | 'excel') => {
-        alert(`Exporting as ${formatType}... (Filtered data would be used here)`);
+        if (formatType === 'pdf') {
+            const doc = new jsPDF();
+            
+            doc.setFontSize(18);
+            doc.text('Caseflow CRM Report', 14, 22);
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+
+            const dateRangeStr = dateRange?.from ? `${format(dateRange.from, 'PPP')} - ${dateRange.to ? format(dateRange.to, 'PPP') : ''}` : 'All time';
+            doc.text(`Date Range: ${dateRangeStr}`, 14, 30);
+            doc.text(`User: ${userFilter === 'all' ? 'All Users' : mockUsers.find(u => u.id === userFilter)?.name}`, 14, 36);
+
+            // Cases Table
+            autoTable(doc, {
+                startY: 50,
+                head: [['Case ID', 'Subject', 'Status', 'Priority', 'Assigned To', 'Created At']],
+                body: filteredData.cases.map(c => [c.id, c.subject, c.status, c.priority, c.assignedTo, c.createdAt]),
+                headStyles: { fillColor: [38, 43, 60] },
+                didDrawPage: (data) => {
+                  if (data.pageNumber === 1) {
+                     doc.setFontSize(14);
+                     doc.text('Cases Report', 14, 45);
+                  }
+                }
+            });
+
+            // Tasks Table
+            const lastTable = (doc as any).lastAutoTable;
+            autoTable(doc, {
+                 startY: lastTable.finalY + 15,
+                head: [['Task Title', 'Status', 'Priority', 'Due Date', 'Assigned To']],
+                body: filteredData.tasks.map(t => [t.title, t.status, t.priority, t.dueDate, mockUsers.find(u=>u.id === t.assignedTo)?.name || 'N/A']),
+                headStyles: { fillColor: [38, 43, 60] },
+                didDrawPage: (data) => {
+                     doc.setFontSize(14);
+                     doc.text('Tasks Report', 14, lastTable.finalY + 10);
+                }
+            });
+
+            doc.save(`report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        } else {
+             alert(`Exporting as ${formatType}... (Filtered data would be used here)`);
+        }
     };
 
     const buildNavUrl = (pathname: string, filters: Record<string, string>) => {
