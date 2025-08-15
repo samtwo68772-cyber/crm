@@ -27,7 +27,7 @@ import {
     ChevronDown
 } from 'lucide-react';
 import type { Case, Task, Meeting, Email, AuditLog } from '@/lib/types';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import React, { useMemo, useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
@@ -109,46 +109,53 @@ function RecentCases({ cases }: { cases: Case[] }) {
     );
 }
 
-function getActivityDot(action: string) {
-    switch(action.toLowerCase()) {
-        case 'user login': return <div className="h-2 w-2 rounded-full bg-blue-500" />;
-        case 'update case': return <div className="h-2 w-2 rounded-full bg-orange-500" />;
-        case 'create user': return <div className="h-2 w-2 rounded-full bg-green-500" />;
-        case 'delete task': return <div className="h-2 w-2 rounded-full bg-red-500" />;
-        default: return <div className="h-2 w-2 rounded-full bg-gray-400" />;
-    }
-}
-
 function RecentActivity() {
-    const { users, auditLogs } = useData();
+    const { users, cases, tasks, meetings, auditLogs } = useData();
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
 
     const activities = useMemo(() => {
-        if (!auditLogs) return [];
-        return auditLogs.map(log => ({
-            ...log,
-            user: users.find(u => u.id === log.userId)
+        const caseActivities = cases.map(c => ({
+            id: `case-${c.id}`,
+            type: 'case',
+            description: `New case assigned: ${c.subject}`,
+            timestamp: c.createdAt,
+            user: users.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
         }));
-    }, [auditLogs, users]);
 
-    if (!activities) {
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>A log of the latest system events.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <p>Loading activities...</p>
-                </CardContent>
-            </Card>
-        )
-    }
+        const taskActivities = tasks.map(t => ({
+            id: `task-${t.id}`,
+            type: 'task',
+            description: `${t.status === 'Done' ? 'Task completed' : 'New task'}: ${t.title}`,
+            timestamp: t.dueDate, // Assuming dueDate can be used for sorting
+            user: users.find(u => u.id === t.assignedTo)
+        }));
 
-    const recentActivities = activities
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 7);
+        const meetingActivities = meetings.map(m => ({
+            id: `meeting-${m.id}`,
+            type: 'meeting',
+            description: `${m.status === 'Upcoming' ? 'Meeting scheduled' : 'Meeting'}: ${m.title}`,
+            timestamp: m.date,
+            user: users.find(u => m.participants.includes(u.id))
+        }));
+
+        const allActivities = [...caseActivities, ...taskActivities, ...meetingActivities];
+
+        return allActivities
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+            .slice(0, 7);
+    }, [cases, tasks, meetings, users]);
+
+    const getActivityDot = (type: string) => {
+        switch (type) {
+            case 'case': return <div className="h-2 w-2 rounded-full bg-blue-500" />;
+            case 'task': return <div className="h-2 w-2 rounded-full bg-green-500" />;
+            case 'meeting': return <div className="h-2 w-2 rounded-full bg-purple-500" />;
+            case 'email': return <div className="h-2 w-2 rounded-full bg-orange-500" />;
+            default: return <div className="h-2 w-2 rounded-full bg-gray-400" />;
+        }
+    };
+    
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -157,20 +164,22 @@ function RecentActivity() {
                     <div className="flex items-center justify-between p-6 cursor-pointer">
                         <div>
                             <CardTitle>Recent Activity</CardTitle>
-                            <CardDescription>A log of the latest system events.</CardDescription>
+                            <CardDescription>Latest system activities</CardDescription>
                         </div>
                         <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
                     </div>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                     <CardContent>
-                        <div className="space-y-4">
-                             {recentActivities.map(activity => (
-                                <div key={activity.id} className="flex items-center gap-3">
-                                    <div className="shrink-0">{getActivityDot(activity.action)}</div>
+                        <div className="space-y-6">
+                             {activities.map(activity => (
+                                <div key={activity.id} className="flex items-start gap-3">
+                                    <div className="shrink-0 mt-1">{getActivityDot(activity.type)}</div>
                                     <div className="flex-1">
-                                        <p className="text-sm">{activity.details}</p>
-                                        <p className="text-xs text-muted-foreground">{format(parseISO(activity.timestamp), 'PPp')} &bull; {activity.user?.name || 'System'}</p>
+                                        <p className="text-sm">{activity.description}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })} &bull; {activity.user?.name || 'System'}
+                                        </p>
                                     </div>
                                 </div>
                             ))}
