@@ -12,7 +12,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
-import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck } from 'lucide-react';
+import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck, XCircle, Activity, Hourglass, Folder } from 'lucide-react';
 import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay, subDays, format, eachDayOfInterval, startOfWeek, endOfWeek } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -21,6 +21,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { Progress } from '@/components/ui/progress';
 
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -44,7 +45,7 @@ function getStatusVariant(status: Case['status']) {
     }
 }
 
-function KpiCard({ title, value, change, changeType, icon: Icon, onClick }: { title: string; value: string; change: string; changeType: 'positive' | 'negative'; icon: React.ElementType, onClick?: () => void }) {
+function KpiCard({ title, value, change, changeType, icon: Icon, onClick }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, onClick?: () => void }) {
     const isPositive = changeType === 'positive';
     return (
         <Card className="shadow-sm hover:shadow-lg transition-shadow cursor-pointer" onClick={onClick}>
@@ -54,13 +55,15 @@ function KpiCard({ title, value, change, changeType, icon: Icon, onClick }: { ti
             </CardHeader>
             <CardContent>
                 <div className="text-2xl font-bold">{value}</div>
-                <div className="flex items-center text-xs text-muted-foreground">
-                    <span className={`flex items-center gap-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                        {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                        {change}
-                    </span>
-                    <MiniSparkline data={[{value: 10}, {value: 15}, {value: 8}, {value: 20}, {value: 18}]} positive={isPositive} />
-                </div>
+                {change && changeType &&
+                    <div className="flex items-center text-xs text-muted-foreground">
+                        <span className={`flex items-center gap-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                            {change}
+                        </span>
+                        <MiniSparkline data={[{value: 10}, {value: 15}, {value: 8}, {value: 20}, {value: 18}]} positive={isPositive} />
+                    </div>
+                }
             </CardContent>
         </Card>
     );
@@ -88,6 +91,8 @@ export default function ReportsPage() {
     const [reportType, setReportType] = useState('overview');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
     const [userFilter, setUserFilter] = useState('all');
+    const [caseCategoryFilter, setCaseCategoryFilter] = useState('all');
+
 
     const filteredData = useMemo(() => {
         const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
@@ -95,7 +100,8 @@ export default function ReportsPage() {
 
         const cases = mockCases.filter(c => 
             isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate }) &&
-            (userFilter === 'all' || c.assignedTo === userFilter)
+            (userFilter === 'all' || c.assignedTo === userFilter) &&
+            (caseCategoryFilter === 'all' || c.type === caseCategoryFilter)
         );
         const tasks = mockTasks.filter(t => 
             isWithinInterval(new Date(t.dueDate), { start: fromDate, end: toDate }) &&
@@ -106,7 +112,7 @@ export default function ReportsPage() {
             (userFilter === 'all' || m.participants.includes(userFilter))
         );
         return { cases, tasks, meetings };
-    }, [dateRange, userFilter, mockCases, mockTasks, mockMeetings]);
+    }, [dateRange, userFilter, caseCategoryFilter, mockCases, mockTasks, mockMeetings]);
 
     const kpiData = useMemo(() => {
         return {
@@ -114,9 +120,34 @@ export default function ReportsPage() {
             avgResolutionTime: { value: '2.1d', change: '-5.2%', type: 'positive' },
             tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' },
             meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' },
+            casesResolved: filteredData.cases.filter(c => ['Resolved', 'Closed'].includes(c.status)).length,
+            casesInProgress: filteredData.cases.filter(c => c.status === 'In Progress').length,
+            casesPendingReview: filteredData.cases.filter(c => ['New', 'Under Review'].includes(c.status)).length,
         }
     }, [filteredData]);
     
+    const caseCategories = useMemo(() => {
+        const totalCases = mockCases.filter(c => {
+             const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
+             const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
+             return isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate }) && (userFilter === 'all' || c.assignedTo === userFilter)
+        }).length;
+
+        if (totalCases === 0) return [];
+        
+        const counts = mockCases.reduce((acc, curr) => {
+            acc[curr.type] = (acc[curr.type] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return Object.entries(counts).map(([name, value]) => ({ 
+            name: name as Case['type'], 
+            count: value,
+            percentage: (value / totalCases * 100)
+        })).sort((a,b) => b.count - a.count);
+    }, [mockCases, dateRange, userFilter]);
+
+
     const casesByStatusData = useMemo(() => {
         const counts = filteredData.cases.reduce((acc, curr) => {
             acc[curr.status] = (acc[curr.status] || 0) + 1;
@@ -297,29 +328,50 @@ export default function ReportsPage() {
                         </div>
                     </TabsContent>
                     <TabsContent value="cases" className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Detailed Case Report</CardTitle>
-                                <CardDescription>A full list of cases within the selected date range.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <Table>
-                                    <TableHeader><TableRow><TableHead>Case ID</TableHead><TableHead>Subject</TableHead><TableHead>Status</TableHead><TableHead>Priority</TableHead><TableHead>Assigned To</TableHead><TableHead>Created At</TableHead></TableRow></TableHeader>
-                                    <TableBody>
-                                        {filteredData.cases.map(c => 
-                                            <TableRow key={c.id}>
-                                                <TableCell className="font-mono text-xs">{c.id}</TableCell>
-                                                <TableCell className="font-medium">{c.subject}</TableCell>
-                                                <TableCell><Badge variant={getStatusVariant(c.status)}>{c.status}</Badge></TableCell>
-                                                <TableCell><Badge variant={getPriorityVariant(c.priority)}>{c.priority}</Badge></TableCell>
-                                                <TableCell>{c.assignedTo}</TableCell>
-                                                <TableCell>{new Date(c.createdAt).toLocaleDateString()}</TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </CardContent>
-                        </Card>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-1 space-y-6">
+                                <KpiCard title="Cases Resolved" value={kpiData.casesResolved.toString()} icon={CheckCircle} onClick={() => router.push(buildNavUrl('/cases', {status: 'Resolved'}))}/>
+                                <KpiCard title="In Progress" value={kpiData.casesInProgress.toString()} icon={Activity} onClick={() => router.push(buildNavUrl('/cases', {status: 'In Progress'}))} />
+                                <KpiCard title="Pending Review" value={kpiData.casesPendingReview.toString()} icon={Hourglass} onClick={() => router.push(buildNavUrl('/cases', {status: 'New'}))}/>
+                            </div>
+                            <div className="lg:col-span-2">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle>Case Categories</CardTitle>
+                                        <CardDescription>Breakdown of cases by type within the selected filters.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="space-y-4">
+                                            {caseCategories.map(cat => (
+                                                <TooltipProvider key={cat.name}>
+                                                    <UITooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <div 
+                                                                className="flex items-center cursor-pointer group"
+                                                                onClick={() => setCaseCategoryFilter(cat.name)}
+                                                            >
+                                                                <div className="flex items-center gap-3 flex-1">
+                                                                    <Folder className="h-5 w-5 text-muted-foreground"/>
+                                                                    <span className="font-medium group-hover:text-primary">{cat.name}</span>
+                                                                </div>
+                                                                <div className="w-24 text-right text-muted-foreground">{cat.percentage.toFixed(1)}%</div>
+                                                                <Progress value={cat.percentage} className="w-1/3 h-2 ml-4 group-hover:[&>div]:bg-primary" />
+                                                            </div>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <p>{cat.count} cases</p>
+                                                        </TooltipContent>
+                                                    </UITooltip>
+                                                </TooltipProvider>
+                                            ))}
+                                            {caseCategoryFilter !== 'all' && (
+                                                <Button variant="link" onClick={() => setCaseCategoryFilter('all')}>Clear category filter</Button>
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
                     </TabsContent>
                     <TabsContent value="performance" className="mt-6">
                          <Card>
@@ -406,5 +458,6 @@ export default function ReportsPage() {
             </main>
         </div>
     );
+}
 
     
