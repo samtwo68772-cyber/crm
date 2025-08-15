@@ -7,7 +7,7 @@ import { useData } from '@/context/data-context';
 import type { Case, User, Communication, Task } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -57,8 +57,11 @@ export default function CasesPage() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'>) => {
+    const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
+    const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
+    
     const newCase: Case = {
-      id: `case-${Date.now()}-${Math.random()}`,
+      id: `case-${newCaseNumber}`,
       createdAt: new Date().toISOString().split('T')[0],
       description: "Initial case description.",
       communications: [],
@@ -455,3 +458,4 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
+

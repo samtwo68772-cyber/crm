@@ -66,6 +66,7 @@ function EmailClientView() {
         let casesCreated = 0;
         let contactsCreated = 0;
     
+        // Important: Filter only emails that have NOT been processed yet.
         const emailsToProcess = emails.filter(e => e.type === 'inbox' && !processedEmailIds.has(e.id) && !e.linkedCaseId);
     
         if (emailsToProcess.length === 0) {
@@ -73,13 +74,14 @@ function EmailClientView() {
             return;
         }
 
-        let updatedEmails = [...emails];
-        let updatedContacts = [...contacts];
-        let newCases: Case[] = [];
+        let currentCases = [...cases];
+        let currentContacts = [...contacts];
+        let currentEmails = [...emails];
+        let newProcessedIds = new Set(processedEmailIds);
         
         emailsToProcess.forEach(email => {
             processedCount++;
-            let contact = updatedContacts.find(c => c.email === email.from.email);
+            let contact = currentContacts.find(c => c.email === email.from.email);
 
             if (!contact) {
                 const newContact: Contact = {
@@ -92,13 +94,16 @@ function EmailClientView() {
                     role: 'Unknown',
                     avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
                 };
-                updatedContacts = [newContact, ...updatedContacts];
+                currentContacts.push(newContact);
                 contact = newContact;
                 contactsCreated++;
             }
             
+            const caseNumbers = currentCases.map(c => parseInt(c.id.split('-')[1], 10));
+            const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
+            
             const newCase: Case = {
-                id: `case-${Date.now()}-${Math.random()}`,
+                id: `case-${newCaseNumber}`,
                 subject: email.subject,
                 customer: contact.name,
                 email: contact.email,
@@ -118,17 +123,19 @@ function EmailClientView() {
                 }],
                 contactId: contact.id
             };
-            newCases.push(newCase);
+            currentCases.push(newCase);
             casesCreated++;
     
-            updatedEmails = updatedEmails.map(e => e.id === email.id ? { ...e, linkedCaseId: newCase.id } : e);
-            setProcessedEmailIds(prev => new Set(prev).add(email.id));
+            currentEmails = currentEmails.map(e => e.id === email.id ? { ...e, linkedCaseId: newCase.id } : e);
+            newProcessedIds.add(email.id);
         });
     
+        // Batch state updates
         setTimeout(() => {
-            setEmails(updatedEmails);
-            setContacts(updatedContacts);
-            setCases(prev => [...newCases, ...prev]);
+            setContacts(currentContacts);
+            setCases(currentCases);
+            setEmails(currentEmails);
+            setProcessedEmailIds(newProcessedIds);
 
             if (processedCount > 0) {
                  toast({
@@ -144,13 +151,7 @@ function EmailClientView() {
     useEffect(() => {
         // Initial processing on load
         processIncomingEmails();
-        
-        const interval = setInterval(() => {
-            processIncomingEmails();
-        }, 120000); // 2 minutes
-        
-        return () => clearInterval(interval);
-    }, [emails]);
+    }, []); // Removed interval to prevent re-processing
 
 
     const filteredEmails = useMemo(() => {
@@ -180,8 +181,11 @@ function EmailClientView() {
     };
     
     const createCaseForContact = (contact: Contact, email: Email) => {
+         const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
+         const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
+        
          const newCase: Case = {
-            id: `case-${Date.now()}-${Math.random()}`,
+            id: `case-${newCaseNumber}`,
             subject: email.subject,
             customer: contact.name,
             email: contact.email,
@@ -505,3 +509,4 @@ export default function EmailsPage() {
         </div>
     );
 }
+
