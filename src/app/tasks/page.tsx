@@ -19,9 +19,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
 
 
-type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'all';
+type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'all' | 'pending';
 type TaskPriorityFilter = 'High' | 'Medium' | 'Low' | 'all';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
@@ -46,6 +47,7 @@ export default function TasksPage() {
   const { tasks, setTasks, users: mockUsers, cases: mockCases } = useData();
   const { user } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
   
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriorityFilter>('all');
@@ -53,6 +55,13 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const isAdmin = user?.role === 'admin';
+
+  useEffect(() => {
+    const status = searchParams.get('status') as TaskStatusFilter;
+    if (status === 'pending') {
+      setStatusFilter('pending');
+    }
+  }, [searchParams]);
 
   const userTasks = useMemo(() => {
     if (isAdmin) {
@@ -94,7 +103,9 @@ export default function TasksPage() {
   
   const filteredTasks = useMemo(() => {
      return userTasks.filter(task => {
-        const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
+        const matchesStatus = statusFilter === 'all' || 
+                              (statusFilter === 'pending' && (task.status === 'To Do' || task.status === 'In Progress')) ||
+                              task.status === statusFilter;
         const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                               (task.linkedCase && mockCases.find(c => c.id === task.linkedCase)?.subject.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -163,6 +174,7 @@ export default function TasksPage() {
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="To Do">To Do</SelectItem>
             <SelectItem value="In Progress">In Progress</SelectItem>
             <SelectItem value="Done">Done</SelectItem>
@@ -183,7 +195,9 @@ export default function TasksPage() {
        <div className="space-y-8">
         {statusGroups.map(status => {
            const tasksInGroup = filteredTasks.filter(t => t.status === status);
-           if (statusFilter !== 'all' && statusFilter !== status && tasksInGroup.length === 0) return null;
+           if (statusFilter !== 'all' && statusFilter !== status && statusFilter !== 'pending' && tasksInGroup.length === 0) return null;
+           if (statusFilter === 'pending' && status === 'Done') return null;
+
            
            return (
             <div key={status}>

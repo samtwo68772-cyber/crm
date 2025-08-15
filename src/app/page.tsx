@@ -64,7 +64,7 @@ function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string,
 function RecentCases({ cases }: { cases: Case[] }) {
     const router = useRouter();
     const { users } = useData();
-    const [isOpen, setIsOpen] = useState(true);
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -100,7 +100,7 @@ function RecentCases({ cases }: { cases: Case[] }) {
                             ))}
                         </div>
                     </CardContent>
-                    <CardFooter>
+                     <CardFooter>
                          <Button variant="outline" size="sm" onClick={() => router.push('/cases')} className="w-full">View All Cases</Button>
                     </CardFooter>
                 </CollapsibleContent>
@@ -109,19 +109,20 @@ function RecentCases({ cases }: { cases: Case[] }) {
     );
 }
 
-function getActivityIcon(action: string) {
+function getActivityDot(action: string) {
     switch(action.toLowerCase()) {
-        case 'user login': return <UserCheck className="h-5 w-5 text-blue-500" />;
-        case 'update case': return <Briefcase className="h-5 w-5 text-orange-500" />;
-        case 'create user': return <Users className="h-5 w-5 text-green-500" />;
-        default: return <MessageSquare className="h-5 w-5 text-muted-foreground" />;
+        case 'user login': return <div className="h-2 w-2 rounded-full bg-blue-500" />;
+        case 'update case': return <div className="h-2 w-2 rounded-full bg-orange-500" />;
+        case 'create user': return <div className="h-2 w-2 rounded-full bg-green-500" />;
+        case 'delete task': return <div className="h-2 w-2 rounded-full bg-red-500" />;
+        default: return <div className="h-2 w-2 rounded-full bg-gray-400" />;
     }
 }
 
 function RecentActivity() {
     const { users, auditLogs } = useData();
     const router = useRouter();
-    const [isOpen, setIsOpen] = useState(true);
+    const [isOpen, setIsOpen] = useState(false);
 
     const activities = useMemo(() => {
         if (!auditLogs) return [];
@@ -165,17 +166,17 @@ function RecentActivity() {
                     <CardContent>
                         <div className="space-y-4">
                              {recentActivities.map(activity => (
-                                <div key={activity.id} className="flex items-center gap-4">
-                                    <div className="p-2 bg-muted rounded-full">{getActivityIcon(activity.action)}</div>
+                                <div key={activity.id} className="flex items-center gap-3">
+                                    <div className="shrink-0">{getActivityDot(activity.action)}</div>
                                     <div className="flex-1">
                                         <p className="text-sm">{activity.details}</p>
-                                        <p className="text-xs text-muted-foreground">By {activity.user?.name || 'System'} &bull; {format(parseISO(activity.timestamp), 'PPpp')}</p>
+                                        <p className="text-xs text-muted-foreground">{format(parseISO(activity.timestamp), 'PPp')} &bull; {activity.user?.name || 'System'}</p>
                                     </div>
                                 </div>
                             ))}
                         </div>
                     </CardContent>
-                    <CardFooter>
+                     <CardFooter>
                          <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')} className="w-full">View All Activity</Button>
                     </CardFooter>
                 </CollapsibleContent>
@@ -187,7 +188,7 @@ function RecentActivity() {
 export default function DashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const { cases, tasks, emails, meetings, contacts, accounts, users, documents } = useData();
+    const { cases, tasks, emails, meetings, contacts, accounts, users, documents, auditLogs } = useData();
 
     const stats = useMemo(() => ({
         activeCases: cases.filter(c => ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)).length,
@@ -216,9 +217,9 @@ export default function DashboardPage() {
             <Separator />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KpiCard title="Active Cases" value={stats.activeCases} change="+2 this week" icon={Briefcase} onClick={() => router.push('/cases')} />
-                <KpiCard title="Pending Tasks" value={stats.pendingTasks} change="+5 this week" icon={ListTodo} onClick={() => router.push('/tasks')} />
-                <KpiCard title="Unread Emails" value={stats.unreadEmails} change="+12 today" icon={Mail} onClick={() => router.push('/emails')} />
+                <KpiCard title="Active Cases" value={stats.activeCases} change="+2 this week" icon={Briefcase} onClick={() => router.push('/cases?status=active')} />
+                <KpiCard title="Pending Tasks" value={stats.pendingTasks} change="+5 this week" icon={ListTodo} onClick={() => router.push('/tasks?status=pending')} />
+                <KpiCard title="Unread Emails" value={stats.unreadEmails} change="+12 today" icon={Mail} onClick={() => router.push('/emails?filter=unread')} />
                 <KpiCard title="Upcoming Meetings" value={stats.upcomingMeetings} change="2 scheduled today" icon={Calendar} onClick={() => router.push('/meetings')} />
             </div>
 
