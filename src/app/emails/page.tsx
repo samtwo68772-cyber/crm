@@ -45,6 +45,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { useSearchParams } from 'next/navigation';
 
 
 function EmailClientView() {
@@ -59,6 +60,15 @@ function EmailClientView() {
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [processedEmailIds, setProcessedEmailIds] = useState(new Set<string>());
+    const searchParams = useSearchParams();
+    const [showUnread, setShowUnread] = useState(false);
+
+    useEffect(() => {
+        if (searchParams.get('filter') === 'unread') {
+            setShowUnread(true);
+            setMailbox('inbox');
+        }
+    }, [searchParams]);
 
     const processIncomingEmails = () => {
         setIsProcessing(true);
@@ -155,9 +165,13 @@ function EmailClientView() {
 
 
     const filteredEmails = useMemo(() => {
-        const sortedEmails = emails
+        let sortedEmails = emails
             .filter(email => email.type === mailbox)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            
+        if (showUnread) {
+            sortedEmails = sortedEmails.filter(e => !e.read && e.type === 'inbox');
+        }
 
         if (!searchQuery) {
             return sortedEmails;
@@ -169,7 +183,7 @@ function EmailClientView() {
             (email.to && email.to.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
             email.body.toLowerCase().includes(searchQuery.toLowerCase())
         );
-    }, [emails, mailbox, searchQuery]);
+    }, [emails, mailbox, searchQuery, showUnread]);
     
 
     const handleSelectEmail = (email: Email) => {
@@ -261,11 +275,14 @@ function EmailClientView() {
                 </div>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <Button variant={mailbox === 'inbox' ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => setMailbox('inbox')}>
+                        <Button variant={mailbox === 'inbox' && !showUnread ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => { setMailbox('inbox'); setShowUnread(false); }}>
                             <Inbox className="h-4 w-4" /> Inbox
+                        </Button>
+                         <Button variant={showUnread ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => { setMailbox('inbox'); setShowUnread(true); }}>
+                             <Mail className="h-4 w-4" /> Unread
                             <Badge variant="default" className="ml-auto">{emails.filter(e => e.type === 'inbox' && !e.read).length}</Badge>
                         </Button>
-                        <Button variant={mailbox === 'sent' ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => setMailbox('sent')}>
+                        <Button variant={mailbox === 'sent' ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => { setMailbox('sent'); setShowUnread(false);}}>
                             <Send className="h-4 w-4" /> Sent
                         </Button>
                     </div>
@@ -509,4 +526,5 @@ export default function EmailsPage() {
         </div>
     );
 }
+
 

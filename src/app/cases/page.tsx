@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { DateRange } from "react-day-picker"
 import { useData } from '@/context/data-context';
 import type { Case, User, Communication, Task } from '@/lib/types';
@@ -21,6 +21,7 @@ import { useToast } from "@/hooks/use-toast"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { format, isWithinInterval, subDays } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -48,6 +49,7 @@ export default function CasesPage() {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -55,6 +57,13 @@ export default function CasesPage() {
   const [assignedToFilter, setAssignedToFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'active') {
+        setStatusFilter('active');
+    }
+  }, [searchParams]);
 
   const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'>) => {
     const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
@@ -95,7 +104,9 @@ export default function CasesPage() {
 
   const filteredCases = useMemo(() => {
     return userCases.filter(c => {
-        const matchesStatus = statusFilter === 'all' || c.status === statusFilter;
+        const matchesStatus = statusFilter === 'all' || 
+            (statusFilter === 'active' && ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)) ||
+            c.status === statusFilter;
         const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
         const matchesType = typeFilter === 'all' || c.type === typeFilter;
         const matchesAssignedTo = assignedToFilter === 'all' || c.assignedTo === c.assignedTo || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
@@ -123,6 +134,7 @@ export default function CasesPage() {
             <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="active">All Active</SelectItem>
               <SelectItem value="New">New</SelectItem><SelectItem value="Under Review">Under Review</SelectItem><SelectItem value="In Progress">In Progress</SelectItem><SelectItem value="Investigated">Investigated</SelectItem><SelectItem value="Resolved">Resolved</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Declined">Declined</SelectItem><SelectItem value="Closed">Closed</SelectItem>
             </SelectContent>
           </Select>

@@ -22,6 +22,7 @@ import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMont
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useSearchParams } from 'next/navigation';
 
 
 function getStatusVariant(status: Meeting['status']) {
@@ -152,6 +153,14 @@ export default function MeetingsPage() {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [activeTab, setActiveTab] = useState('calendar');
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('filter') === 'upcoming') {
+        setActiveTab('upcoming');
+    }
+  }, [searchParams]);
   
   const { user } = useAuth();
   const { toast } = useToast();
@@ -211,7 +220,7 @@ export default function MeetingsPage() {
         <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Schedule Meeting</Button>
       </div>
 
-       <Tabs defaultValue="calendar" className="w-full">
+       <Tabs defaultValue="calendar" value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 bg-muted/50 rounded-lg p-1">
               <TabsTrigger value="calendar">Calendar View</TabsTrigger>
               <TabsTrigger value="meetings">All Meetings</TabsTrigger>

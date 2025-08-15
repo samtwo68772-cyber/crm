@@ -195,9 +195,10 @@ export default function TasksPage() {
        <div className="space-y-8">
         {statusGroups.map(status => {
            const tasksInGroup = filteredTasks.filter(t => t.status === status);
-           if (statusFilter !== 'all' && statusFilter !== status && statusFilter !== 'pending' && tasksInGroup.length === 0) return null;
+           if (statusFilter !== 'all' && statusFilter !== 'pending' && statusFilter !== status ) {
+               if (tasksInGroup.length === 0) return null;
+           }
            if (statusFilter === 'pending' && status === 'Done') return null;
-
            
            return (
             <div key={status}>

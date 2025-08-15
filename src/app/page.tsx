@@ -247,7 +247,7 @@ export default function DashboardPage() {
                 <KpiCard title="Active Cases" value={stats.activeCases} change="+2 this week" icon={Briefcase} onClick={() => router.push('/cases?status=active')} />
                 <KpiCard title="Pending Tasks" value={stats.pendingTasks} change="+5 this week" icon={ListTodo} onClick={() => router.push('/tasks?status=pending')} />
                 <KpiCard title="Unread Emails" value={stats.unreadEmails} change="+12 today" icon={Mail} onClick={() => router.push('/emails?filter=unread')} />
-                <KpiCard title="Upcoming Meetings" value={stats.upcomingMeetings} change="2 scheduled today" icon={Calendar} onClick={() => router.push('/meetings')} />
+                <KpiCard title="Upcoming Meetings" value={stats.upcomingMeetings} change="2 scheduled today" icon={Calendar} onClick={() => router.push('/meetings?filter=upcoming')} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
