@@ -44,6 +44,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 
 
 function EmailClientView() {
@@ -342,6 +343,10 @@ function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: b
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="w-full sm:max-w-[45%] p-0 flex flex-col">
                 <SheetHeader className="p-4 border-b sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                    <VisuallyHidden>
+                        <SheetTitle>Email Details</SheetTitle>
+                        <SheetDescription>View the details of the selected email.</SheetDescription>
+                    </VisuallyHidden>
                     <div className="flex items-center justify-between">
                          <div className="flex items-center gap-2 min-w-0">
                             <h2 className="text-lg font-semibold truncate shrink">{email.subject}</h2>
