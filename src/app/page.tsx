@@ -3,7 +3,7 @@
 
 import { useAuth } from '@/context/auth-context';
 import { useData } from '@/context/data-context';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,11 +23,15 @@ import {
     PlusCircle,
     UserCheck,
     MessageSquare,
-    CheckCircle
+    CheckCircle,
+    ChevronDown
 } from 'lucide-react';
 import type { Case, Task, Meeting, Email, AuditLog } from '@/lib/types';
 import { format, parseISO } from 'date-fns';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { cn } from '@/lib/utils';
+
 
 function getStatusVariant(status: Case['status']) {
     switch (status) {
@@ -60,38 +64,48 @@ function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string,
 function RecentCases({ cases }: { cases: Case[] }) {
     const router = useRouter();
     const { users } = useData();
+    const [isOpen, setIsOpen] = useState(true);
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Recent Cases</CardTitle>
-                    <CardDescription>The latest cases that have been opened.</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => router.push('/cases')}>View All</Button>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                    {cases.slice(0, 5).map(caseItem => (
-                        <div key={caseItem.id} className="flex items-start gap-4">
-                            <Avatar className="h-10 w-10">
-                                <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                                <p className="font-semibold text-sm">{caseItem.subject}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
-                                </p>
-                            </div>
-                            <div className="text-right">
-                                <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
-                                <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
-                            </div>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <Card>
+                <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between p-6 cursor-pointer">
+                        <div>
+                            <CardTitle>Recent Cases</CardTitle>
+                            <CardDescription>The latest cases that have been opened.</CardDescription>
                         </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
+                         <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                    </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <CardContent>
+                        <div className="space-y-4">
+                            {cases.slice(0, 5).map(caseItem => (
+                                <div key={caseItem.id} className="flex items-start gap-4">
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-sm">{caseItem.subject}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
+                                        <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                         <Button variant="outline" size="sm" onClick={() => router.push('/cases')} className="w-full">View All Cases</Button>
+                    </CardFooter>
+                </CollapsibleContent>
+            </Card>
+        </Collapsible>
     );
 }
 
@@ -107,6 +121,7 @@ function getActivityIcon(action: string) {
 function RecentActivity() {
     const { users, auditLogs } = useData();
     const router = useRouter();
+    const [isOpen, setIsOpen] = useState(true);
 
     const activities = useMemo(() => {
         if (!auditLogs) return [];
@@ -116,33 +131,56 @@ function RecentActivity() {
         }));
     }, [auditLogs, users]);
 
+    if (!activities) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Recent Activity</CardTitle>
+                    <CardDescription>A log of the latest system events.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <p>Loading activities...</p>
+                </CardContent>
+            </Card>
+        )
+    }
+
     const recentActivities = activities
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
         .slice(0, 7);
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                 <div>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>A log of the latest system events.</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')}>View All</Button>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                     {recentActivities.map(activity => (
-                        <div key={activity.id} className="flex items-center gap-4">
-                            <div className="p-2 bg-muted rounded-full">{getActivityIcon(activity.action)}</div>
-                            <div className="flex-1">
-                                <p className="text-sm">{activity.details}</p>
-                                <p className="text-xs text-muted-foreground">By {activity.user?.name || 'System'} &bull; {format(parseISO(activity.timestamp), 'PPpp')}</p>
-                            </div>
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <Card>
+                <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between p-6 cursor-pointer">
+                        <div>
+                            <CardTitle>Recent Activity</CardTitle>
+                            <CardDescription>A log of the latest system events.</CardDescription>
                         </div>
-                    ))}
-                </div>
-            </CardContent>
-        </Card>
+                        <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
+                    </div>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <CardContent>
+                        <div className="space-y-4">
+                             {recentActivities.map(activity => (
+                                <div key={activity.id} className="flex items-center gap-4">
+                                    <div className="p-2 bg-muted rounded-full">{getActivityIcon(activity.action)}</div>
+                                    <div className="flex-1">
+                                        <p className="text-sm">{activity.details}</p>
+                                        <p className="text-xs text-muted-foreground">By {activity.user?.name || 'System'} &bull; {format(parseISO(activity.timestamp), 'PPpp')}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                         <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')} className="w-full">View All Activity</Button>
+                    </CardFooter>
+                </CollapsibleContent>
+            </Card>
+        </Collapsible>
     );
 }
 
