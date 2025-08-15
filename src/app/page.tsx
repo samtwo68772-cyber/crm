@@ -173,12 +173,6 @@ export default function DashboardPage() {
                     <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
                     <p className="text-muted-foreground">Welcome back, {user.name}. Here's your overview.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button size="sm" variant="outline"><PlusCircle /> New Case</Button>
-                    <Button size="sm" variant="outline"><Calendar /> Schedule Meeting</Button>
-                    <Button size="sm" variant="outline"><Mail /> Compose Email</Button>
-                    <Button size="sm" variant="outline"><ListTodo /> Add Task</Button>
-                </div>
             </div>
 
             <Separator />
