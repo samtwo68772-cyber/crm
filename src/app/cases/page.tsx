@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { format, isWithinInterval } from 'date-fns';
+import { format, isWithinInterval, subDays } from 'date-fns';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -89,7 +89,8 @@ export default function CasesPage() {
   };
   
   const userCases = useMemo(() => {
-    return user?.role === 'admin' ? cases : cases.filter(c => c.assignedTo === user?.name);
+    const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => c.assignedTo === user?.name);
   }, [cases, user]);
 
   const filteredCases = useMemo(() => {
@@ -115,6 +116,7 @@ export default function CasesPage() {
         <div className="flex items-center space-x-2">
            <Input placeholder="Filter by keyword..." className="max-w-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
            <DateRangePicker onDateChange={setDateRange} />
+           <Button variant="outline" onClick={() => setDateRange({from: subDays(new Date(), 7), to: new Date()})}>Recent</Button>
         </div>
         <div className="flex items-center space-x-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -459,3 +461,6 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   );
 }
 
+
+
+    
