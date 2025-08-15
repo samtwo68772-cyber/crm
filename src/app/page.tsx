@@ -4,11 +4,9 @@
 import { useAuth } from '@/context/auth-context';
 import { useData } from '@/context/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { useRouter } from 'next/navigation';
 import {
     Briefcase,
@@ -21,15 +19,10 @@ import {
     FileText,
     ArrowUpRight,
     PlusCircle,
-    UserCheck,
-    MessageSquare,
-    CheckCircle,
-    ChevronDown
 } from 'lucide-react';
-import type { Case, Task, Meeting, Email, AuditLog } from '@/lib/types';
-import { format, parseISO, formatDistanceToNow } from 'date-fns';
+import type { Case, Task, Meeting, Email } from '@/lib/types';
+import { format, parseISO, formatDistanceToNow, subDays, isAfter } from 'date-fns';
 import React, { useMemo, useState } from 'react';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
 
@@ -43,9 +36,10 @@ function getStatusVariant(status: Case['status']) {
     }
 }
 
-function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string, value: string | number, change: string, icon: React.ElementType, onClick: () => void }) {
+function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string, value: string | number, change: string, icon: React.ElementType, onClick?: () => void }) {
+    const cardProps = onClick ? { onClick, className: "cursor-pointer hover:shadow-lg transition-shadow duration-200" } : {};
     return (
-        <Card onClick={onClick} className="cursor-pointer hover:shadow-lg transition-shadow duration-200">
+        <Card {...cardProps}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
                 <Icon className="h-4 w-4 text-muted-foreground" />
@@ -61,90 +55,110 @@ function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string,
     );
 }
 
-function RecentCases({ cases }: { cases: Case[] }) {
+function RecentCases() {
     const router = useRouter();
-    const { users } = useData();
-    const [isOpen, setIsOpen] = useState(false);
+    const { cases, users } = useData();
+    const [isExpanded, setIsExpanded] = useState(false);
+
+    const recentCases = useMemo(() => {
+        const twoWeeksAgo = subDays(new Date(), 14);
+        return cases
+            .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [cases]);
+
+    const visibleCases = isExpanded ? recentCases : recentCases.slice(0, 5);
 
     return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <Card>
-                <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between p-6 cursor-pointer">
-                        <div>
-                            <CardTitle>Recent Cases</CardTitle>
-                            <CardDescription>The latest cases that have been opened.</CardDescription>
-                        </div>
-                         <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
-                    </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                    <CardContent>
-                        <div className="space-y-4">
-                            {cases.slice(0, 5).map(caseItem => (
-                                <div key={caseItem.id} className="flex items-start gap-4">
-                                    <Avatar className="h-10 w-10">
-                                        <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex-1">
-                                        <p className="font-semibold text-sm">{caseItem.subject}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
-                                        <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
-                                    </div>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Recent Cases</CardTitle>
+                    <CardDescription>Cases updated in the last 14 days.</CardDescription>
+                </div>
+                 <Button variant="outline" size="sm" onClick={() => router.push('/cases')}>View All</Button>
+            </CardHeader>
+            <CardContent>
+                {visibleCases.length > 0 ? (
+                    <div className="space-y-4">
+                        {visibleCases.map(caseItem => (
+                            <div key={caseItem.id} className="flex items-start gap-4">
+                                <Avatar className="h-10 w-10">
+                                    <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1">
+                                    <p className="font-semibold text-sm">{caseItem.subject}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
+                                    </p>
                                 </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                     <CardFooter>
-                         <Button variant="outline" size="sm" onClick={() => router.push('/cases')} className="w-full">View All Cases</Button>
-                    </CardFooter>
-                </CollapsibleContent>
-            </Card>
-        </Collapsible>
+                                <div className="text-right">
+                                    <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
+                                    <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                     <p className="text-center text-muted-foreground py-8">No recent cases</p>
+                )}
+            </CardContent>
+             {recentCases.length > 5 && (
+                <CardFooter className="justify-center">
+                    <Button variant="link" onClick={() => setIsExpanded(!isExpanded)}>
+                        {isExpanded ? 'Show less' : 'Show more...'}
+                    </Button>
+                </CardFooter>
+            )}
+        </Card>
     );
 }
 
 function RecentActivity() {
-    const { users, cases, tasks, meetings, auditLogs } = useData();
+    const { users, cases, tasks, meetings } = useData();
     const router = useRouter();
-    const [isOpen, setIsOpen] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const activities = useMemo(() => {
-        const caseActivities = cases.map(c => ({
-            id: `case-${c.id}`,
-            type: 'case',
-            description: `New case assigned: ${c.subject}`,
-            timestamp: c.createdAt,
-            user: users.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
-        }));
+        const twoWeeksAgo = subDays(new Date(), 14);
 
-        const taskActivities = tasks.map(t => ({
-            id: `task-${t.id}`,
-            type: 'task',
-            description: `${t.status === 'Done' ? 'Task completed' : 'New task'}: ${t.title}`,
-            timestamp: t.dueDate, // Assuming dueDate can be used for sorting
-            user: users.find(u => u.id === t.assignedTo)
-        }));
+        const caseActivities = cases
+            .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
+            .map(c => ({
+                id: `case-${c.id}`,
+                type: 'case',
+                description: `New case created: "${c.subject}"`,
+                timestamp: c.createdAt,
+                user: users.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
+            }));
 
-        const meetingActivities = meetings.map(m => ({
-            id: `meeting-${m.id}`,
-            type: 'meeting',
-            description: `${m.status === 'Upcoming' ? 'Meeting scheduled' : 'Meeting'}: ${m.title}`,
-            timestamp: m.date,
-            user: users.find(u => m.participants.includes(u.id))
-        }));
+        const taskActivities = tasks
+            .filter(t => isAfter(new Date(t.dueDate), twoWeeksAgo))
+            .map(t => ({
+                id: `task-${t.id}`,
+                type: 'task',
+                description: `${t.status === 'Done' ? 'Task completed' : 'New task'}: "${t.title}"`,
+                timestamp: t.dueDate, 
+                user: users.find(u => u.id === t.assignedTo)
+            }));
 
-        const allActivities = [...caseActivities, ...taskActivities, ...meetingActivities];
+        const meetingActivities = meetings
+            .filter(m => isAfter(new Date(m.date), twoWeeksAgo))
+            .map(m => ({
+                id: `meeting-${m.id}`,
+                type: 'meeting',
+                description: `${m.status === 'Upcoming' ? 'Meeting scheduled' : 'Meeting'}: "${m.title}"`,
+                timestamp: m.date,
+                user: users.find(u => m.participants.includes(u.id))
+            }));
 
-        return allActivities
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-            .slice(0, 7);
+        return [...caseActivities, ...taskActivities, ...meetingActivities]
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
     }, [cases, tasks, meetings, users]);
+    
+    const visibleActivities = isExpanded ? activities : activities.slice(0, 5);
+
 
     const getActivityDot = (type: string) => {
         switch (type) {
@@ -158,46 +172,48 @@ function RecentActivity() {
     
 
     return (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <Card>
-                <CollapsibleTrigger asChild>
-                    <div className="flex items-center justify-between p-6 cursor-pointer">
-                        <div>
-                            <CardTitle>Recent Activity</CardTitle>
-                            <CardDescription>Latest system activities</CardDescription>
-                        </div>
-                        <ChevronDown className={cn("h-5 w-5 text-muted-foreground transition-transform", isOpen && "rotate-180")} />
-                    </div>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                    <CardContent>
-                        <div className="space-y-6">
-                             {activities.map(activity => (
-                                <div key={activity.id} className="flex items-start gap-3">
-                                    <div className="shrink-0 mt-1">{getActivityDot(activity.type)}</div>
-                                    <div className="flex-1">
-                                        <p className="text-sm">{activity.description}</p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })} &bull; {activity.user?.name || 'System'}
-                                        </p>
-                                    </div>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Recent Activity</CardTitle>
+                    <CardDescription>Latest system activities from the last 14 days.</CardDescription>
+                </div>
+                 <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')}>View All</Button>
+            </CardHeader>
+            <CardContent>
+                {visibleActivities.length > 0 ? (
+                    <div className="space-y-6">
+                         {visibleActivities.map(activity => (
+                            <div key={activity.id} className="flex items-start gap-3">
+                                <div className="shrink-0 mt-1.5">{getActivityDot(activity.type)}</div>
+                                <div className="flex-1">
+                                    <p className="text-sm">{activity.description}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })} &bull; {activity.user?.name || 'System'}
+                                    </p>
                                 </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                     <CardFooter>
-                         <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')} className="w-full">View All Activity</Button>
-                    </CardFooter>
-                </CollapsibleContent>
-            </Card>
-        </Collapsible>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="text-center text-muted-foreground py-8">No recent activities</p>
+                )}
+            </CardContent>
+             {activities.length > 5 && (
+                <CardFooter className="justify-center">
+                    <Button variant="link" onClick={() => setIsExpanded(!isExpanded)}>
+                        {isExpanded ? 'Show less' : 'Show more...'}
+                    </Button>
+                </CardFooter>
+            )}
+        </Card>
     );
 }
 
 export default function DashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const { cases, tasks, emails, meetings, contacts, accounts, users, documents, auditLogs } = useData();
+    const { cases, tasks, emails, meetings, contacts, accounts, users, documents } = useData();
 
     const stats = useMemo(() => ({
         activeCases: cases.filter(c => ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)).length,
@@ -210,8 +226,6 @@ export default function DashboardPage() {
         totalDocuments: documents.length,
     }), [cases, tasks, emails, meetings, contacts, accounts, users, documents]);
 
-    const recentCases = useMemo(() => [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()), [cases]);
-
     if (!user) return null;
 
     return (
@@ -221,9 +235,11 @@ export default function DashboardPage() {
                     <h2 className="text-3xl font-bold tracking-tight font-headline">Dashboard</h2>
                     <p className="text-muted-foreground">Welcome back, {user.name}. Here's your overview.</p>
                 </div>
+                 <div className="flex items-center gap-2">
+                    <Button onClick={() => router.push('/cases')}><PlusCircle /> New Case</Button>
+                    <Button variant="outline" onClick={() => router.push('/tasks')}><PlusCircle /> New Task</Button>
+                </div>
             </div>
-
-            <Separator />
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <KpiCard title="Active Cases" value={stats.activeCases} change="+2 this week" icon={Briefcase} onClick={() => router.push('/cases?status=active')} />
@@ -241,7 +257,7 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3">
-                    <RecentCases cases={recentCases} />
+                    <RecentCases />
                 </div>
                 <div className="lg:col-span-2">
                     <RecentActivity />
