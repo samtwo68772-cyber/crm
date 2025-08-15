@@ -18,6 +18,7 @@ import { isWithinInterval, startOfDay, endOfDay, subDays, format, eachDayOfInter
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useRouter } from 'next/navigation';
 
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -41,10 +42,10 @@ function getStatusVariant(status: Case['status']) {
     }
 }
 
-function KpiCard({ title, value, change, changeType, icon: Icon }: { title: string; value: string; change: string; changeType: 'positive' | 'negative'; icon: React.ElementType }) {
+function KpiCard({ title, value, change, changeType, icon: Icon, onClick }: { title: string; value: string; change: string; changeType: 'positive' | 'negative'; icon: React.ElementType, onClick?: () => void }) {
     const isPositive = changeType === 'positive';
     return (
-        <Card className="shadow-sm hover:shadow-lg transition-shadow">
+        <Card className="shadow-sm hover:shadow-lg transition-shadow cursor-pointer" onClick={onClick}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
                 <Icon className="h-5 w-5 text-muted-foreground" />
@@ -81,6 +82,7 @@ const MiniSparkline = ({data, positive}: {data: any[], positive: boolean}) => (
 
 export default function ReportsPage() {
     const { cases: mockCases, tasks: mockTasks, users: mockUsers, meetings: mockMeetings } = useData();
+    const router = useRouter();
     const [reportType, setReportType] = useState('overview');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
     const [userFilter, setUserFilter] = useState('all');
@@ -162,6 +164,15 @@ export default function ReportsPage() {
         alert(`Exporting as ${format}... Check console for data.`);
     };
 
+    const buildNavUrl = (pathname: string, statusKey: string, statusValue: string) => {
+        const params = new URLSearchParams();
+        params.set(statusKey, statusValue);
+        if (dateRange?.from) params.set('from', format(dateRange.from, 'yyyy-MM-dd'));
+        if (dateRange?.to) params.set('to', format(dateRange.to, 'yyyy-MM-dd'));
+        if (userFilter !== 'all') params.set('user', userFilter);
+        return `${pathname}?${params.toString()}`;
+    }
+
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
             <header className="pb-6 border-b">
@@ -183,10 +194,10 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
-                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType="positive" icon={Briefcase} />
+                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType="positive" icon={Briefcase} onClick={() => router.push(buildNavUrl('/cases', 'status', 'all'))} />
                 <KpiCard title="Avg. Resolution Time" value={kpiData.avgResolutionTime.value} change={kpiData.avgResolutionTime.change} changeType="positive" icon={Clock} />
-                <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType="positive" icon={CheckCircle} />
-                <KpiCard title="Meetings Held" value={kpiData.meetingsHeld.value} change={kpiData.meetingsHeld.change} changeType="negative" icon={CalendarIcon} />
+                <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType="positive" icon={CheckCircle} onClick={() => router.push(buildNavUrl('/tasks', 'status', 'Done'))} />
+                <KpiCard title="Meetings Held" value={kpiData.meetingsHeld.value} change={kpiData.meetingsHeld.change} changeType="negative" icon={CalendarIcon} onClick={() => router.push(buildNavUrl('/meetings', 'status', 'Completed'))} />
             </div>
 
             <main className="mt-8">
