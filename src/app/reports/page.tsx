@@ -120,7 +120,7 @@ export default function ReportsPage() {
             avgResolutionTime: { value: '2.1d', change: '-5.2%', type: 'positive' },
             tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' },
             meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' },
-            casesResolved: filteredData.cases.filter(c => ['Resolved', 'Closed'].includes(c.status)).length,
+            casesResolved: filteredData.cases.filter(c => ['Resolved', 'Closed', 'Completed'].includes(c.status)).length,
             casesInProgress: filteredData.cases.filter(c => c.status === 'In Progress').length,
             casesPendingReview: filteredData.cases.filter(c => ['New', 'Under Review'].includes(c.status)).length,
         }
@@ -136,12 +136,13 @@ export default function ReportsPage() {
         if (totalCases === 0) return [];
         
         const counts = mockCases.reduce((acc, curr) => {
-            acc[curr.type] = (acc[curr.type] || 0) + 1;
+            const category = curr.type || 'Uncategorized';
+            acc[category] = (acc[category] || 0) + 1;
             return acc;
         }, {} as Record<string, number>);
 
         return Object.entries(counts).map(([name, value]) => ({ 
-            name: name as Case['type'], 
+            name: name,
             count: value,
             percentage: (value / totalCases * 100)
         })).sort((a,b) => b.count - a.count);
@@ -170,7 +171,7 @@ export default function ReportsPage() {
             const tasks = filteredData.tasks.filter(t => t.assignedTo === user.id);
             return {
                 name: user.name,
-                resolvedCases: cases.filter(c => c.status === 'Resolved' || c.status === 'Closed').length,
+                resolvedCases: cases.filter(c => ['Resolved', 'Closed', 'Completed'].includes(c.status)).length,
                 completedTasks: tasks.filter(t => t.status === 'Done').length,
                 avgResolution: (Math.random() * 5).toFixed(1) + 'd', // mock data
             };
@@ -329,12 +330,7 @@ export default function ReportsPage() {
                     </TabsContent>
                     <TabsContent value="cases" className="mt-6">
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="lg:col-span-1 space-y-6">
-                                <KpiCard title="Cases Resolved" value={kpiData.casesResolved.toString()} icon={CheckCircle} onClick={() => router.push(buildNavUrl('/cases', {status: 'Resolved'}))}/>
-                                <KpiCard title="In Progress" value={kpiData.casesInProgress.toString()} icon={Activity} onClick={() => router.push(buildNavUrl('/cases', {status: 'In Progress'}))} />
-                                <KpiCard title="Pending Review" value={kpiData.casesPendingReview.toString()} icon={Hourglass} onClick={() => router.push(buildNavUrl('/cases', {status: 'New'}))}/>
-                            </div>
-                            <div className="lg:col-span-2">
+                             <div className="lg:col-span-2">
                                 <Card>
                                     <CardHeader>
                                         <CardTitle>Case Categories</CardTitle>
@@ -348,7 +344,7 @@ export default function ReportsPage() {
                                                         <TooltipTrigger asChild>
                                                             <div 
                                                                 className="flex items-center cursor-pointer group"
-                                                                onClick={() => setCaseCategoryFilter(cat.name)}
+                                                                onClick={() => setCaseCategoryFilter(cat.name === 'Uncategorized' ? 'all' : cat.name)}
                                                             >
                                                                 <div className="flex items-center gap-3 flex-1">
                                                                     <Folder className="h-5 w-5 text-muted-foreground"/>
@@ -370,6 +366,11 @@ export default function ReportsPage() {
                                         </div>
                                     </CardContent>
                                 </Card>
+                            </div>
+                             <div className="lg:col-span-1 space-y-6">
+                                <KpiCard title="Cases Resolved" value={kpiData.casesResolved.toString()} icon={CheckCircle} onClick={() => router.push(buildNavUrl('/cases', {status: 'Resolved'}))}/>
+                                <KpiCard title="In Progress" value={kpiData.casesInProgress.toString()} icon={Activity} onClick={() => router.push(buildNavUrl('/cases', {status: 'In Progress'}))} />
+                                <KpiCard title="Pending Review" value={kpiData.casesPendingReview.toString()} icon={Hourglass} onClick={() => router.push(buildNavUrl('/cases', {status: 'New'}))}/>
                             </div>
                         </div>
                     </TabsContent>
@@ -459,5 +460,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
-    
