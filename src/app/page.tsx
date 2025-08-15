@@ -19,11 +19,13 @@ import {
     FileText,
     ArrowUpRight,
     PlusCircle,
+    ChevronDown,
 } from 'lucide-react';
 import type { Case, Task, Meeting, Email } from '@/lib/types';
 import { format, parseISO, formatDistanceToNow, subDays, isAfter } from 'date-fns';
 import React, { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 
 function getStatusVariant(status: Case['status']) {
@@ -58,7 +60,7 @@ function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string,
 function RecentCases() {
     const router = useRouter();
     const { cases, users } = useData();
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
     const recentCases = useMemo(() => {
         const twoWeeksAgo = subDays(new Date(), 14);
@@ -67,57 +69,59 @@ function RecentCases() {
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [cases]);
 
-    const visibleCases = isExpanded ? recentCases : recentCases.slice(0, 5);
-
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Recent Cases</CardTitle>
-                    <CardDescription>Cases updated in the last 14 days.</CardDescription>
-                </div>
-                 <Button variant="outline" size="sm" onClick={() => router.push('/cases')}>View All</Button>
-            </CardHeader>
-            <CardContent>
-                {visibleCases.length > 0 ? (
-                    <div className="space-y-4">
-                        {visibleCases.map(caseItem => (
-                            <div key={caseItem.id} className="flex items-start gap-4">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                    <p className="font-semibold text-sm">{caseItem.subject}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
-                                    <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
-                                </div>
-                            </div>
-                        ))}
+        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <Card>
+                <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between p-6 cursor-pointer">
+                        <div>
+                            <CardTitle>Recent Cases</CardTitle>
+                            <CardDescription>Cases updated in the last 14 days.</CardDescription>
+                        </div>
+                        <Button variant="ghost" size="icon">
+                            <ChevronDown className={cn("h-5 w-5 transition-transform", isOpen && "rotate-180")} />
+                        </Button>
                     </div>
-                ) : (
-                     <p className="text-center text-muted-foreground py-8">No recent cases</p>
-                )}
-            </CardContent>
-             {recentCases.length > 5 && (
-                <CardFooter className="justify-center">
-                    <Button variant="link" onClick={() => setIsExpanded(!isExpanded)}>
-                        {isExpanded ? 'Show less' : 'Show more...'}
-                    </Button>
-                </CardFooter>
-            )}
-        </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <CardContent>
+                        {recentCases.length > 0 ? (
+                            <div className="space-y-4">
+                                {recentCases.map(caseItem => (
+                                    <div key={caseItem.id} className="flex items-start gap-4">
+                                        <Avatar className="h-10 w-10">
+                                            <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex-1">
+                                            <p className="font-semibold text-sm">{caseItem.subject}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
+                                            </p>
+                                        </div>
+                                        <div className="text-right">
+                                            <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
+                                            <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                             <p className="text-center text-muted-foreground py-8">No recent cases</p>
+                        )}
+                    </CardContent>
+                    <CardFooter>
+                        <Button variant="outline" size="sm" onClick={() => router.push('/cases')}>View All</Button>
+                    </CardFooter>
+                </CollapsibleContent>
+            </Card>
+        </Collapsible>
     );
 }
 
 function RecentActivity() {
     const { users, cases, tasks, meetings } = useData();
     const router = useRouter();
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
 
     const activities = useMemo(() => {
         const twoWeeksAgo = subDays(new Date(), 14);
@@ -157,8 +161,6 @@ function RecentActivity() {
 
     }, [cases, tasks, meetings, users]);
     
-    const visibleActivities = isExpanded ? activities : activities.slice(0, 5);
-
 
     const getActivityDot = (type: string) => {
         switch (type) {
@@ -172,41 +174,45 @@ function RecentActivity() {
     
 
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                    <CardTitle>Recent Activity</CardTitle>
-                    <CardDescription>Latest system activities from the last 14 days.</CardDescription>
-                </div>
-                 <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')}>View All</Button>
-            </CardHeader>
-            <CardContent>
-                {visibleActivities.length > 0 ? (
-                    <div className="space-y-6">
-                         {visibleActivities.map(activity => (
-                            <div key={activity.id} className="flex items-start gap-3">
-                                <div className="shrink-0 mt-1.5">{getActivityDot(activity.type)}</div>
-                                <div className="flex-1">
-                                    <p className="text-sm">{activity.description}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                        {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })} &bull; {activity.user?.name || 'System'}
-                                    </p>
-                                </div>
-                            </div>
-                        ))}
+         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+            <Card>
+                <CollapsibleTrigger asChild>
+                    <div className="flex items-center justify-between p-6 cursor-pointer">
+                        <div>
+                            <CardTitle>Recent Activity</CardTitle>
+                            <CardDescription>Latest system activities from the last 14 days.</CardDescription>
+                        </div>
+                        <Button variant="ghost" size="icon">
+                            <ChevronDown className={cn("h-5 w-5 transition-transform", isOpen && "rotate-180")} />
+                        </Button>
                     </div>
-                ) : (
-                    <p className="text-center text-muted-foreground py-8">No recent activities</p>
-                )}
-            </CardContent>
-             {activities.length > 5 && (
-                <CardFooter className="justify-center">
-                    <Button variant="link" onClick={() => setIsExpanded(!isExpanded)}>
-                        {isExpanded ? 'Show less' : 'Show more...'}
-                    </Button>
-                </CardFooter>
-            )}
-        </Card>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                    <CardContent>
+                        {activities.length > 0 ? (
+                            <div className="space-y-6">
+                                 {activities.map(activity => (
+                                    <div key={activity.id} className="flex items-start gap-3">
+                                        <div className="shrink-0 mt-1.5">{getActivityDot(activity.type)}</div>
+                                        <div className="flex-1">
+                                            <p className="text-sm">{activity.description}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })} &bull; {activity.user?.name || 'System'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-center text-muted-foreground py-8">No recent activities</p>
+                        )}
+                    </CardContent>
+                     <CardFooter>
+                        <Button variant="outline" size="sm" onClick={() => router.push('/settings?tab=audit')}>View All</Button>
+                    </CardFooter>
+                </CollapsibleContent>
+            </Card>
+        </Collapsible>
     );
 }
 
