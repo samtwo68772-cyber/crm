@@ -160,18 +160,24 @@ export default function ReportsPage() {
         return activityByDay;
     }, [filteredData, dateRange]);
     
-    const handleExport = (format: 'pdf' | 'excel') => {
-        alert(`Exporting as ${format}... Check console for data.`);
+    const handleExport = (formatType: 'pdf' | 'excel') => {
+        alert(`Exporting as ${formatType}... (Filtered data would be used here)`);
     };
 
-    const buildNavUrl = (pathname: string, statusKey: string, statusValue: string) => {
+    const buildNavUrl = (pathname: string, filters: Record<string, string>) => {
         const params = new URLSearchParams();
-        params.set(statusKey, statusValue);
+        Object.entries(filters).forEach(([key, value]) => params.set(key, value));
         if (dateRange?.from) params.set('from', format(dateRange.from, 'yyyy-MM-dd'));
         if (dateRange?.to) params.set('to', format(dateRange.to, 'yyyy-MM-dd'));
         if (userFilter !== 'all') params.set('user', userFilter);
         return `${pathname}?${params.toString()}`;
     }
+    
+    const handleChartClick = (path: string, filterKey: string, payload: any) => {
+        if (payload && payload.name) {
+            router.push(buildNavUrl(path, { [filterKey]: payload.name }));
+        }
+    };
 
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
@@ -194,10 +200,10 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
-                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType="positive" icon={Briefcase} onClick={() => router.push(buildNavUrl('/cases', 'status', 'all'))} />
+                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType="positive" icon={Briefcase} onClick={() => router.push(buildNavUrl('/cases', { status: 'all' }))} />
                 <KpiCard title="Avg. Resolution Time" value={kpiData.avgResolutionTime.value} change={kpiData.avgResolutionTime.change} changeType="positive" icon={Clock} />
-                <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType="positive" icon={CheckCircle} onClick={() => router.push(buildNavUrl('/tasks', 'status', 'Done'))} />
-                <KpiCard title="Meetings Held" value={kpiData.meetingsHeld.value} change={kpiData.meetingsHeld.change} changeType="negative" icon={CalendarIcon} onClick={() => router.push(buildNavUrl('/meetings', 'status', 'Completed'))} />
+                <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType="positive" icon={CheckCircle} onClick={() => router.push(buildNavUrl('/tasks', { status: 'Done' }))} />
+                <KpiCard title="Meetings Held" value={kpiData.meetingsHeld.value} change={kpiData.meetingsHeld.change} changeType="negative" icon={CalendarIcon} onClick={() => router.push(buildNavUrl('/meetings', { status: 'Completed' }))} />
             </div>
 
             <main className="mt-8">
@@ -215,7 +221,7 @@ export default function ReportsPage() {
                                 <CardHeader><CardTitle>Cases by Status</CardTitle></CardHeader>
                                 <CardContent>
                                     <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={casesByStatusData}>
+                                        <BarChart data={casesByStatusData} onClick={(data) => handleChartClick('/cases', 'status', data.activePayload?.[0]?.payload)}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                             <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
                                             <YAxis fontSize={12} tickLine={false} axisLine={false} />
@@ -236,7 +242,7 @@ export default function ReportsPage() {
                                                 const y = cy  + radius * Math.sin(-midAngle * Math.PI / 180);
                                                 return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central">{(percent * 100).toFixed(0)}%</text>;
                                             }}>
-                                                {tasksByPriorityData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
+                                                {tasksByPriorityData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} onClick={() => router.push(buildNavUrl('/tasks', { priority: entry.name }))}/>)}
                                             </Pie>
                                             <Tooltip />
                                             <Legend />
@@ -282,7 +288,7 @@ export default function ReportsPage() {
                                     <TableHeader><TableRow><TableHead>Staff Member</TableHead><TableHead>Resolved Cases</TableHead><TableHead>Completed Tasks</TableHead><TableHead>Avg. Resolution Time</TableHead></TableRow></TableHeader>
                                     <TableBody>
                                         {performanceData.map(p => 
-                                            <TableRow key={p.name}>
+                                            <TableRow key={p.name} onClick={() => router.push('/admin')} className="cursor-pointer">
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>{p.resolvedCases}</TableCell>
                                                 <TableCell>{p.completedTasks}</TableCell>
@@ -302,6 +308,7 @@ export default function ReportsPage() {
                                     mode="single"
                                     month={dateRange?.from}
                                     className="p-0"
+                                    onDayClick={(day) => alert(`Filtering to ${format(day, 'PPP')}`)}
                                     components={{
                                         DayContent: ({ date }) => {
                                             const dayStr = format(date, 'yyyy-MM-dd');
