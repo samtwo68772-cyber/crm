@@ -347,6 +347,21 @@ export default function ReportsPage() {
         }, {} as Record<string, number>);
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [filteredData.cases]);
+    
+    const caseTrendsData = useMemo(() => {
+        if (!dateRange?.from || !dateRange?.to) return [];
+        const days = eachDayOfInterval({start: dateRange.from, end: dateRange.to});
+        return days.map(day => {
+            const dayStr = format(day, 'yyyy-MM-dd');
+            const created = filteredData.cases.filter(c => format(new Date(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
+            const resolved = filteredData.cases.filter(c => c.resolvedAt && format(new Date(c.resolvedAt), 'yyyy-MM-dd') === dayStr).length;
+            return {
+                date: format(day, 'MMM d'),
+                created,
+                resolved
+            }
+        });
+    }, [filteredData.cases, dateRange]);
 
     const tasksByPriorityData = useMemo(() => {
         const counts = filteredData.tasks.reduce((acc, curr) => {
@@ -544,32 +559,55 @@ export default function ReportsPage() {
                     </TabsList>
                     <TabsContent value="overview" className="mt-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <Card>
-                                <CardHeader><CardTitle>Cases by Status</CardTitle></CardHeader>
+                           <Card>
+                                <CardHeader>
+                                    <CardTitle>Case Trends</CardTitle>
+                                    <CardDescription>New cases vs. resolved cases over the selected period.</CardDescription>
+                                </CardHeader>
                                 <CardContent>
                                     <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={casesByStatusData} onClick={(data) => handleChartClick('/cases', 'status', data.activePayload?.[0]?.payload)}>
+                                        <BarChart data={caseTrendsData}>
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                            <XAxis dataKey="name" fontSize={12} tickLine={false} axisLine={false} />
+                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
                                             <YAxis fontSize={12} tickLine={false} axisLine={false} />
                                             <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
-                                            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                            <Legend />
+                                            <Bar dataKey="created" fill="hsl(var(--chart-2))" name="New" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="resolved" fill="hsl(var(--chart-1))" name="Resolved" radius={[4, 4, 0, 0]} />
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </CardContent>
                             </Card>
                              <Card>
-                                <CardHeader><CardTitle>Tasks by Priority</CardTitle></CardHeader>
+                                <CardHeader>
+                                    <CardTitle>Cases by Status</CardTitle>
+                                    <CardDescription>Breakdown of all active cases by their current status.</CardDescription>
+                                </CardHeader>
                                 <CardContent>
                                     <ResponsiveContainer width="100%" height={300}>
                                         <PieChart>
-                                            <Pie data={tasksByPriorityData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} labelLine={false} label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                                                const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                                const x  = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-                                                const y = cy  + radius * Math.sin(-midAngle * Math.PI / 180);
-                                                return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central">{(percent * 100).toFixed(0)}%</text>;
-                                            }}>
-                                                {tasksByPriorityData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} onClick={() => router.push(buildNavUrl('/tasks', { priority: entry.name }))}/>)}
+                                            <Pie 
+                                                data={casesByStatusData} 
+                                                dataKey="value" 
+                                                nameKey="name" 
+                                                cx="50%" 
+                                                cy="50%" 
+                                                outerRadius={100} 
+                                                labelLine={false} 
+                                                label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                                                    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                                    const x  = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+                                                    const y = cy  + radius * Math.sin(-midAngle * Math.PI / 180);
+                                                    return <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central">{(percent * 100).toFixed(0)}%</text>;
+                                                }}>
+                                                {casesByStatusData.map((entry, index) => (
+                                                    <Cell 
+                                                        key={`cell-${index}`} 
+                                                        fill={COLORS[index % COLORS.length]} 
+                                                        onClick={() => router.push(buildNavUrl('/cases', { status: entry.name }))}
+                                                        className="cursor-pointer"
+                                                    />
+                                                ))}
                                             </Pie>
                                             <Tooltip />
                                             <Legend />
@@ -814,3 +852,5 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+    
