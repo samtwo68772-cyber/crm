@@ -351,17 +351,19 @@ export default function ReportsPage() {
     const caseTrendsData = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
         const days = eachDayOfInterval({start: dateRange.from, end: dateRange.to});
+        // Use all cases in range for trends, not pre-filtered data
+        const casesInRange = mockCases.filter(c => isWithinInterval(new Date(c.createdAt), { start: dateRange.from!, end: dateRange.to! }));
         return days.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            const created = filteredData.cases.filter(c => format(new Date(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
-            const resolved = filteredData.cases.filter(c => c.resolvedAt && format(new Date(c.resolvedAt), 'yyyy-MM-dd') === dayStr).length;
+            const created = casesInRange.filter(c => format(new Date(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
+            const resolved = casesInRange.filter(c => c.resolvedAt && format(new Date(c.resolvedAt), 'yyyy-MM-dd') === dayStr).length;
             return {
                 date: format(day, 'MMM d'),
                 created,
                 resolved
             }
         });
-    }, [filteredData.cases, dateRange]);
+    }, [mockCases, dateRange]);
 
     const tasksByPriorityData = useMemo(() => {
         const counts = filteredData.tasks.reduce((acc, curr) => {

@@ -40,13 +40,13 @@ export const cases: Case[] = [
     status: 'New', 
     assignedTo: 'Maria Garcia', 
     createdAt: '2024-05-20',
-    resolvedAt: undefined,
+    resolvedAt: '2024-05-21',
     description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', 
     communications: [
         { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorRole: 'staff', timestamp: '2024-05-20 10:00:00' }
     ],
     contactId: 'contact-1',
-    satisfactionRating: undefined,
+    satisfactionRating: 4,
   },
   { 
     id: 'case-102', 
