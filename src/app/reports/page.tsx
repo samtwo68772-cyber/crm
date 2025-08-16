@@ -46,24 +46,26 @@ function getStatusVariant(status: Case['status']) {
     }
 }
 
-function KpiCard({ title, value, change, changeType, icon: Icon, onClick }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, onClick?: () => void }) {
-    const isPositive = changeType === 'positive';
+function KpiCard({ title, value, change, changeType, icon: Icon, onClick, data, positiveChange }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, onClick?: () => void, data?: any[], positiveChange?: boolean }) {
     return (
         <Card className="shadow-sm hover:shadow-lg transition-shadow cursor-pointer" onClick={onClick}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
                 <Icon className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
-                {change && changeType &&
-                    <div className="flex items-center text-xs text-muted-foreground">
-                        <span className={`flex items-center gap-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                            {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                            {change}
-                        </span>
-                    </div>
-                }
+            <CardContent className="flex items-end justify-between">
+                <div>
+                    <div className="text-2xl font-bold">{value}</div>
+                    {change && changeType &&
+                        <div className="flex items-center text-xs text-muted-foreground">
+                            <span className={`flex items-center gap-1 font-medium ${changeType === 'positive' ? 'text-green-600' : 'text-red-600'}`}>
+                                {changeType === 'positive' ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                                {change}
+                            </span>
+                        </div>
+                    }
+                </div>
+                {data && <MiniSparkline data={data} positive={positiveChange ?? false} />}
             </CardContent>
         </Card>
     );
@@ -89,6 +91,29 @@ type SortConfig = {
     key: string;
     direction: 'ascending' | 'descending';
 } | null;
+
+function PerformanceKpiCard({ title, value, change, changeType, icon: Icon }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType }) {
+    const isPositive = changeType === 'positive';
+    return (
+        <Card className="shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+                <Icon className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{value}</div>
+                {change && changeType &&
+                    <div className="flex items-center text-xs text-muted-foreground">
+                        <span className={`flex items-center gap-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                            {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                            {change}
+                        </span>
+                    </div>
+                }
+            </CardContent>
+        </Card>
+    );
+}
 
 
 export default function ReportsPage() {
@@ -142,12 +167,15 @@ export default function ReportsPage() {
         const resolvedCases = mockCases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
         const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
         const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(1) : 'N/A';
+        const trendData = [{value: 5}, {value: 7}, {value: 6}, {value: 8}, {value: 7}];
+        const negTrendData = [{value: 8}, {value: 7}, {value: 6}, {value: 5}, {value: 4}];
+
 
         return {
-            totalCases: { value: filteredData.cases.length.toString(), change: '+12.5%', type: 'positive' as const },
-            avgResolutionTime: { value: `${avgResolutionTime}d`, change: '-5.2%', type: 'positive' as const },
-            tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' as const },
-            meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' as const },
+            totalCases: { value: filteredData.cases.length.toString(), change: '+12.5%', type: 'positive' as const, data: trendData, positiveChange: true },
+            avgResolutionTime: { value: `${avgResolutionTime}d`, change: '-5.2%', type: 'positive' as const, data: trendData, positiveChange: true },
+            tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' as const, data: trendData, positiveChange: true },
+            meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' as const, data: negTrendData, positiveChange: false },
         }
     }, [filteredData, mockCases]);
     
@@ -427,10 +455,10 @@ export default function ReportsPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
-                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType="positive" icon={Briefcase} onClick={() => router.push(buildNavUrl('/cases', { status: 'all' }))} />
-                <KpiCard title="Avg. Resolution Time" value={kpiData.avgResolutionTime.value} change={kpiData.avgResolutionTime.change} changeType="positive" icon={Clock} />
-                <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType="positive" icon={CheckCircle} onClick={() => router.push(buildNavUrl('/tasks', { status: 'Done' }))} />
-                <KpiCard title="Meetings Held" value={kpiData.meetingsHeld.value} change={kpiData.meetingsHeld.change} changeType="negative" icon={CalendarIcon} onClick={() => router.push(buildNavUrl('/meetings', { status: 'Completed' }))} />
+                <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType={kpiData.totalCases.type} icon={Briefcase} onClick={() => router.push(buildNavUrl('/cases', { status: 'all' }))} data={kpiData.totalCases.data} positiveChange={kpiData.totalCases.positiveChange} />
+                <KpiCard title="Avg. Resolution Time" value={kpiData.avgResolutionTime.value} change={kpiData.avgResolutionTime.change} changeType={kpiData.avgResolutionTime.type} icon={Clock} data={kpiData.avgResolutionTime.data} positiveChange={kpiData.avgResolutionTime.positiveChange} />
+                <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType={kpiData.tasksCompleted.type} icon={CheckCircle} onClick={() => router.push(buildNavUrl('/tasks', { status: 'Done' }))} data={kpiData.tasksCompleted.data} positiveChange={kpiData.tasksCompleted.positiveChange} />
+                <KpiCard title="Meetings Held" value={kpiData.meetingsHeld.value} change={kpiData.meetingsHeld.change} changeType={kpiData.meetingsHeld.type} icon={CalendarIcon} onClick={() => router.push(buildNavUrl('/meetings', { status: 'Completed' }))} data={kpiData.meetingsHeld.data} positiveChange={kpiData.meetingsHeld.positiveChange} />
             </div>
 
             <main className="mt-8">
@@ -532,10 +560,10 @@ export default function ReportsPage() {
                                 <CardDescription>Key performance indicators for the selected scope.</CardDescription>
                             </CardHeader>
                             <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                               <KpiCard title="Avg. Resolution Time" value={performanceKpiData.avgResolutionTime.value} change={performanceKpiData.avgResolutionTime.change} changeType="positive" icon={Clock} />
-                               <KpiCard title="Customer Satisfaction" value={performanceKpiData.customerSatisfaction.value} change={performanceKpiData.customerSatisfaction.change} changeType="positive" icon={Smile} />
-                               <KpiCard title="Cases Handled" value={performanceKpiData.casesHandled.value} change={performanceKpiData.casesHandled.change} changeType="positive" icon={Hand} />
-                               <KpiCard title="Tasks Completed" value={performanceKpiData.tasksCompleted.value} change={performanceKpiData.tasksCompleted.change} changeType="positive" icon={GanttChartSquare} />
+                               <PerformanceKpiCard title="Avg. Resolution Time" value={performanceKpiData.avgResolutionTime.value} change={performanceKpiData.avgResolutionTime.change} changeType="positive" icon={Clock} />
+                               <PerformanceKpiCard title="Customer Satisfaction" value={performanceKpiData.customerSatisfaction.value} change={performanceKpiData.customerSatisfaction.change} changeType="positive" icon={Smile} />
+                               <PerformanceKpiCard title="Cases Handled" value={performanceKpiData.casesHandled.value} change={performanceKpiData.casesHandled.change} changeType="positive" icon={Hand} />
+                               <PerformanceKpiCard title="Tasks Completed" value={performanceKpiData.tasksCompleted.value} change={performanceKpiData.tasksCompleted.change} changeType="positive" icon={GanttChartSquare} />
                             </CardContent>
                         </Card>
                          
@@ -694,3 +722,5 @@ export default function ReportsPage() {
         </div>
     );
 }
+
+    
