@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Calendar as CalendarIcon, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal } from 'lucide-react';
+import { PlusCircle, Calendar as CalendarIcon, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal, XCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -22,7 +22,7 @@ import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 
 
-type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'all' | 'pending';
+type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'Canceled' | 'all' | 'pending';
 type TaskPriorityFilter = 'High' | 'Medium' | 'Low' | 'all';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
@@ -39,12 +39,13 @@ function getStatusIcon(status: Task['status']) {
         case 'To Do': return <ListTodo className="h-4 w-4 text-muted-foreground" />;
         case 'In Progress': return <Activity className="h-4 w-4 text-muted-foreground" />;
         case 'Done': return <CheckCircle className="h-4 w-4 text-muted-foreground" />;
+        case 'Canceled': return <XCircle className="h-4 w-4 text-muted-foreground" />;
     }
 }
 
 
 export default function TasksPage() {
-  const { tasks, setTasks, users: mockUsers, cases: mockCases } = useData();
+  const { tasks, setTasks, users: mockUsers, cases, setCases } = useData();
   const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -78,13 +79,29 @@ export default function TasksPage() {
     });
   };
 
-  const handleUpdateTask = (updatedTask: Task) => {
+  const handleUpdateTask = (updatedTask: Task, oldStatus?: Task['status']) => {
     setTasks(tasks.map(task => task.id === updatedTask.id ? updatedTask : task));
     setEditingTask(null);
     toast({
         title: "Task Updated",
         description: `Task "${updatedTask.title}" has been updated.`,
     });
+    
+    // Reopen case if task is reopened
+    if (
+        updatedTask.linkedCase && 
+        (oldStatus === 'Done' || oldStatus === 'Canceled') &&
+        (updatedTask.status === 'To Do' || updatedTask.status === 'In Progress')
+    ) {
+        const parentCase = cases.find(c => c.id === updatedTask.linkedCase);
+        if (parentCase && (parentCase.status === 'Resolved' || parentCase.status === 'Completed' || parentCase.status === 'Closed')) {
+            setCases(cases.map(c => c.id === parentCase.id ? { ...c, status: 'In Progress' } : c));
+            toast({
+                title: "Case Reopened",
+                description: `Case "${parentCase.subject}" has been reopened because a task was reactivated.`,
+            });
+        }
+    }
   };
   
   const handleCreateTask = (newTaskData: Omit<Task, 'id' | 'status'>) => {
@@ -108,10 +125,10 @@ export default function TasksPage() {
                               task.status === statusFilter;
         const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
         const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              (task.linkedCase && mockCases.find(c => c.id === task.linkedCase)?.subject.toLowerCase().includes(searchQuery.toLowerCase()));
+                              (task.linkedCase && cases.find(c => c.id === task.linkedCase)?.subject.toLowerCase().includes(searchQuery.toLowerCase()));
         return matchesStatus && matchesPriority && matchesSearch;
      });
-  }, [userTasks, statusFilter, priorityFilter, searchQuery, mockCases]);
+  }, [userTasks, statusFilter, priorityFilter, searchQuery, cases]);
 
   const summaryStats = useMemo(() => {
     const toDo = userTasks.filter(t => t.status === 'To Do').length;
@@ -120,7 +137,7 @@ export default function TasksPage() {
     return { toDo, inProgress, done };
   }, [userTasks]);
 
-  const statusGroups: Task['status'][] = ['To Do', 'In Progress', 'Done'];
+  const statusGroups: Task['status'][] = ['To Do', 'In Progress', 'Done', 'Canceled'];
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -178,6 +195,7 @@ export default function TasksPage() {
             <SelectItem value="To Do">To Do</SelectItem>
             <SelectItem value="In Progress">In Progress</SelectItem>
             <SelectItem value="Done">Done</SelectItem>
+            <SelectItem value="Canceled">Canceled</SelectItem>
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={(v: TaskPriorityFilter) => setPriorityFilter(v)}>
@@ -198,7 +216,8 @@ export default function TasksPage() {
            if (statusFilter !== 'all' && statusFilter !== 'pending' && statusFilter !== status ) {
                if (tasksInGroup.length === 0) return null;
            }
-           if (statusFilter === 'pending' && status === 'Done') return null;
+           if (statusFilter === 'pending' && (status === 'Done' || status === 'Canceled')) return null;
+           if (tasksInGroup.length === 0) return null;
            
            return (
             <div key={status}>
@@ -233,7 +252,7 @@ export default function TasksPage() {
           task={editingTask}
           onSave={(taskData, isEdit) => {
             if (isEdit && editingTask) {
-              handleUpdateTask({ ...editingTask, ...taskData });
+              handleUpdateTask({ ...editingTask, ...taskData }, editingTask.status);
             } else {
               handleCreateTask(taskData);
             }
@@ -243,7 +262,7 @@ export default function TasksPage() {
   );
 }
 
-function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task) => void; }) {
+function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task, oldStatus?: Task['status']) => void; }) {
     const { user } = useAuth();
     const { users: mockUsers, cases: mockCases } = useData();
     const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
@@ -251,7 +270,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: 
     const isAdmin = user?.role === 'admin';
 
     const handleStatusChange = (newStatus: Task['status']) => {
-        onUpdate({ ...task, status: newStatus });
+        onUpdate({ ...task, status: newStatus }, task.status);
     };
 
     return (
@@ -318,18 +337,20 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState<Task['priority']>('Medium');
+    const [status, setStatus] = useState<Task['status']>('To Do');
     const [dueDate, setDueDate] = useState<Date | undefined>();
     const [assignedTo, setAssignedTo] = useState<string | undefined>();
     const [linkedCase, setLinkedCase] = useState<string | undefined>();
     
     const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), [mockUsers]);
-    const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id })), [mockCases]);
+    const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id, disabled: ['Resolved', 'Closed', 'Completed'].includes(c.status) })), [mockCases]);
 
     useEffect(() => {
         if (isEditMode && task) {
             setTitle(task.title);
             setDescription(task.description || '');
             setPriority(task.priority);
+            setStatus(task.status);
             setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
             setAssignedTo(task.assignedTo || undefined);
             setLinkedCase(task.linkedCase || undefined);
@@ -342,6 +363,7 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
         setTitle('');
         setDescription('');
         setPriority('Medium');
+        setStatus('To Do');
         setDueDate(undefined);
         setAssignedTo(undefined);
         setLinkedCase(undefined);
@@ -357,6 +379,7 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
             title, 
             description, 
             priority, 
+            status,
             dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : '', 
             assignedTo, 
             linkedCase 
@@ -397,6 +420,20 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
                             </Select>
                         </div>
                         <div className="grid gap-2">
+                            <Label htmlFor="status">Status</Label>
+                            <Select onValueChange={(v: Task['status']) => setStatus(v)} value={status}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="To Do">To Do</SelectItem>
+                                    <SelectItem value="In Progress">In Progress</SelectItem>
+                                    <SelectItem value="Done">Done</SelectItem>
+                                     <SelectItem value="Canceled">Canceled</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid gap-2">
                             <Label htmlFor="dueDate">Due Date</Label>
                              <Popover>
                                 <PopoverTrigger asChild>
@@ -418,22 +455,22 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
                                 </PopoverContent>
                               </Popover>
                         </div>
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor="assignedTo">Assigned Staff</Label>
-                        <Select onValueChange={setAssignedTo} value={assignedTo}>
-                            <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
-                            <SelectContent>
-                                {staffOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                         <div className="grid gap-2">
+                            <Label htmlFor="assignedTo">Assigned Staff</Label>
+                            <Select onValueChange={setAssignedTo} value={assignedTo}>
+                                <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                                <SelectContent>
+                                    {staffOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <div className="grid gap-2">
                         <Label htmlFor="linkedCase">Linked Case (Optional)</Label>
-                        <Select onValueChange={setLinkedCase} value={linkedCase}>
+                        <Select onValueChange={setLinkedCase} value={linkedCase} disabled={isEditMode && !!task?.linkedCase}>
                             <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
                             <SelectContent>
-                                {caseOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                                {caseOptions.map(c => <SelectItem key={c.value} value={c.value} disabled={c.disabled}>{c.label}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>

@@ -40,7 +40,7 @@ export type Task = {
   id: string;
   title: string;
   description?: string;
-  status: 'To Do' | 'In Progress' | 'Done';
+  status: 'To Do' | 'In Progress' | 'Done' | 'Canceled';
   dueDate: string;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;

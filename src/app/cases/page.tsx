@@ -45,7 +45,7 @@ function getStatusVariant(status: Case['status']) {
 
 
 export default function CasesPage() {
-  const { cases, setCases, users: mockUsers, tasks: mockTasks } = useData();
+  const { cases, setCases, users: mockUsers, tasks, setTasks } = useData();
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
@@ -213,7 +213,7 @@ export default function CasesPage() {
 }
 
 function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void }) {
-  const { users: mockUsers, tasks: mockTasks } = useData();
+  const { users: mockUsers, tasks, setTasks } = useData();
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
   const [communications, setCommunications] = useState(caseItem.communications || []);
@@ -227,8 +227,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const linkedTasks = useMemo(() => mockTasks.filter(t => t.linkedCase === caseItem.id), [mockTasks, caseItem.id]);
-  const openTasks = useMemo(() => linkedTasks.filter(t => t.status !== 'Done'), [linkedTasks]);
+  const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
+  const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
 
   const handleAddCommunication = (type: 'Finding' | 'Note' | 'Email' | 'Resolution', content: string) => {
     if (content.trim()) {
@@ -262,12 +262,43 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
           return;
       }
       
-      handleAddCommunication('Resolution', resolutionNote);
+      const resolutionTimestamp = new Date();
+      const resolutionContent = `Case resolved with note: "${resolutionNote}"`;
+
+      // Log resolution note
+      handleAddCommunication('Resolution', resolutionContent);
+      
+      // Update the case
       onUpdateCase({ 
         ...caseItem, 
         status: 'Resolved',
-        resolvedAt: new Date().toISOString().split('T')[0],
+        resolvedAt: resolutionTimestamp.toISOString().split('T')[0],
       });
+      
+      // Cancel open tasks
+      const updatedTasks = tasks.map(t => {
+          if (t.linkedCase === caseItem.id && (t.status === 'To Do' || t.status === 'In Progress')) {
+              return { ...t, status: 'Canceled' as Task['status'] };
+          }
+          return t;
+      });
+      setTasks(updatedTasks);
+      
+      // Add a single communication about task closure
+      if (openTasks.length > 0) {
+        const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
+        const newComm: Communication = {
+            id: `comm-${Date.now() + 1}`,
+            type: 'Note',
+            content: taskNote,
+            author: 'System',
+            authorRole: 'admin',
+            timestamp: resolutionTimestamp.toLocaleString(),
+        };
+        setCommunications(prev => [...prev, newComm]);
+        onUpdateCase({ ...caseItem, communications: [...communications, newComm] });
+      }
+
       setResolutionNote('');
       setResolveDialogOpen(false);
   };
@@ -372,7 +403,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                 <Tabs defaultValue="communication">
                     <TabsList className="mb-4">
                         <TabsTrigger value="communication">Internal Communications</TabsTrigger>
-                        <TabsTrigger value="tasks">Linked Tasks</TabsTrigger>
+                        <TabsTrigger value="tasks">Linked Tasks ({linkedTasks.length})</TabsTrigger>
                         <TabsTrigger value="attachments">Attachments</TabsTrigger>
                         <TabsTrigger value="customer">Customer Communication</TabsTrigger>
                     </TabsList>
@@ -414,7 +445,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                     </TabsContent>
                     <TabsContent value="tasks">
                         <div className="space-y-4">
-                            {mockTasks.filter(t => t.linkedCase === caseItem.id).map(task => (
+                            {linkedTasks.map(task => (
                                 <div key={task.id} className="flex items-center justify-between p-2 rounded-md border">
                                     <div>
                                         <p className="font-medium">{task.title}</p>
@@ -426,7 +457,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                                     </div>
                                 </div>
                             ))}
-                            {mockTasks.filter(t => t.linkedCase === caseItem.id).length === 0 && (
+                            {linkedTasks.length === 0 && (
                                 <p className="text-sm text-muted-foreground text-center p-4">No tasks linked to this case.</p>
                             )}
                         </div>
@@ -552,8 +583,3 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     </Dialog>
   );
 }
-
-
-
-    
-
