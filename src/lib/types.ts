@@ -29,7 +29,7 @@ export type Case = {
 
 export type Communication = {
   id: string;
-  type: 'Finding' | 'Note' | 'Email';
+  type: 'Finding' | 'Note' | 'Email' | 'Resolution';
   content: string;
   author: string;
   authorRole: 'admin' | 'staff';

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip } from 'lucide-react';
 import { Label } from '@/components/ui/label';
@@ -89,7 +90,7 @@ export default function CasesPage() {
   const handleUpdateCase = (updatedCase: Case) => {
     setCases(cases.map(c => c.id === updatedCase.id ? updatedCase : c));
     setSelectedCase(updatedCase);
-    if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined') {
+    if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
        toast({
         title: `Case ${updatedCase.status}`,
         description: `Case "${updatedCase.subject}" has been marked as ${updatedCase.status.toLowerCase()}.`,
@@ -218,10 +219,18 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
   const [communications, setCommunications] = useState(caseItem.communications || []);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
+  const [isResolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [isTaskWarningOpen, setTaskWarningOpen] = useState(false);
+  const [resolutionNote, setResolutionNote] = useState('');
+  
   const { user } = useAuth();
+  const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const handleAddCommunication = (type: 'Finding' | 'Note' | 'Email', content: string) => {
+  const linkedTasks = useMemo(() => mockTasks.filter(t => t.linkedCase === caseItem.id), [mockTasks, caseItem.id]);
+  const openTasks = useMemo(() => linkedTasks.filter(t => t.status !== 'Done'), [linkedTasks]);
+
+  const handleAddCommunication = (type: 'Finding' | 'Note' | 'Email' | 'Resolution', content: string) => {
     if (content.trim()) {
       const newComm: Communication = {
         id: `comm-${Date.now()}`, type, content, author: user?.name || 'System', authorRole: user?.role || 'staff', timestamp: new Date().toLocaleString(),
@@ -234,7 +243,43 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
     }
   };
   
-  const handleStatusChange = (newStatus: Case['status']) => onUpdateCase({ ...caseItem, status: newStatus });
+  const handleAttemptResolve = () => {
+      if (openTasks.length > 0) {
+          setTaskWarningOpen(true);
+      } else {
+          setResolveDialogOpen(true);
+      }
+  };
+
+  const handleForceResolve = () => {
+    setTaskWarningOpen(false);
+    setResolveDialogOpen(true);
+  };
+  
+  const handleConfirmResolve = () => {
+      if (!resolutionNote.trim()) {
+          toast({ variant: 'destructive', title: 'Resolution note is required.' });
+          return;
+      }
+      
+      handleAddCommunication('Resolution', resolutionNote);
+      onUpdateCase({ 
+        ...caseItem, 
+        status: 'Resolved',
+        resolvedAt: new Date().toISOString().split('T')[0],
+      });
+      setResolutionNote('');
+      setResolveDialogOpen(false);
+  };
+  
+  const handleStatusChange = (newStatus: Case['status']) => {
+    if (newStatus === 'Resolved' || newStatus === 'Completed') {
+        handleAttemptResolve();
+    } else {
+        onUpdateCase({ ...caseItem, status: newStatus });
+    }
+  };
+
   const handleAssigneeChange = (newAssignee: string) => onUpdateCase({ ...caseItem, assignedTo: newAssignee });
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,6 +294,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
   const adminStatusOptions: Case['status'][] = ['New', 'Under Review', 'In Progress', 'Investigated', 'Resolved', 'Completed', 'Declined', 'Closed'];
 
   return (
+    <>
     <div className="flex flex-col h-full max-h-[85vh]">
         <DialogHeader className="p-6 border-b">
             <div className="flex justify-between items-start">
@@ -337,6 +383,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                                   <div key={comm.id} className="flex items-start gap-4">
                                     <div className="mt-1 shrink-0">
                                       {comm.type === 'Finding' && <FileText className="h-5 w-5 text-muted-foreground" />}
+                                      {comm.type === 'Resolution' && <CheckCircle className="h-5 w-5 text-green-500" />}
                                       {comm.type === 'Note' && comm.authorRole === 'admin' && <Shield className="h-5 w-5 text-muted-foreground" />}
                                       {comm.type === 'Note' && comm.authorRole === 'staff' && <PenSquare className="h-5 w-5 text-muted-foreground" />}
                                     </div>
@@ -432,6 +479,39 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
             </div>
         </div>
     </div>
+    
+    <Dialog open={isResolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Resolve Case</DialogTitle>
+                <DialogDescription>Please provide a resolution note before closing this case.</DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Label htmlFor="resolution-note">Resolution Note</Label>
+                <Textarea id="resolution-note" value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Enter details of how this case was resolved..." />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleConfirmResolve}>Confirm Resolution</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <AlertDialog open={isTaskWarningOpen} onOpenChange={setTaskWarningOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Case Has Open Tasks</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This case has {openTasks.length} open task(s). All tasks should be completed before resolving the case.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                {isAdmin && <AlertDialogAction onClick={handleForceResolve}>Force Resolve</AlertDialogAction>}
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 
@@ -476,3 +556,4 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
 
 
     
+
