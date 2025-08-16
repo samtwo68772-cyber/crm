@@ -21,6 +21,7 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
@@ -372,6 +373,9 @@ export default function ReportsPage() {
     }, [filteredData, dateRange]);
     
     const handleExport = (formatType: 'pdf' | 'excel', reportName: string) => {
+        const safeReportName = reportName.toLowerCase().replace(/ /g, '-');
+        const fileName = `${safeReportName}-report-${format(new Date(), 'yyyy-MM-dd')}`;
+
         if (formatType === 'pdf') {
             const doc = new jsPDF();
             doc.setFontSize(18);
@@ -426,10 +430,33 @@ export default function ReportsPage() {
                     ]),
                 });
             }
+            doc.save(`${fileName}.pdf`);
+        } else if (formatType === 'excel') {
+             const wb = XLSX.utils.book_new();
 
-            doc.save(`${reportName.toLowerCase().replace(' ', '-')}-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-        } else {
-             alert(`Exporting ${reportName} as ${formatType}... (Filtered data would be used here)`);
+             if (reportName === 'Case Summary') {
+                if (filteredData.cases.length === 0) { alert("No data available for export."); return; }
+                const ws = XLSX.utils.json_to_sheet(filteredData.cases);
+                XLSX.utils.book_append_sheet(wb, ws, "Case Summary");
+             } else if (reportName === 'Performance') {
+                if (teamPerformanceData.length === 0 && individualPerformanceData.length === 0) { alert("No data available for export."); return; }
+                const teamWs = XLSX.utils.json_to_sheet(teamPerformanceData);
+                XLSX.utils.book_append_sheet(wb, teamWs, "Team Performance");
+                const individualWs = XLSX.utils.json_to_sheet(individualPerformanceData);
+                XLSX.utils.book_append_sheet(wb, individualWs, "Individual Performance");
+             } else if (reportName === 'Activity Log') {
+                 if (filteredData.logs.length === 0) { alert("No data available for export."); return; }
+                 const logData = filteredData.logs.map(log => ({
+                     Timestamp: new Date(log.timestamp).toLocaleString(),
+                     User: mockUsers.find(u => u.id === log.userId)?.name || 'System',
+                     Action: log.action,
+                     Details: log.details,
+                 }));
+                 const ws = XLSX.utils.json_to_sheet(logData);
+                 XLSX.utils.book_append_sheet(wb, ws, "Activity Log");
+             }
+
+             XLSX.writeFile(wb, `${fileName}.xlsx`);
         }
     };
 
