@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useData } from '@/context/data-context';
-import type { Case, Task, Meeting, User, Team } from '@/lib/types';
+import type { Case, Task, Meeting, User, Team, AuditLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -12,7 +12,7 @@ import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
-import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck, XCircle, Activity, Hourglass, Folder, ChevronsUpDown, Smile, Hand, GanttChartSquare } from 'lucide-react';
+import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck, XCircle, Activity, Hourglass, Folder, ChevronsUpDown, Smile, Hand, GanttChartSquare, FileText } from 'lucide-react';
 import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay, subDays, format, eachDayOfInterval, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -117,7 +117,7 @@ function PerformanceKpiCard({ title, value, change, changeType, icon: Icon }: { 
 
 
 export default function ReportsPage() {
-    const { cases: mockCases, tasks: mockTasks, users: mockUsers, meetings: mockMeetings, teams: mockTeams } = useData();
+    const { cases: mockCases, tasks: mockTasks, users: mockUsers, meetings: mockMeetings, teams: mockTeams, auditLogs } = useData();
     const router = useRouter();
     const [reportType, setReportType] = useState('overview');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
@@ -160,8 +160,16 @@ export default function ReportsPage() {
             (userFilter === 'all' || m.participants.includes(userFilter)) &&
             (teamFilter === 'all' || m.participants.some(pId => mockUsers.find(u => u.id === pId)?.team === teamFilter))
         );
-        return { cases, tasks, meetings };
-    }, [dateRange, userFilter, teamFilter, caseCategoryFilter, mockCases, mockTasks, mockMeetings, mockUsers]);
+        
+        const logs = auditLogs.filter(log => {
+             const userMatch = userFilter === 'all' || log.userId === userFilter;
+             const teamMatch = teamFilter === 'all' || mockUsers.find(u => u.id === log.userId)?.team === teamFilter;
+             return isWithinInterval(new Date(log.timestamp), { start: fromDate, end: toDate }) &&
+             (userFilter === 'all' ? teamMatch : userMatch)
+        });
+
+        return { cases, tasks, meetings, logs };
+    }, [dateRange, userFilter, teamFilter, caseCategoryFilter, mockCases, mockTasks, mockMeetings, mockUsers, auditLogs]);
 
     const kpiData = useMemo(() => {
         const resolvedCases = mockCases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
@@ -363,49 +371,65 @@ export default function ReportsPage() {
         return activityByDay;
     }, [filteredData, dateRange]);
     
-    const handleExport = (formatType: 'pdf' | 'excel') => {
+    const handleExport = (formatType: 'pdf' | 'excel', reportName: string) => {
         if (formatType === 'pdf') {
             const doc = new jsPDF();
-            
             doc.setFontSize(18);
-            doc.text('Caseflow CRM Report', 14, 22);
+            doc.text(`${reportName} Report`, 14, 22);
             doc.setFontSize(11);
             doc.setTextColor(100);
 
             const dateRangeStr = dateRange?.from ? `${format(dateRange.from, 'PPP')} - ${dateRange.to ? format(dateRange.to, 'PPP') : ''}` : 'All time';
             doc.text(`Date Range: ${dateRangeStr}`, 14, 30);
-            doc.text(`User: ${userFilter === 'all' ? 'All Users' : mockUsers.find(u => u.id === userFilter)?.name}`, 14, 36);
+            doc.text(`Team: ${teamFilter === 'all' ? 'All Teams' : teamFilter}`, 14, 36);
+            doc.text(`User: ${userFilter === 'all' ? 'All Users' : mockUsers.find(u => u.id === userFilter)?.name}`, 14, 42);
 
-            // Cases Table
-            autoTable(doc, {
-                startY: 50,
-                head: [['Case ID', 'Subject', 'Status', 'Priority', 'Assigned To', 'Created At']],
-                body: filteredData.cases.map(c => [c.id, c.subject, c.status, c.priority, c.assignedTo, c.createdAt]),
-                headStyles: { fillColor: [38, 43, 60] },
-                didDrawPage: (data) => {
-                  if (data.pageNumber === 1) {
-                     doc.setFontSize(14);
-                     doc.text('Cases Report', 14, 45);
-                  }
-                }
-            });
+            let startY = 50;
 
-            // Tasks Table
-            const lastTable = (doc as any).lastAutoTable;
-            autoTable(doc, {
-                 startY: lastTable.finalY + 15,
-                head: [['Task Title', 'Status', 'Priority', 'Due Date', 'Assigned To']],
-                body: filteredData.tasks.map(t => [t.title, t.status, t.priority, t.dueDate, mockUsers.find(u=>u.id === t.assignedTo)?.name || 'N/A']),
-                headStyles: { fillColor: [38, 43, 60] },
-                didDrawPage: (data) => {
-                     doc.setFontSize(14);
-                     doc.text('Tasks Report', 14, lastTable.finalY + 10);
-                }
-            });
+            if (reportName === 'Case Summary') {
+                if (filteredData.cases.length === 0) { alert("No data available for export."); return; }
+                autoTable(doc, {
+                    startY,
+                    head: [['Case ID', 'Subject', 'Status', 'Priority', 'Assigned To', 'Created At']],
+                    body: filteredData.cases.map(c => [c.id, c.subject, c.status, c.priority, c.assignedTo, c.createdAt]),
+                    headStyles: { fillColor: [38, 43, 60] },
+                });
+            } else if (reportName === 'Performance') {
+                if (teamPerformanceData.length === 0) { alert("No data available for export."); return; }
+                doc.setFontSize(14);
+                doc.text('Team Performance', 14, startY);
+                startY += 7;
+                autoTable(doc, {
+                    startY,
+                    head: [['Team', 'Cases Handled', 'Tasks Completed', 'Avg. Resolution (Days)', 'Satisfaction']],
+                    body: teamPerformanceData.map(t => [t.name, t.casesHandled, t.tasksCompleted, t.avgResolutionTime, `${t.satisfactionScore} / 5.0`]),
+                });
+                startY = (doc as any).lastAutoTable.finalY + 15;
+                doc.setFontSize(14);
+                doc.text('Individual Performance', 14, startY);
+                startY += 7;
+                autoTable(doc, {
+                    startY,
+                    head: [['User', 'Team', 'Resolved Cases', 'Completed Tasks', 'Avg. Resolution (Days)', 'Satisfaction']],
+                    body: individualPerformanceData.map(p => [p.name, p.team, p.resolvedCases, p.tasksCompleted, p.avgResolutionTime, `${p.satisfactionScore} / 5.0`]),
+                });
+            } else if (reportName === 'Activity Log') {
+                if (filteredData.logs.length === 0) { alert("No data available for export."); return; }
+                 autoTable(doc, {
+                    startY,
+                    head: [['Timestamp', 'User', 'Action', 'Details']],
+                    body: filteredData.logs.map(log => [
+                        new Date(log.timestamp).toLocaleString(),
+                        mockUsers.find(u => u.id === log.userId)?.name || 'System',
+                        log.action,
+                        log.details,
+                    ]),
+                });
+            }
 
-            doc.save(`report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+            doc.save(`${reportName.toLowerCase().replace(' ', '-')}-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
         } else {
-             alert(`Exporting as ${formatType}... (Filtered data would be used here)`);
+             alert(`Exporting ${reportName} as ${formatType}... (Filtered data would be used here)`);
         }
     };
 
@@ -423,6 +447,27 @@ export default function ReportsPage() {
             router.push(buildNavUrl(path, { [filterKey]: payload.name }));
         }
     };
+    
+    const reportCards = [
+        {
+            title: 'Case Summary Report',
+            description: 'Includes all cases within the selected date range, their statuses, categories, and resolution times.',
+            icon: Briefcase,
+            dataAvailable: filteredData.cases.length > 0,
+        },
+        {
+            title: 'Performance Report',
+            description: 'Includes team and individual performance metrics, resolution times, and satisfaction scores.',
+            icon: BarChart2,
+            dataAvailable: teamPerformanceData.length > 0 || individualPerformanceData.length > 0,
+        },
+        {
+            title: 'Activity Log Report',
+            description: 'A chronological list of system activities like case updates, task completions, and email responses.',
+            icon: FileText,
+            dataAvailable: filteredData.logs.length > 0,
+        },
+    ];
 
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
@@ -696,25 +741,45 @@ export default function ReportsPage() {
                         </Card>
                     </TabsContent>
                     <TabsContent value="export" className="mt-6">
-                        <div className="grid md:grid-cols-2 gap-6">
-                            <Card className="flex flex-col justify-between">
-                                <CardHeader>
-                                    <CardTitle>Export as PDF</CardTitle>
-                                    <CardDescription>Generate a comprehensive PDF document of the current report view.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button className="w-full" onClick={() => handleExport('pdf')}><FileDown className="mr-2 h-4 w-4" /> Export PDF</Button>
-                                </CardContent>
-                            </Card>
-                            <Card className="flex flex-col justify-between">
-                                <CardHeader>
-                                    <CardTitle>Export as Excel</CardTitle>
-                                    <CardDescription>Download the raw data in an Excel-compatible format for further analysis.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <Button className="w-full" onClick={() => handleExport('excel')}><FileDown className="mr-2 h-4 w-4" /> Export Excel</Button>
-                                </CardContent>
-                            </Card>
+                        <div className="space-y-6">
+                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {reportCards.map((report) => (
+                                    <Card key={report.title} className="flex flex-col">
+                                        <CardHeader className="flex-1">
+                                            <div className="flex items-start gap-4">
+                                                <div className="p-3 bg-muted rounded-full">
+                                                    <report.icon className="h-6 w-6 text-muted-foreground" />
+                                                </div>
+                                                <div>
+                                                    <CardTitle>{report.title}</CardTitle>
+                                                    <CardDescription className="mt-2">{report.description}</CardDescription>
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                             {report.dataAvailable ? (
+                                                <div className="flex gap-2">
+                                                    <Button 
+                                                        className="w-full" 
+                                                        onClick={() => handleExport('pdf', report.title.replace(' Report', ''))}
+                                                    >
+                                                        <FileDown className="mr-2 h-4 w-4" /> PDF
+                                                    </Button>
+                                                    <Button 
+                                                        className="w-full" 
+                                                        variant="secondary"
+                                                        onClick={() => handleExport('excel', report.title.replace(' Report', ''))}
+                                                    >
+                                                        <FileDown className="mr-2 h-4 w-4" /> Excel
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm text-center text-muted-foreground bg-muted/50 p-4 rounded-md">No data available for export.</p>
+                                            )}
+                                        </CardContent>
+                                    </Card>
+                                ))}
+                             </div>
                         </div>
                     </TabsContent>
                 </Tabs>
@@ -722,5 +787,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
-    
