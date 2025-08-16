@@ -20,9 +20,11 @@ export type Case = {
   status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
   assignedTo: string;
   createdAt: string;
+  resolvedAt?: string;
   description: string;
   communications?: Communication[];
   contactId?: string;
+  satisfactionRating?: number; // 1-5
 };
 
 export type Communication = {
