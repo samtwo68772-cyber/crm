@@ -62,7 +62,6 @@ function KpiCard({ title, value, change, changeType, icon: Icon, onClick }: { ti
                             {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
                             {change}
                         </span>
-                        <MiniSparkline data={[{value: 10}, {value: 15}, {value: 8}, {value: 20}, {value: 18}]} positive={isPositive} />
                     </div>
                 }
             </CardContent>
@@ -121,14 +120,15 @@ export default function ReportsPage() {
 
             return isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate }) &&
             (caseCategoryFilter === 'all' || c.type === caseCategoryFilter) &&
-            userMatch && teamMatch;
+            (userFilter === 'all' ? teamMatch : userMatch)
         });
 
-        const tasks = mockTasks.filter(t => 
-            isWithinInterval(new Date(t.dueDate), { start: fromDate, end: toDate }) &&
-            (userFilter === 'all' || t.assignedTo === userFilter) &&
-            (teamFilter === 'all' || mockUsers.find(u => u.id === t.assignedTo)?.team === teamFilter)
-        );
+        const tasks = mockTasks.filter(t => {
+             const userMatch = userFilter === 'all' || t.assignedTo === userFilter;
+             const teamMatch = teamFilter === 'all' || mockUsers.find(u => u.id === t.assignedTo)?.team === teamFilter;
+             return isWithinInterval(new Date(t.dueDate), { start: fromDate, end: toDate }) &&
+             (userFilter === 'all' ? teamMatch : userMatch)
+        });
 
         const meetings = mockMeetings.filter(m => 
             isWithinInterval(new Date(m.date), { start: fromDate, end: toDate }) &&
@@ -139,7 +139,7 @@ export default function ReportsPage() {
     }, [dateRange, userFilter, teamFilter, caseCategoryFilter, mockCases, mockTasks, mockMeetings, mockUsers]);
 
     const kpiData = useMemo(() => {
-        const resolvedCases = filteredData.cases.filter(c => c.resolvedAt);
+        const resolvedCases = mockCases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
         const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
         const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(1) : 'N/A';
 
@@ -149,7 +149,7 @@ export default function ReportsPage() {
             tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' as const },
             meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' as const },
         }
-    }, [filteredData]);
+    }, [filteredData, mockCases]);
     
     const performanceKpiData = useMemo(() => {
         const resolvedCases = filteredData.cases.filter(c => c.resolvedAt);
@@ -168,12 +168,22 @@ export default function ReportsPage() {
     }, [filteredData]);
     
     const teamPerformanceData = useMemo(() => {
-        return mockTeams.map(team => {
+        let teamsToDisplay = mockTeams;
+        if (userFilter !== 'all') {
+            const userTeam = mockUsers.find(u => u.id === userFilter)?.team;
+            teamsToDisplay = mockTeams.filter(t => t.name === userTeam);
+        } else if (teamFilter !== 'all') {
+             teamsToDisplay = mockTeams.filter(t => t.name === teamFilter);
+        }
+
+        return teamsToDisplay.map(team => {
             const teamMembers = mockUsers.filter(u => u.team === team.name);
             const memberIds = teamMembers.map(u => u.id);
             const memberNames = teamMembers.map(u => u.name);
 
-            const casesHandled = filteredData.cases.filter(c => memberNames.includes(c.assignedTo));
+            const casesHandled = mockCases.filter(c => memberNames.includes(c.assignedTo));
+            const tasksCompleted = mockTasks.filter(t => memberIds.includes(t.assignedTo || '') && t.status === 'Done');
+
             const resolvedCases = casesHandled.filter(c => c.resolvedAt);
             const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
             const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length) : 0;
@@ -185,15 +195,24 @@ export default function ReportsPage() {
                 id: team.id,
                 name: team.name,
                 casesHandled: casesHandled.length,
+                tasksCompleted: tasksCompleted.length,
                 avgResolutionTime: avgResolutionTime.toFixed(1),
                 satisfactionScore: satisfactionScore.toFixed(1),
             };
         });
-    }, [filteredData, mockUsers, mockTeams]);
+    }, [mockCases, mockTasks, mockUsers, mockTeams, userFilter, teamFilter]);
 
 
     const individualPerformanceData = useMemo(() => {
-       const data = mockUsers.filter(u => u.role === 'staff').map(user => {
+       let usersToList = mockUsers.filter(u => u.role === 'staff');
+
+       if (userFilter !== 'all') {
+           usersToList = usersToList.filter(u => u.id === userFilter);
+       } else if (teamFilter !== 'all') {
+           usersToList = usersToList.filter(u => u.team === teamFilter);
+       }
+
+       const data = usersToList.map(user => {
             const casesHandled = filteredData.cases.filter(c => c.assignedTo === user.name);
             const resolvedCases = casesHandled.filter(c => c.resolvedAt);
             const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
@@ -202,11 +221,14 @@ export default function ReportsPage() {
             const ratedCases = casesHandled.filter(c => c.satisfactionRating);
             const satisfactionScore = ratedCases.length > 0 ? (ratedCases.reduce((a,b) => a + b.satisfactionRating!, 0) / ratedCases.length) : 0;
             
+            const tasksCompleted = filteredData.tasks.filter(t => t.assignedTo === user.id && t.status === 'Done').length;
+
             return {
                 id: user.id,
                 name: user.name,
                 team: user.team,
-                casesHandled: casesHandled.length,
+                resolvedCases: resolvedCases.length,
+                tasksCompleted: tasksCompleted,
                 avgResolutionTime: parseFloat(avgResolutionTime.toFixed(1)),
                 satisfactionScore: parseFloat(satisfactionScore.toFixed(1)),
             };
@@ -236,7 +258,7 @@ export default function ReportsPage() {
             });
         }
         return data;
-    }, [filteredData, mockUsers, sortConfig]);
+    }, [filteredData, mockUsers, sortConfig, userFilter, teamFilter]);
 
     const requestSort = (key: string) => {
         let direction: 'ascending' | 'descending' = 'ascending';
@@ -392,7 +414,7 @@ export default function ReportsPage() {
                         {mockTeams.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                 <Select value={userFilter} onValueChange={setUserFilter} disabled={teamFilter !== 'all'}>
+                 <Select value={userFilter} onValueChange={setUserFilter}>
                     <SelectTrigger className="w-full sm:w-[180px] bg-background">
                         <SelectValue placeholder="Select user" />
                     </SelectTrigger>
@@ -401,6 +423,7 @@ export default function ReportsPage() {
                         {mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
+                 <Button variant="outline" onClick={() => { setUserFilter('all'); setTeamFilter('all'); }}>Clear Filters</Button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
@@ -527,15 +550,17 @@ export default function ReportsPage() {
                                         <TableRow>
                                             <TableHead>Team</TableHead>
                                             <TableHead>Cases Handled</TableHead>
+                                            <TableHead>Completed Tasks</TableHead>
                                             <TableHead>Avg. Resolution Time (Days)</TableHead>
                                             <TableHead>Satisfaction Score</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {teamPerformanceData.map(team => 
-                                            <TableRow key={team.id} onClick={() => setTeamFilter(team.name)} className="cursor-pointer">
+                                            <TableRow key={team.id} onClick={() => {setTeamFilter(team.name); setUserFilter('all');}} className="cursor-pointer">
                                                 <TableCell className="font-medium">{team.name}</TableCell>
                                                 <TableCell>{team.casesHandled}</TableCell>
+                                                <TableCell>{team.tasksCompleted}</TableCell>
                                                 <TableCell>{team.avgResolutionTime}</TableCell>
                                                 <TableCell>
                                                     <span className={cn(
@@ -568,8 +593,11 @@ export default function ReportsPage() {
                                             <TableHead className="cursor-pointer" onClick={() => requestSort('team')}>
                                                  <div className="flex items-center">Team {getSortIcon('team')}</div>
                                             </TableHead>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('casesHandled')}>
-                                                 <div className="flex items-center">Cases Handled {getSortIcon('casesHandled')}</div>
+                                            <TableHead className="cursor-pointer" onClick={() => requestSort('resolvedCases')}>
+                                                 <div className="flex items-center">Resolved Cases {getSortIcon('resolvedCases')}</div>
+                                            </TableHead>
+                                            <TableHead className="cursor-pointer" onClick={() => requestSort('tasksCompleted')}>
+                                                 <div className="flex items-center">Completed Tasks {getSortIcon('tasksCompleted')}</div>
                                             </TableHead>
                                             <TableHead className="cursor-pointer" onClick={() => requestSort('avgResolutionTime')}>
                                                  <div className="flex items-center">Avg. Resolution (Days) {getSortIcon('avgResolutionTime')}</div>
@@ -581,10 +609,11 @@ export default function ReportsPage() {
                                     </TableHeader>
                                     <TableBody>
                                         {individualPerformanceData.map(p => 
-                                            <TableRow key={p.id} onClick={() => {setUserFilter(p.id); setTeamFilter('all')}} className="cursor-pointer">
+                                            <TableRow key={p.id} onClick={() => setUserFilter(p.id)} className="cursor-pointer">
                                                 <TableCell className="font-medium">{p.name}</TableCell>
                                                 <TableCell>{p.team}</TableCell>
-                                                <TableCell>{p.casesHandled}</TableCell>
+                                                <TableCell>{p.resolvedCases}</TableCell>
+                                                <TableCell>{p.tasksCompleted}</TableCell>
                                                 <TableCell>{p.avgResolutionTime}</TableCell>
                                                 <TableCell>
                                                     <span className={cn(
