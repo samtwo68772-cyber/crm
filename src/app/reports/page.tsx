@@ -563,25 +563,6 @@ export default function ReportsPage() {
                     </TabsList>
                     <TabsContent value="overview" className="mt-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                           <Card>
-                                <CardHeader>
-                                    <CardTitle>Case Trends</CardTitle>
-                                    <CardDescription>New cases vs. resolved cases over the selected period.</CardDescription>
-                                </CardHeader>
-                                <CardContent>
-                                    <ResponsiveContainer width="100%" height={300}>
-                                        <BarChart data={caseTrendsData}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                                            <XAxis dataKey="date" fontSize={12} tickLine={false} axisLine={false} />
-                                            <YAxis fontSize={12} tickLine={false} axisLine={false} />
-                                            <Tooltip cursor={{ fill: 'hsl(var(--muted))' }} />
-                                            <Legend />
-                                            <Bar dataKey="created" fill="hsl(var(--chart-2))" name="New" radius={[4, 4, 0, 0]} />
-                                            <Bar dataKey="resolved" fill="hsl(var(--chart-1))" name="Resolved" radius={[4, 4, 0, 0]} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </CardContent>
-                            </Card>
                              <Card>
                                 <CardHeader>
                                     <CardTitle>Cases by Status</CardTitle>
@@ -858,3 +839,4 @@ export default function ReportsPage() {
 }
 
     
+
