@@ -649,19 +649,6 @@ export default function ReportsPage() {
                         </div>
                     </TabsContent>
                     <TabsContent value="performance" className="mt-6 space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Performance Overview</CardTitle>
-                                <CardDescription>Key performance indicators for the selected scope.</CardDescription>
-                            </CardHeader>
-                            <CardContent className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                               <PerformanceKpiCard title="Avg. Resolution Time" value={performanceKpiData.avgResolutionTime.value} change={performanceKpiData.avgResolutionTime.change} changeType="positive" icon={Clock} />
-                               <PerformanceKpiCard title="Customer Satisfaction" value={performanceKpiData.customerSatisfaction.value} change={performanceKpiData.customerSatisfaction.change} changeType="positive" icon={Smile} />
-                               <PerformanceKpiCard title="Cases Handled" value={performanceKpiData.casesHandled.value} change={performanceKpiData.casesHandled.change} changeType="positive" icon={Hand} />
-                               <PerformanceKpiCard title="Tasks Completed" value={performanceKpiData.tasksCompleted.value} change={performanceKpiData.tasksCompleted.change} changeType="positive" icon={GanttChartSquare} />
-                            </CardContent>
-                        </Card>
-                         
                          <Card>
                             <CardHeader>
                                 <CardTitle>Team Performance</CardTitle>
@@ -839,4 +826,5 @@ export default function ReportsPage() {
 }
 
     
+
 
