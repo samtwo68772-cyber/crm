@@ -64,7 +64,7 @@ const getNotificationIcon = (type: Notification['type']) => {
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, logout } = useAuth();
-    const { notifications, setNotifications } = useData();
+    const { notifications, setNotifications, generalSettings } = useData();
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
@@ -122,9 +122,9 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       <div className="flex flex-col h-full bg-card text-card-foreground border-r">
         <div className={`flex h-20 items-center border-b px-6 shrink-0 ${sidebarCollapsed ? 'justify-center' : ''}`}>
             <Link href="/" className={`flex items-center gap-3 font-semibold text-foreground ${sidebarCollapsed ? 'justify-center' : ''}`}>
-              <Logo className="h-8 w-8 text-primary shrink-0" />
+              {generalSettings.logoUrl ? <img src={generalSettings.logoUrl} alt="Logo" className="h-8 w-8 object-contain" /> : <Logo className="h-8 w-8 text-primary shrink-0" />}
               <div className={`flex flex-col ${sidebarCollapsed ? 'hidden' : 'block'}`}>
-                <span className={`font-headline text-xl`}>MinT CRM</span>
+                <span className={`font-headline text-xl`}>{generalSettings.systemName}</span>
               </div>
             </Link>
         </div>

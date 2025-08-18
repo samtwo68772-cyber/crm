@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
-import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences } from '@/lib/types';
+import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -27,28 +27,23 @@ import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { useSearchParams } from 'next/navigation'
 
+type SecuritySettingsType = {
+    passwordMinLength: number;
+    passwordRequireSpecialChars: boolean;
+    passwordRequireNumbers: boolean;
+    enable2FA: boolean;
+    sessionTimeout: number; // in minutes
+    ipWhitelist: string;
+};
 
-const initialSettings = {
-  general: {
-    systemName: 'MinT CRM',
-    companyName: 'My Company',
-    logoUrl: '',
-    timeZone: 'UTC-5:00',
-    language: 'en-US',
-  },
-  security: {
+const initialSecuritySettings: SecuritySettingsType = {
     passwordMinLength: 8,
     passwordRequireSpecialChars: true,
     passwordRequireNumbers: true,
     enable2FA: false,
     sessionTimeout: 30, // in minutes
     ipWhitelist: '192.168.1.1\n127.0.0.1',
-  },
 };
-
-type SettingsType = typeof initialSettings;
-type GeneralSettingsType = SettingsType['general'];
-type SecuritySettingsType = SettingsType['security'];
 
 
 const initialApiKeys = [
@@ -71,22 +66,12 @@ type Workflow = typeof initialWorkflows[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
-    const { emailSettings, setEmailSettings, notificationPreferences, setNotificationPreferences } = useData();
+    const { emailSettings, setEmailSettings, notificationPreferences, setNotificationPreferences, generalSettings, setGeneralSettings } = useData();
     const { toast } = useToast();
-    const [settings, setSettings] = useState<SettingsType>(initialSettings);
+    const [securitySettings, setSecuritySettings] = useState<SecuritySettingsType>(initialSecuritySettings);
     const isAdmin = user?.role === 'admin';
     const searchParams = useSearchParams()
     const defaultTab = searchParams.get('tab') || "general";
-
-    const handleSettingChange = (section: keyof SettingsType, newSettings: Partial<SettingsType[keyof SettingsType]>) => {
-        setSettings(prev => ({
-            ...prev,
-            [section]: {
-                ...prev[section],
-                ...newSettings
-            }
-        }));
-    };
     
     if (!isAdmin) {
         return (
@@ -119,13 +104,13 @@ export default function SettingsPage() {
                 </div>
                 
                 <TabsContent value="general" className="mt-6">
-                    <GeneralSettings initialSettings={settings.general} onSave={(newSettings) => handleSettingChange('general', newSettings)} />
+                    <GeneralSettings initialSettings={generalSettings} onSave={setGeneralSettings} />
                 </TabsContent>
                 <TabsContent value="users" className="mt-6">
                     <UsersSettings />
                 </TabsContent>
                 <TabsContent value="security" className="mt-6">
-                    <SecuritySettings initialSettings={settings.security} onSave={(newSettings) => handleSettingChange('security', newSettings)} />
+                    <SecuritySettings initialSettings={securitySettings} onSave={setSecuritySettings} />
                 </TabsContent>
                 <TabsContent value="email" className="mt-6">
                     <EmailSettings initialSettings={emailSettings} onSave={setEmailSettings} />

@@ -176,3 +176,11 @@ export type NotificationPreferences = {
         cancellation: NotificationChannel;
     };
 };
+
+export type GeneralSettingsType = {
+    systemName: string;
+    companyName: string;
+    logoUrl: string;
+    timeZone: string;
+    language: string;
+};

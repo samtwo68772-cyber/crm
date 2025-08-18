@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType, AuditLog, Notification, NotificationPreferences } from '@/lib/types';
+import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType, AuditLog, Notification, NotificationPreferences, GeneralSettingsType } from '@/lib/types';
 import { 
     accounts as mockAccounts, 
     cases as mockCases, 
@@ -49,6 +49,14 @@ const initialNotificationPreferences: NotificationPreferences = {
     }
 };
 
+const initialGeneralSettings: GeneralSettingsType = {
+  systemName: 'MinT CRM',
+  companyName: 'My Company',
+  logoUrl: '',
+  timeZone: 'UTC-5:00',
+  language: 'en-US',
+};
+
 interface DataContextType {
   accounts: Account[];
   setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
@@ -76,6 +84,8 @@ interface DataContextType {
   setNotifications: React.Dispatch<React.SetStateAction<Notification[]>>;
   notificationPreferences: NotificationPreferences;
   setNotificationPreferences: React.Dispatch<React.SetStateAction<NotificationPreferences>>;
+  generalSettings: GeneralSettingsType;
+  setGeneralSettings: React.Dispatch<React.SetStateAction<GeneralSettingsType>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -94,6 +104,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(mockAuditLogs);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(initialNotificationPreferences);
+  const [generalSettings, setGeneralSettings] = useState<GeneralSettingsType>(initialGeneralSettings);
   
 
   const value = {
@@ -109,7 +120,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     emailSettings, setEmailSettings,
     auditLogs, setAuditLogs,
     notifications, setNotifications,
-    notificationPreferences, setNotificationPreferences
+    notificationPreferences, setNotificationPreferences,
+    generalSettings, setGeneralSettings
   };
 
   return (
