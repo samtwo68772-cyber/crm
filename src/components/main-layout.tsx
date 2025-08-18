@@ -164,8 +164,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className="grid min-h-screen w-full bg-background" style={{ gridTemplateColumns: sidebarCollapsed ? '80px 1fr' : '280px 1fr' }}>
-            <div className="bg-card">
+        <div className="flex h-screen w-full bg-background">
+            <div className={cn("fixed h-full bg-card transition-all duration-300", sidebarCollapsed ? 'w-[80px]' : 'w-[280px]')}>
                  {isMobile ? (
                     <Sheet open={isSidebarOpen} onOpenChange={setSidebarOpen}>
                       <SheetContent side="left" className="p-0 w-[280px]">
@@ -175,7 +175,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                   </Sheet>
                  ) : sidebarContent }
             </div>
-            <div className="flex flex-col">
+            <div className={cn("flex flex-col flex-1 transition-all duration-300", sidebarCollapsed ? 'ml-[80px]' : 'ml-[280px]')}>
                 <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
                   <Button variant="outline" size="icon" className="shrink-0" onClick={() => isMobile ? setSidebarOpen(true) : setSidebarCollapsed(!sidebarCollapsed)}>
                       <Menu className="h-6 w-6" />

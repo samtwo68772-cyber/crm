@@ -71,7 +71,7 @@ function RecentCases() {
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <Card>
+            <Card className="shadow-none border-0">
                 <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-6 cursor-pointer">
                         <div>
@@ -186,7 +186,7 @@ function RecentActivity() {
 
     return (
          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <Card>
+            <Card className="shadow-none border-0">
                 <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-6 cursor-pointer">
                         <div>
