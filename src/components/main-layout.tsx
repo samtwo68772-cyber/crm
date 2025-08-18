@@ -25,7 +25,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/lib/types';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 const navItemsAdmin = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -77,10 +77,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             .filter(n => user.role === 'admin' || !n.userId || n.userId === user.id)
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     }, [notifications, user]);
+    
+    const unreadNotifications = useMemo(() => {
+        return userNotifications.filter(n => !n.read);
+    }, [userNotifications]);
 
     const unreadCount = useMemo(() => {
-        return userNotifications.filter(n => !n.read).length;
-    }, [userNotifications]);
+        return unreadNotifications.length;
+    }, [unreadNotifications]);
 
     useEffect(() => {
         if (!user) {
@@ -185,19 +189,22 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                             {unreadCount > 0 && <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllAsRead}><CheckCheck className="mr-1 h-4 w-4" />Mark all as read</Button>}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {userNotifications.slice(0, 10).map(notification => (
-                             <DropdownMenuItem key={notification.id} className={cn("flex items-start gap-3", !notification.read && "bg-blue-500/10")} onClick={() => handleNotificationClick(notification)}>
-                                {getNotificationIcon(notification.type)}
-                                <div className="flex-1">
-                                    <p className="font-semibold text-sm">{notification.title}</p>
-                                    <p className="text-xs text-muted-foreground">{notification.description}</p>
-                                    <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}</p>
-                                </div>
-                            </DropdownMenuItem>
-                        ))}
-                         {userNotifications.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">No new notifications</p>}
+                        {unreadNotifications.length > 0 ? (
+                            unreadNotifications.slice(0, 10).map(notification => (
+                                 <DropdownMenuItem key={notification.id} className="flex items-start gap-3" onClick={() => handleNotificationClick(notification)}>
+                                    {getNotificationIcon(notification.type)}
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-sm">{notification.title}</p>
+                                        <p className="text-xs text-muted-foreground">{notification.description}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(parseISO(notification.timestamp), { addSuffix: true })}</p>
+                                    </div>
+                                </DropdownMenuItem>
+                            ))
+                        ) : (
+                            <p className="p-4 text-center text-sm text-muted-foreground">No new notifications</p>
+                        )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="justify-center">
+                        <DropdownMenuItem className="justify-center" onClick={() => router.push('/notifications')}>
                             View All Notifications
                         </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -220,11 +227,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push('/profile')}>
                                <User className="mr-2 h-4 w-4" />
                                <span>Profile</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push('/settings')}>
                                <Settings className="mr-2 h-4 w-4" />
                                <span>Settings</span>
                             </DropdownMenuItem>
