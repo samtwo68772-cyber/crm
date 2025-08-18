@@ -35,7 +35,6 @@ const navItemsAdmin = [
     { href: '/reports', label: 'Reports', icon: BarChart },
     { href: '/admin', label: 'Users & Roles', icon: Users },
     { href: '/settings', label: 'System Settings', icon: Settings },
-    { href: '/notifications-settings', label: 'Notifications Settings', icon: Bell },
     { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
 
@@ -47,7 +46,6 @@ const navItemsStaff = [
     { href: '/accounts', label: 'Accounts', icon: Contact },
     { href: '/documents', label: 'Documents', icon: FileText },
     { href: '/emails', label: 'Emails / Messages', icon: Mail },
-    { href: '/notifications-settings', label: 'Notifications', icon: Bell },
     { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
 
