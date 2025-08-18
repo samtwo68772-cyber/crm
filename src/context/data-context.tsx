@@ -33,24 +33,24 @@ const initialEmailSettings: EmailSettingsType = {
 
 const initialNotificationPreferences: NotificationPreferences = {
     cases: {
-        newAssignment: { inApp: true, email: true },
-        statusChange: { inApp: true, email: false },
-        newComment: { inApp: true, email: false },
+        newAssignment: { inApp: true, email: true, mandatory: true },
+        statusChange: { inApp: true, email: false, mandatory: false },
+        newComment: { inApp: true, email: false, mandatory: false },
     },
     tasks: {
-        newAssignment: { inApp: true, email: true },
-        statusChange: { inApp: false, email: false },
-        dueSoon: { inApp: true, email: true },
+        newAssignment: { inApp: true, email: true, mandatory: true },
+        statusChange: { inApp: false, email: false, mandatory: false },
+        dueSoon: { inApp: true, email: true, mandatory: false },
     },
     meetings: {
-        newInvite: { inApp: true, email: true },
-        update: { inApp: true, email: true },
-        cancellation: { inApp: true, email: true },
+        newInvite: { inApp: true, email: true, mandatory: true },
+        update: { inApp: true, email: true, mandatory: false },
+        cancellation: { inApp: true, email: true, mandatory: true },
     }
 };
 
 const initialGeneralSettings: GeneralSettingsType = {
-  systemName: 'MinT CRM',
+  systemName: 'Caseflow CRM',
   companyName: 'My Company',
   logoUrl: '',
   timeZone: 'UTC-5:00',

@@ -12,10 +12,10 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
-import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType } from '@/lib/types';
+import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType, NotificationChannel } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -25,7 +25,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation';
+import { Checkbox } from '@/components/ui/checkbox';
 
 type SecuritySettingsType = {
     passwordMinLength: number;
@@ -686,24 +687,31 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
     const handlePreferenceChange = (
         category: keyof NotificationPreferences,
         event: keyof NotificationPreferences[keyof NotificationPreferences],
-        channel: 'inApp' | 'email',
+        channel: 'inApp' | 'email' | 'mandatory',
         value: boolean
     ) => {
-        setCurrentPreferences(prev => ({
-            ...prev,
-            [category]: {
-                ...prev[category],
-                [event]: {
-                    ...prev[category][event],
-                    [channel]: value,
-                },
-            },
-        }));
+        setCurrentPreferences(prev => {
+            const newPrefs = { ...prev };
+            const eventPrefs = newPrefs[category][event] as NotificationChannel;
+            (eventPrefs[channel] as boolean) = value;
+
+            // If mandatory is checked, inApp and email must also be checked.
+            if (channel === 'mandatory' && value) {
+                eventPrefs.inApp = true;
+                eventPrefs.email = true;
+            }
+             // If inApp or email is unchecked, mandatory must be unchecked.
+            if ((channel === 'inApp' || channel === 'email') && !value) {
+                eventPrefs.mandatory = false;
+            }
+
+            return newPrefs;
+        });
     };
 
     const handleSave = () => {
         onSave(currentPreferences);
-        toast({ title: 'Preferences Saved', description: 'Your notification preferences have been updated.' });
+        toast({ title: 'Preferences Saved', description: 'Global notification preferences have been updated.' });
     };
 
     const hasChanges = JSON.stringify(currentPreferences) !== JSON.stringify(preferences);
@@ -715,7 +723,7 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
                     <Bell className="h-6 w-6" />
                     <div>
                         <CardTitle>Alerts & Notifications</CardTitle>
-                        <CardDescription>Choose how you receive notifications for important events.</CardDescription>
+                        <CardDescription>Define default notification settings for all users and mark critical alerts as mandatory.</CardDescription>
                     </div>
                 </div>
             </CardHeader>
@@ -724,36 +732,51 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
                     <div key={categoryKey}>
                         <h4 className="font-medium text-lg mb-4">{categoryValue.title}</h4>
                         <div className="space-y-4">
-                            {Object.entries(categoryValue.events).map(([eventKey, eventLabel]) => (
+                            {Object.entries(categoryValue.events).map(([eventKey, eventLabel]) => {
+                                const pref = currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]];
+                                return (
                                 <div key={eventKey} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                     <Label className="flex-1 font-normal">{eventLabel}</Label>
                                     <div className="flex items-center gap-6 w-full md:w-auto">
                                         <div className="flex items-center space-x-2">
                                             <Switch
                                                 id={`${categoryKey}-${eventKey}-inApp`}
-                                                checked={currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]].inApp}
+                                                checked={pref.inApp}
                                                 onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'inApp', checked)}
+                                                disabled={pref.mandatory}
                                             />
                                             <Label htmlFor={`${categoryKey}-${eventKey}-inApp`} className="text-sm font-normal">In-App</Label>
                                         </div>
                                         <div className="flex items-center space-x-2">
                                             <Switch
                                                 id={`${categoryKey}-${eventKey}-email`}
-                                                checked={currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]].email}
+                                                checked={pref.email}
                                                 onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'email', checked)}
+                                                disabled={pref.mandatory}
                                             />
                                             <Label htmlFor={`${categoryKey}-${eventKey}-email`} className="text-sm font-normal">Email</Label>
                                         </div>
+                                         <div className="flex items-center space-x-2 border-l pl-4">
+                                            <Checkbox
+                                                id={`${categoryKey}-${eventKey}-mandatory`}
+                                                checked={pref.mandatory}
+                                                onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'mandatory', !!checked)}
+                                            />
+                                            <Label htmlFor={`${categoryKey}-${eventKey}-mandatory`} className="text-sm font-normal flex items-center gap-1">
+                                                <Lock className="h-3 w-3" />
+                                                Mandatory
+                                            </Label>
+                                        </div>
                                     </div>
                                 </div>
-                            ))}
+                            )})}
                         </div>
                     </div>
                 ))}
             </CardContent>
             <CardFooter className="border-t pt-6 justify-end flex gap-2">
                 {hasChanges && <Button variant="outline" onClick={() => setCurrentPreferences(preferences)}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
+                <Button onClick={handleSave} disabled={!hasChanges}>Save Preferences</Button>
             </CardFooter>
         </Card>
     );

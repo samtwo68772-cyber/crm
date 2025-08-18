@@ -157,6 +157,7 @@ export type Notification = {
 export type NotificationChannel = {
     inApp: boolean;
     email: boolean;
+    mandatory: boolean;
 };
 
 export type NotificationPreferences = {
