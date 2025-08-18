@@ -2,7 +2,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
-import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType, AuditLog, Notification, NotificationPreferences, GeneralSettingsType } from '@/lib/types';
+import type { Account, Case, Contact, Document, Email, Meeting, Task, Team, User, EmailSettingsType, AuditLog, Notification, NotificationPreferences, GeneralSettingsType, Workflow } from '@/lib/types';
 import { 
     accounts as mockAccounts, 
     cases as mockCases, 
@@ -14,7 +14,8 @@ import {
     teams as mockTeams,
     users as mockUsers,
     auditLogs as mockAuditLogs,
-    notifications as mockNotifications
+    notifications as mockNotifications,
+    workflows as initialWorkflows
 } from '@/lib/data.tsx';
 
 const initialEmailSettings: EmailSettingsType = {
@@ -50,7 +51,7 @@ const initialNotificationPreferences: NotificationPreferences = {
 };
 
 const initialGeneralSettings: GeneralSettingsType = {
-  systemName: 'Caseflow CRM',
+  systemName: 'MinT CRM',
   companyName: 'My Company',
   logoUrl: '',
   timeZone: 'UTC-5:00',
@@ -86,6 +87,8 @@ interface DataContextType {
   setNotificationPreferences: React.Dispatch<React.SetStateAction<NotificationPreferences>>;
   generalSettings: GeneralSettingsType;
   setGeneralSettings: React.Dispatch<React.SetStateAction<GeneralSettingsType>>;
+  workflows: Workflow[];
+  setWorkflows: React.Dispatch<React.SetStateAction<Workflow[]>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -105,6 +108,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(initialNotificationPreferences);
   const [generalSettings, setGeneralSettings] = useState<GeneralSettingsType>(initialGeneralSettings);
+  const [workflows, setWorkflows] = useState<Workflow[]>(initialWorkflows);
   
 
   const value = {
@@ -121,7 +125,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     auditLogs, setAuditLogs,
     notifications, setNotifications,
     notificationPreferences, setNotificationPreferences,
-    generalSettings, setGeneralSettings
+    generalSettings, setGeneralSettings,
+    workflows, setWorkflows
   };
 
   return (

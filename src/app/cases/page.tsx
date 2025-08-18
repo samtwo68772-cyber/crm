@@ -70,15 +70,20 @@ export default function CasesPage() {
     const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
     const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
     
-    const newCase: Case = {
+    let newCase: Case = {
       id: `case-${newCaseNumber}`,
       createdAt: new Date().toISOString().split('T')[0],
       description: "Initial case description.",
       communications: [],
       ...newCaseData
     };
-    setCases([newCase, ...cases]);
+    
+    setCases(prevCases => [newCase, ...prevCases]);
     setCreateDialogOpen(false);
+    toast({
+        title: "Case Created",
+        description: `New case "${newCase.subject}" has been created.`,
+    });
   };
   
   const handleAssignCase = (caseId: string, userId: string) => {
@@ -547,6 +552,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
 }
 
 function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
+  const { workflows, teams, users, setCases } = useData();
   const [subject, setSubject] = useState('');
   const [customer, setCustomer] = useState('');
   const [email, setEmail] = useState('');
@@ -554,9 +560,50 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   const [priority, setPriority] = useState<Case['priority']>('Medium');
   const [type, setType] = useState<Case['type']>('General Question');
   const [status, setStatus] = useState<Case['status']>('New');
+  const { toast } = useToast();
 
   const handleSubmit = () => {
-    onCreate({ subject, customer, email, description, priority, type, status, assignedTo: 'Unassigned' });
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'> = { 
+        subject, 
+        customer, 
+        email, 
+        priority, 
+        type, 
+        status, 
+        assignedTo: 'Unassigned',
+        description: description,
+    };
+    
+    // Process workflows
+    workflows.forEach(workflow => {
+        if (workflow.trigger === 'case-created') {
+            let conditionMet = false;
+            if (workflow.condition === 'priority-high' && caseData.priority === 'High') {
+                conditionMet = true;
+            }
+            // Add other conditions here
+
+            if (conditionMet) {
+                if (workflow.action === 'assign-team-t2') {
+                    const tier2Team = teams.find(t => t.name === 'Support Tier 2');
+                    if (tier2Team) {
+                        const teamMembers = users.filter(u => u.team === tier2Team.name);
+                        if (teamMembers.length > 0) {
+                            // Simple assignment: assign to the first member of the team.
+                            caseData.assignedTo = teamMembers[0].name;
+                             toast({
+                                title: "Workflow Triggered",
+                                description: `Case automatically assigned to ${teamMembers[0].name} in Tier 2 Support.`,
+                            });
+                        }
+                    }
+                }
+                // Add other actions here
+            }
+        }
+    });
+
+    onCreate(caseData);
     setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New');
   };
   

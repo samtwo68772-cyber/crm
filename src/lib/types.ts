@@ -185,3 +185,11 @@ export type GeneralSettingsType = {
     timeZone: string;
     language: string;
 };
+
+export type Workflow = {
+  id: string;
+  name: string;
+  trigger: string;
+  condition: string;
+  action: string;
+};

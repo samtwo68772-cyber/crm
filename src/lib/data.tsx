@@ -1,6 +1,6 @@
 
 
-import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email, Notification } from './types';
+import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email, Notification, Workflow } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
@@ -367,4 +367,9 @@ export const emails: Email[] = [
         type: 'inbox',
         read: false,
     }
+];
+
+export const workflows: Workflow[] = [
+    { id: 'wf-1', name: 'Assign High-Priority Cases', trigger: 'case-created', condition: 'priority-high', action: 'assign-team-t2' },
+    { id: 'wf-2', name: 'Notify Customer on Resolution', trigger: 'case-status-changed', condition: 'status-resolved', action: 'send-email-customer' },
 ];

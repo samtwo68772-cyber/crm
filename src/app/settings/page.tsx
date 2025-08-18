@@ -16,7 +16,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
-import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType, NotificationChannel } from '@/lib/types';
+import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType, NotificationChannel, Workflow } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -60,15 +60,10 @@ const initialApiLogs = [
 type ApiKey = typeof initialApiKeys[0];
 type ApiLog = typeof initialApiLogs[0];
 
-const initialWorkflows = [
-    { id: 'wf-1', name: 'Assign High-Priority Cases', trigger: 'case-created', condition: 'priority-high', action: 'assign-team-t2' },
-    { id: 'wf-2', name: 'Notify Customer on Resolution', trigger: 'case-status-changed', condition: 'status-resolved', action: 'send-email-customer' },
-];
-type Workflow = typeof initialWorkflows[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
-    const { emailSettings, setEmailSettings, notificationPreferences, setNotificationPreferences, generalSettings, setGeneralSettings } = useData();
+    const { emailSettings, setEmailSettings, notificationPreferences, setNotificationPreferences, generalSettings, setGeneralSettings, workflows, setWorkflows } = useData();
     const { toast } = useToast();
     const [securitySettings, setSecuritySettings] = useState<SecuritySettingsType>(initialSecuritySettings);
     const isAdmin = user?.role === 'admin';
@@ -124,7 +119,9 @@ export default function SettingsPage() {
                     />
                 </TabsContent>
                 <TabsContent value="api" className="mt-6"><ApiSettings /></TabsContent>
-                <TabsContent value="workflows" className="mt-6"><WorkflowsSettings /></TabsContent>
+                <TabsContent value="workflows" className="mt-6">
+                    <WorkflowsSettings workflows={workflows} setWorkflows={setWorkflows} />
+                </TabsContent>
                 <TabsContent value="audit" className="mt-6"><AuditLog /></TabsContent>
             </Tabs>
         </div>
@@ -933,8 +930,7 @@ function ApiSettings() {
     );
 }
 
-function WorkflowsSettings() {
-    const [workflows, setWorkflows] = useState<Workflow[]>(initialWorkflows);
+function WorkflowsSettings({ workflows, setWorkflows }: { workflows: Workflow[], setWorkflows: React.Dispatch<React.SetStateAction<Workflow[]>>}) {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
     const { toast } = useToast();
@@ -972,7 +968,7 @@ function WorkflowsSettings() {
         const options: Record<string, Record<string, string>> = {
             trigger: { 'case-created': 'Case is created', 'task-status-changed': 'Task status changes' },
             condition: { 'priority-high': 'Priority is High', 'status-resolved': 'Status is Resolved', 'task-overdue': 'Task is overdue' },
-            action: { 'assign-team-t2': 'Assign to Tier 2', 'send-email-customer': 'Send email to customer', 'create-followup-task': 'Create follow-up task' }
+            action: { 'assign-team-t2': 'Assign to Tier 2 Support', 'send-email-customer': 'Send email to customer', 'create-followup-task': 'Create follow-up task' }
         };
         return options[type][value] || value;
     };
