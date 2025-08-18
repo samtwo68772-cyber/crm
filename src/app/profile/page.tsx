@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { User, Shield, Bell, Upload, Lock } from 'lucide-react';
-import type { User as UserType, NotificationPreferences, NotificationChannel } from '@/lib/types';
+import type { User as UserType, NotificationPreferences } from '@/lib/types';
 
 const notificationConfig = {
     cases: {
@@ -43,26 +43,24 @@ const notificationConfig = {
 };
 
 export default function ProfilePage() {
-    const { user, login } = useAuth(); // We might need a way to "refresh" the user context
+    const { user } = useAuth();
     const { users, setUsers, notificationPreferences, setNotificationPreferences } = useData();
     const { toast } = useToast();
     
-    // Find the detailed user object from the global state
     const currentUser = users.find(u => u.id === user?.id);
+    
+    // We'll use the global state as the single source of truth for this demo.
+    // In a real app, this would be a user-specific setting fetched from a DB.
     const [userNotificationPrefs, setUserNotificationPrefs] = useState<NotificationPreferences>(notificationPreferences);
 
     const handleProfileUpdate = (updatedData: Partial<UserType>) => {
         if (!currentUser) return;
         const updatedUser = { ...currentUser, ...updatedData };
         setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
-        // We need a way to update the user in AuthContext as well
-        // For now, this will update the global list, but not the user object in useAuth
         toast({ title: "Profile Updated", description: "Your profile information has been saved." });
     };
 
     const handlePasswordChange = (newPassword: string) => {
-        // In a real app, this would involve an API call with the old and new password.
-        // For this mock, we'll just show a success message.
         if (!newPassword) {
             toast({ variant: 'destructive', title: "Error", description: "Password cannot be empty." });
             return;
@@ -71,9 +69,9 @@ export default function ProfilePage() {
     };
 
     const handleNotificationsSave = (newPreferences: NotificationPreferences) => {
+        // For this demo, user changes update a local version of preferences.
+        // In a real app, you'd save this to the specific user's record in a database.
         setUserNotificationPrefs(newPreferences);
-        // In a real app, this would save to a user-specific setting, not the global one.
-        // For this demo, we'll just update the local state to show UI changes.
         toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
     };
 
@@ -182,7 +180,7 @@ function ProfileSettings({ user, onSave }: { user: UserType, onSave: (data: Part
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="team">Team / Department</Label>
-                        <Input id="team" value={team} onChange={e => setTeam(e.target.value)} />
+                        <Input id="team" value={team} disabled />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="role">Role</Label>
@@ -259,7 +257,6 @@ function SecuritySettings({ onSave }: { onSave: (password: string) => void }) {
 
 function NotificationsSettings({ globalPreferences, userPreferences, onSave }: { globalPreferences: NotificationPreferences; userPreferences: NotificationPreferences; onSave: (data: NotificationPreferences) => void; }) {
     const [currentUserPreferences, setCurrentUserPreferences] = useState(userPreferences);
-    const { toast } = useToast();
 
     useEffect(() => {
         setCurrentUserPreferences(userPreferences);
@@ -272,7 +269,7 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
         value: boolean
     ) => {
         setCurrentUserPreferences(prev => {
-            const newPrefs = JSON.parse(JSON.stringify(prev)); // Deep copy
+            const newPrefs = JSON.parse(JSON.stringify(prev));
             newPrefs[category][event][channel] = value;
             return newPrefs;
         });
@@ -282,13 +279,17 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
         onSave(currentUserPreferences);
     };
 
+    const handleCancel = () => {
+        setCurrentUserPreferences(userPreferences);
+    };
+
     const hasChanges = JSON.stringify(currentUserPreferences) !== JSON.stringify(userPreferences);
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose how you receive notifications for important events. Some notifications may be mandatory.</CardDescription>
+                <CardDescription>Choose how you receive notifications for important events. Some notifications are mandatory and cannot be disabled.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
                 {Object.entries(notificationConfig).map(([categoryKey, categoryValue]) => (
@@ -301,11 +302,13 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
                                 const globalPref = globalPreferences[category][event];
                                 const userPref = currentUserPreferences[category][event];
                                 
+                                const isMandatory = globalPref.mandatory;
+
                                 return (
                                 <div key={eventKey} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                     <div className="flex-1">
                                         <Label className="font-normal">{eventLabel}</Label>
-                                        {globalPref.mandatory && (
+                                        {isMandatory && (
                                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                                                 <Lock className="h-3 w-3" />
                                                 This notification is mandatory and cannot be disabled.
@@ -316,8 +319,8 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
                                         <div className="flex items-center space-x-2">
                                             <Switch
                                                 id={`${categoryKey}-${eventKey}-inApp`}
-                                                checked={globalPref.mandatory || userPref.inApp}
-                                                disabled={globalPref.mandatory}
+                                                checked={isMandatory || userPref.inApp}
+                                                disabled={isMandatory}
                                                 onCheckedChange={(checked) => handlePreferenceChange(category, event, 'inApp', checked)}
                                             />
                                             <Label htmlFor={`${categoryKey}-${eventKey}-inApp`} className="text-sm font-normal">In-App</Label>
@@ -325,8 +328,8 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
                                         <div className="flex items-center space-x-2">
                                             <Switch
                                                 id={`${categoryKey}-${eventKey}-email`}
-                                                checked={globalPref.mandatory || userPref.email}
-                                                disabled={globalPref.mandatory}
+                                                checked={isMandatory || userPref.email}
+                                                disabled={isMandatory}
                                                 onCheckedChange={(checked) => handlePreferenceChange(category, event, 'email', checked)}
                                             />
                                             <Label htmlFor={`${categoryKey}-${eventKey}-email`} className="text-sm font-normal">Email</Label>
@@ -339,7 +342,7 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
                 ))}
             </CardContent>
             <CardFooter className="border-t pt-6 justify-end flex gap-2">
-                {hasChanges && <Button variant="outline" onClick={() => setCurrentUserPreferences(userPreferences)}>Cancel</Button>}
+                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
                 <Button onClick={handleSave} disabled={!hasChanges}>Save Preferences</Button>
             </CardFooter>
         </Card>
