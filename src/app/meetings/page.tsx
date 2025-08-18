@@ -227,7 +227,6 @@ export default function MeetingsPage() {
               <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
           </TabsList>
           <TabsContent value="calendar" className="mt-6">
-               <div className="meeting-calendar-wrapper">
                    <Card>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <CardTitle className="font-headline text-xl">{format(currentMonth, 'MMMM yyyy')}</CardTitle>
@@ -241,7 +240,7 @@ export default function MeetingsPage() {
                                 month={currentMonth}
                                 onMonthChange={setCurrentMonth}
                                 mode="single"
-                                className="w-full"
+                                className="w-full meeting-calendar-wrapper"
                                 components={{
                                     DayContent: ({ date, ...props }) => {
                                         const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
@@ -279,7 +278,6 @@ export default function MeetingsPage() {
                             />
                         </CardContent>
                     </Card>
-               </div>
           </TabsContent>
           <TabsContent value="meetings">
             <AllMeetingsView meetings={userMeetings} onMeetingClick={handleMeetingClick} />
