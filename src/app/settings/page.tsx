@@ -15,14 +15,13 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
-import type { User, Team, AuditLog as AuditLogType, EmailSettingsType } from '@/lib/types';
+import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { MultiSelect, OptionType } from '@/components/ui/multi-select';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
@@ -52,15 +51,6 @@ type GeneralSettingsType = SettingsType['general'];
 type SecuritySettingsType = SettingsType['security'];
 
 
-const initialAlerts = [
-    { id: 'new-case', name: 'New Case Created', description: 'Notify when a new case is created.', enabled: true, channels: ['in-app', 'email'], threshold: null },
-    { id: 'task-overdue', name: 'Task Overdue', description: 'Notify when a task becomes overdue.', enabled: true, channels: ['in-app'], threshold: 1 },
-    { id: 'case-closed', name: 'Case Closed', description: 'Notify when a case is marked as closed.', enabled: false, channels: ['email'], threshold: null },
-    { id: 'user-signup', name: 'New User Sign-up', description: 'Notify admins when a new user signs up.', enabled: true, channels: ['email'], threshold: null },
-];
-
-type AlertSetting = typeof initialAlerts[0];
-
 const initialApiKeys = [
     { id: 'key-1', key: 'sk_live_abc123xyz789', displayName: 'sk_...789', createdAt: '2024-01-15', lastUsed: '2024-05-20' },
     { id: 'key-2', key: 'sk_live_def456uvw456', displayName: 'sk_...456', createdAt: '2024-03-10', lastUsed: '2024-04-12' },
@@ -81,10 +71,9 @@ type Workflow = typeof initialWorkflows[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
-    const { emailSettings, setEmailSettings } = useData();
+    const { emailSettings, setEmailSettings, notificationPreferences, setNotificationPreferences } = useData();
     const { toast } = useToast();
     const [settings, setSettings] = useState<SettingsType>(initialSettings);
-    const [alerts, setAlerts] = useState<AlertSetting[]>(initialAlerts);
     const isAdmin = user?.role === 'admin';
     const searchParams = useSearchParams()
     const defaultTab = searchParams.get('tab') || "general";
@@ -142,7 +131,10 @@ export default function SettingsPage() {
                     <EmailSettings initialSettings={emailSettings} onSave={setEmailSettings} />
                 </TabsContent>
                 <TabsContent value="alerts" className="mt-6">
-                    <AlertsSettings initialAlerts={initialAlerts} onSave={setAlerts} />
+                    <AlertsSettings
+                        preferences={notificationPreferences}
+                        onSave={setNotificationPreferences}
+                    />
                 </TabsContent>
                 <TabsContent value="api" className="mt-6"><ApiSettings /></TabsContent>
                 <TabsContent value="workflows" className="mt-6"><WorkflowsSettings /></TabsContent>
@@ -671,25 +663,66 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
     )
 }
 
-function AlertsSettings({ initialAlerts, onSave }: { initialAlerts: AlertSetting[]; onSave: (data: AlertSetting[]) => void; }) {
-    const [alerts, setAlerts] = useState<AlertSetting[]>(initialAlerts);
+const notificationConfig = {
+    cases: {
+        title: 'Cases',
+        events: {
+            newAssignment: 'New case assigned to me',
+            statusChange: 'Status changes on my cases',
+            newComment: 'New comment on my cases',
+        },
+    },
+    tasks: {
+        title: 'Tasks',
+        events: {
+            newAssignment: 'New task assigned to me',
+            statusChange: 'Task status changes',
+            dueSoon: 'Task is due soon',
+        },
+    },
+    meetings: {
+        title: 'Meetings',
+        events: {
+            newInvite: 'New meeting invitation',
+            update: 'Meeting details are updated',
+            cancellation: 'Meeting is canceled',
+        },
+    },
+};
+
+function AlertsSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: (data: NotificationPreferences) => void; }) {
+    const [currentPreferences, setCurrentPreferences] = useState(preferences);
     const { toast } = useToast();
 
-    const handleAlertChange = (id: string, field: keyof AlertSetting, value: any) => {
-        setAlerts(prev => prev.map(alert => alert.id === id ? { ...alert, [field]: value } : alert));
+    useEffect(() => {
+        setCurrentPreferences(preferences);
+    }, [preferences]);
+
+    const handlePreferenceChange = (
+        category: keyof NotificationPreferences,
+        event: keyof NotificationPreferences[keyof NotificationPreferences],
+        channel: 'inApp' | 'email',
+        value: boolean
+    ) => {
+        setCurrentPreferences(prev => ({
+            ...prev,
+            [category]: {
+                ...prev[category],
+                [event]: {
+                    ...prev[category][event],
+                    [channel]: value,
+                },
+            },
+        }));
     };
 
     const handleSave = () => {
-        onSave(alerts);
-        toast({ title: 'Alerts Saved', description: 'Your alert settings have been updated.' });
+        onSave(currentPreferences);
+        toast({ title: 'Preferences Saved', description: 'Your notification preferences have been updated.' });
     };
-    
-    const channelOptions: OptionType[] = [
-        { label: 'In-App', value: 'in-app' },
-        { label: 'Email', value: 'email' },
-        { label: 'SMS', value: 'sms' },
-    ];
-    
+
+    const hasChanges = JSON.stringify(currentPreferences) !== JSON.stringify(preferences);
+
     return (
         <Card>
             <CardHeader>
@@ -697,48 +730,45 @@ function AlertsSettings({ initialAlerts, onSave }: { initialAlerts: AlertSetting
                     <Bell className="h-6 w-6" />
                     <div>
                         <CardTitle>Alerts & Notifications</CardTitle>
-                        <CardDescription>Define system-wide alert triggers and notification channels.</CardDescription>
+                        <CardDescription>Choose how you receive notifications for important events.</CardDescription>
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-                {alerts.map((alert) => (
-                    <div key={alert.id} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                        <div className="flex-1">
-                            <h4 className="font-medium">{alert.name}</h4>
-                            <p className="text-sm text-muted-foreground">{alert.description}</p>
-                        </div>
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                            <Switch
-                                checked={alert.enabled}
-                                onCheckedChange={(checked) => handleAlertChange(alert.id, 'enabled', checked)}
-                            />
-                            <div className="flex-1 min-w-[200px]">
-                                <MultiSelect
-                                    options={channelOptions}
-                                    selected={alert.channels}
-                                    onChange={(channels) => handleAlertChange(alert.id, 'channels', channels)}
-                                    placeholder="Select channels"
-                                    className="w-full"
-                                />
-                            </div>
-                            {alert.threshold !== null && (
-                                <div className="flex items-center gap-2">
-                                    <Input
-                                        type="number"
-                                        value={alert.threshold}
-                                        onChange={(e) => handleAlertChange(alert.id, 'threshold', parseInt(e.target.value, 10))}
-                                        className="w-20"
-                                    />
-                                    <span className="text-sm text-muted-foreground">days</span>
+            <CardContent className="space-y-8">
+                {Object.entries(notificationConfig).map(([categoryKey, categoryValue]) => (
+                    <div key={categoryKey}>
+                        <h4 className="font-medium text-lg mb-4">{categoryValue.title}</h4>
+                        <div className="space-y-4">
+                            {Object.entries(categoryValue.events).map(([eventKey, eventLabel]) => (
+                                <div key={eventKey} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                    <Label className="flex-1 font-normal">{eventLabel}</Label>
+                                    <div className="flex items-center gap-6 w-full md:w-auto">
+                                        <div className="flex items-center space-x-2">
+                                            <Switch
+                                                id={`${categoryKey}-${eventKey}-inApp`}
+                                                checked={currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]].inApp}
+                                                onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'inApp', checked)}
+                                            />
+                                            <Label htmlFor={`${categoryKey}-${eventKey}-inApp`} className="text-sm font-normal">In-App</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Switch
+                                                id={`${categoryKey}-${eventKey}-email`}
+                                                checked={currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]].email}
+                                                onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'email', checked)}
+                                            />
+                                            <Label htmlFor={`${categoryKey}-${eventKey}-email`} className="text-sm font-normal">Email</Label>
+                                        </div>
+                                    </div>
                                 </div>
-                            )}
+                            ))}
                         </div>
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className="border-t pt-6 justify-end">
-                <Button onClick={handleSave}>Save Changes</Button>
+            <CardFooter className="border-t pt-6 justify-end flex gap-2">
+                {hasChanges && <Button variant="outline" onClick={() => setCurrentPreferences(preferences)}>Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
             </CardFooter>
         </Card>
     );

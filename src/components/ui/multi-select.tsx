@@ -63,7 +63,7 @@ function MultiSelect({
                     <Badge
                         variant="secondary"
                         key={option.value}
-                        className="mr-1"
+                        className="mr-1 mb-1"
                         onClick={(e) => {
                            e.stopPropagation();
                            handleUnselect(option.value);

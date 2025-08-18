@@ -153,3 +153,26 @@ export type Notification = {
   userId?: string; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
   link: string; // The URL to navigate to when clicked
 };
+
+export type NotificationChannel = {
+    inApp: boolean;
+    email: boolean;
+};
+
+export type NotificationPreferences = {
+    cases: {
+        newAssignment: NotificationChannel;
+        statusChange: NotificationChannel;
+        newComment: NotificationChannel;
+    };
+    tasks: {
+        newAssignment: NotificationChannel;
+        statusChange: NotificationChannel;
+        dueSoon: NotificationChannel;
+    };
+    meetings: {
+        newInvite: NotificationChannel;
+        update: NotificationChannel;
+        cancellation: NotificationChannel;
+    };
+};
