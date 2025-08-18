@@ -4,7 +4,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { DateRange } from "react-day-picker"
 import { useData } from '@/context/data-context';
-import type { Case, User, Communication, Task } from '@/lib/types';
+import type { Case, User, Communication, Task, Notification } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { format, isWithinInterval, subDays } from 'date-fns';
+import { format, isWithinInterval, subDays, addDays } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
@@ -552,7 +552,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
 }
 
 function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
-  const { workflows, teams, users, setCases } = useData();
+  const { workflows, teams, users, setCases, setTasks, setNotifications } = useData();
   const [subject, setSubject] = useState('');
   const [customer, setCustomer] = useState('');
   const [email, setEmail] = useState('');
@@ -563,7 +563,9 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   const { toast } = useToast();
 
   const handleSubmit = () => {
-    const caseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'> = { 
+    // Create a temporary case ID to link tasks before the real case is created
+    const tempCaseId = `case-${Date.now()}`;
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'> & { id?: string } = { 
         subject, 
         customer, 
         email, 
@@ -576,29 +578,59 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
     
     // Process workflows
     workflows.forEach(workflow => {
+        let conditionMet = false;
         if (workflow.trigger === 'case-created') {
-            let conditionMet = false;
             if (workflow.condition === 'priority-high' && caseData.priority === 'High') {
                 conditionMet = true;
             }
-            // Add other conditions here
+        }
 
-            if (conditionMet) {
-                if (workflow.action === 'assign-team-t2') {
-                    const tier2Team = teams.find(t => t.name === 'Support Tier 2');
-                    if (tier2Team) {
-                        const teamMembers = users.filter(u => u.team === tier2Team.name);
-                        if (teamMembers.length > 0) {
-                            // Simple assignment: assign to the first member of the team.
-                            caseData.assignedTo = teamMembers[0].name;
-                             toast({
-                                title: "Workflow Triggered",
-                                description: `Case automatically assigned to ${teamMembers[0].name} in Tier 2 Support.`,
-                            });
-                        }
+        if (conditionMet) {
+            // Team Assignment Action
+            if (workflow.action === 'assign-team-t2') {
+                const tier2Team = teams.find(t => t.name === 'Support Tier 2');
+                if (tier2Team) {
+                    const teamMembers = users.filter(u => u.team === tier2Team.name);
+                    if (teamMembers.length > 0) {
+                        caseData.assignedTo = teamMembers[0].name;
+                         toast({
+                            title: "Workflow Triggered",
+                            description: `Case automatically assigned to ${teamMembers[0].name} in Tier 2 Support.`,
+                        });
                     }
                 }
-                // Add other actions here
+            }
+            // Create Task Action
+            if (workflow.action === 'create-followup-task') {
+                const assignedUser = users.find(u => u.name === caseData.assignedTo);
+                const newTask: Task = {
+                    id: `task-${Date.now()}`,
+                    title: `Follow up on high-priority case: "${caseData.subject}"`,
+                    status: 'To Do',
+                    dueDate: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
+                    priority: 'High',
+                    linkedCase: tempCaseId, // Link to the case being created
+                    assignedTo: assignedUser?.id || undefined,
+                };
+                setTasks(prev => [...prev, newTask]);
+
+                if (assignedUser) {
+                    const newNotification: Notification = {
+                        id: `notif-${Date.now()}`,
+                        type: 'task',
+                        title: 'New Task Assigned by Workflow',
+                        description: `A new task "${newTask.title}" was automatically assigned to you.`,
+                        timestamp: new Date().toISOString(),
+                        read: false,
+                        userId: assignedUser.id,
+                        link: `/tasks?id=${newTask.id}`,
+                    };
+                    setNotifications(prev => [newNotification, ...prev]);
+                }
+                 toast({
+                    title: "Workflow Triggered",
+                    description: `A follow-up task has been automatically created.`,
+                });
             }
         }
     });
