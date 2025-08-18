@@ -1,8 +1,9 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { useData } from '@/context/data-context';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,12 +18,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from './ui/input';
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, User, BarChart, Shield } from "lucide-react";
+import { Bell, Briefcase, Users, LayoutDashboard, LogOut, Menu, Settings, ListTodo, Contact, Building, FileText, Calendar, Search, Mail, User, BarChart, Shield, CheckCheck } from "lucide-react";
 import { Logo } from '@/components/icons';
 import { Badge } from './ui/badge';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-
+import { cn } from '@/lib/utils';
+import type { Notification } from '@/lib/types';
+import { formatDistanceToNow } from 'date-fns';
 
 const navItemsAdmin = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -49,14 +52,35 @@ const navItemsStaff = [
     { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
 
+const getNotificationIcon = (type: Notification['type']) => {
+    switch (type) {
+        case 'case': return <Briefcase className="h-4 w-4 text-blue-500" />;
+        case 'task': return <ListTodo className="h-4 w-4 text-green-500" />;
+        case 'email': return <Mail className="h-4 w-4 text-orange-500" />;
+        case 'meeting': return <Calendar className="h-4 w-4 text-purple-500" />;
+        default: return <Bell className="h-4 w-4 text-muted-foreground" />;
+    }
+};
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, logout } = useAuth();
+    const { notifications, setNotifications } = useData();
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+    const userNotifications = useMemo(() => {
+        if (!user) return [];
+        return notifications
+            .filter(n => user.role === 'admin' || !n.userId || n.userId === user.id)
+            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    }, [notifications, user]);
+
+    const unreadCount = useMemo(() => {
+        return userNotifications.filter(n => !n.read).length;
+    }, [userNotifications]);
 
     useEffect(() => {
         if (!user) {
@@ -69,6 +93,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             setSidebarOpen(false);
         }
     }
+
+    const handleNotificationClick = (notification: Notification) => {
+        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+        router.push(notification.link);
+    };
+
+    const handleMarkAllAsRead = () => {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    };
+
 
     if (!user) {
         return (
@@ -135,10 +169,39 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                     </div>
                   </div>
                   
-                  <Button variant="ghost" size="icon">
-                    <Bell className="h-5 w-5" />
-                    <span className="sr-only">Toggle notifications</span>
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="relative">
+                            <Bell className="h-5 w-5" />
+                            {unreadCount > 0 && (
+                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">{unreadCount}</span>
+                            )}
+                            <span className="sr-only">Toggle notifications</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-80">
+                        <DropdownMenuLabel className="flex items-center justify-between">
+                            <span>Notifications</span>
+                            {unreadCount > 0 && <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllAsRead}><CheckCheck className="mr-1 h-4 w-4" />Mark all as read</Button>}
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {userNotifications.slice(0, 10).map(notification => (
+                             <DropdownMenuItem key={notification.id} className={cn("flex items-start gap-3", !notification.read && "bg-blue-500/10")} onClick={() => handleNotificationClick(notification)}>
+                                {getNotificationIcon(notification.type)}
+                                <div className="flex-1">
+                                    <p className="font-semibold text-sm">{notification.title}</p>
+                                    <p className="text-xs text-muted-foreground">{notification.description}</p>
+                                    <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}</p>
+                                </div>
+                            </DropdownMenuItem>
+                        ))}
+                         {userNotifications.length === 0 && <p className="p-4 text-center text-sm text-muted-foreground">No new notifications</p>}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="justify-center">
+                            View All Notifications
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

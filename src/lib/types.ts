@@ -142,3 +142,14 @@ export type EmailSettingsType = {
     imapEncryption: string;
     configured: boolean;
 };
+
+export type Notification = {
+  id: string;
+  type: 'case' | 'task' | 'email' | 'meeting';
+  title: string;
+  description: string;
+  timestamp: string;
+  read: boolean;
+  userId?: string; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
+  link: string; // The URL to navigate to when clicked
+};

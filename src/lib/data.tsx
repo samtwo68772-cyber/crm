@@ -1,6 +1,6 @@
 
 
-import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email } from './types';
+import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email, Notification } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
@@ -223,6 +223,48 @@ export const meetings: Meeting[] = [
   },
 ];
 
+export const notifications: Notification[] = [
+    {
+        id: 'notif-1',
+        type: 'case',
+        title: 'New Case Assigned',
+        description: 'Case #case-101: "Login issue on mobile" assigned to you.',
+        timestamp: new Date().toISOString(),
+        read: false,
+        userId: 'user-2',
+        link: '/cases?id=case-101',
+    },
+    {
+        id: 'notif-2',
+        type: 'meeting',
+        title: 'Meeting Reminder',
+        description: 'Q2 Review with Acme Inc. is tomorrow.',
+        timestamp: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
+        read: true,
+        userId: 'user-1',
+        link: '/meetings?id=meet-1',
+    },
+    {
+        id: 'notif-3',
+        type: 'task',
+        title: 'Task Overdue',
+        description: 'Task: "Investigate CSV export error" is overdue.',
+        timestamp: new Date(new Date().setDate(new Date().getDate() - 1)).toISOString(),
+        read: false,
+        userId: 'user-3',
+        link: '/tasks?id=task-2',
+    },
+    {
+        id: 'notif-4',
+        type: 'email',
+        title: 'New Email Received',
+        description: 'From: New Prospect regarding "Inquiry about Enterprise Plan"',
+        timestamp: new Date(new Date().setHours(new Date().getHours() - 2)).toISOString(),
+        read: false,
+        userId: 'user-1', // For admin/sales lead
+        link: '/emails?id=email-3',
+    }
+];
 
 export const recentActivities = [
   { id: 1, user: 'Maria Garcia', action: 'Updated', details: 'Case #case-102 to "In Progress"', timestamp: '2 hours ago' },

@@ -45,7 +45,7 @@ function getStatusVariant(status: Case['status']) {
 
 
 export default function CasesPage() {
-  const { cases, setCases, users: mockUsers, tasks, setTasks } = useData();
+  const { cases, setCases, users: mockUsers, tasks, setTasks, setNotifications } = useData();
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
