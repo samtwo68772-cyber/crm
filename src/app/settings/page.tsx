@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -691,7 +692,7 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
         value: boolean
     ) => {
         setCurrentPreferences(prev => {
-            const newPrefs = { ...prev };
+            const newPrefs = JSON.parse(JSON.stringify(prev));
             const eventPrefs = newPrefs[category][event] as NotificationChannel;
             (eventPrefs[channel] as boolean) = value;
 
