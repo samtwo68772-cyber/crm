@@ -1,13 +1,329 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/context/auth-context';
+import { useData } from '@/context/data-context';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { User, Shield, Bell, Upload } from 'lucide-react';
+import type { User as UserType, NotificationPreferences } from '@/lib/types';
+
+const notificationConfig = {
+    cases: {
+        title: 'Cases',
+        events: {
+            newAssignment: 'New case assigned to me',
+            statusChange: 'Status changes on my cases',
+            newComment: 'New comment on my cases',
+        },
+    },
+    tasks: {
+        title: 'Tasks',
+        events: {
+            newAssignment: 'New task assigned to me',
+            statusChange: 'Task status changes',
+            dueSoon: 'Task is due soon',
+        },
+    },
+    meetings: {
+        title: 'Meetings',
+        events: {
+            newInvite: 'New meeting invitation',
+            update: 'Meeting details are updated',
+            cancellation: 'Meeting is canceled',
+        },
+    },
+};
 
 export default function ProfilePage() {
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <h2 className="text-3xl font-bold tracking-tight font-headline">Profile & Settings</h2>
-      <p className="text-muted-foreground">This is where you can manage your profile and settings.</p>
-    </div>
-  );
+    const { user, login } = useAuth(); // We might need a way to "refresh" the user context
+    const { users, setUsers, notificationPreferences, setNotificationPreferences } = useData();
+    const { toast } = useToast();
+    
+    // Find the detailed user object from the global state
+    const currentUser = users.find(u => u.id === user?.id);
+
+    const handleProfileUpdate = (updatedData: Partial<UserType>) => {
+        if (!currentUser) return;
+        const updatedUser = { ...currentUser, ...updatedData };
+        setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+        // We need a way to update the user in AuthContext as well
+        // For now, this will update the global list, but not the user object in useAuth
+        toast({ title: "Profile Updated", description: "Your profile information has been saved." });
+    };
+
+    const handlePasswordChange = (newPassword: string) => {
+        // In a real app, this would involve an API call with the old and new password.
+        // For this mock, we'll just show a success message.
+        if (!newPassword) {
+            toast({ variant: 'destructive', title: "Error", description: "Password cannot be empty." });
+            return;
+        }
+        toast({ title: "Password Changed", description: "Your password has been successfully updated." });
+    };
+
+    const handleNotificationsSave = (newPreferences: NotificationPreferences) => {
+        setNotificationPreferences(newPreferences);
+        toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
+    };
+
+    if (!currentUser) {
+        return <div>Loading...</div>;
+    }
+
+    return (
+        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+            <div>
+                <h2 className="text-3xl font-bold tracking-tight font-headline">Profile & Settings</h2>
+                <p className="text-muted-foreground">Manage your personal information and application preferences.</p>
+            </div>
+
+            <Tabs defaultValue="profile" className="w-full">
+                <TabsList className="grid w-full grid-cols-3">
+                    <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>
+                    <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
+                    <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" />Notifications</TabsTrigger>
+                </TabsList>
+                <TabsContent value="profile" className="mt-6">
+                    <ProfileSettings user={currentUser} onSave={handleProfileUpdate} />
+                </TabsContent>
+                <TabsContent value="security" className="mt-6">
+                    <SecuritySettings onSave={handlePasswordChange} />
+                </TabsContent>
+                <TabsContent value="notifications" className="mt-6">
+                    <NotificationsSettings preferences={notificationPreferences} onSave={handleNotificationsSave} />
+                </TabsContent>
+            </Tabs>
+        </div>
+    );
+}
+
+function ProfileSettings({ user, onSave }: { user: UserType, onSave: (data: Partial<UserType>) => void }) {
+    const [name, setName] = useState(user.name);
+    const [email, setEmail] = useState(user.email);
+    const [team, setTeam] = useState(user.team);
+    const [avatar, setAvatar] = useState(user.avatar);
+
+    const hasChanges = name !== user.name || email !== user.email || team !== user.team || avatar !== user.avatar;
+    
+    useEffect(() => {
+        setName(user.name);
+        setEmail(user.email);
+        setTeam(user.team);
+        setAvatar(user.avatar);
+    }, [user]);
+
+    const handleSave = () => {
+        onSave({ name, email, team, avatar });
+    };
+
+    const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAvatar(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+    
+    const handleCancel = () => {
+        setName(user.name);
+        setEmail(user.email);
+        setTeam(user.team);
+        setAvatar(user.avatar);
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Personal Information</CardTitle>
+                <CardDescription>Update your photo and personal details here.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+                <div className="flex items-center gap-4">
+                    <Avatar className="h-20 w-20">
+                        <AvatarImage src={avatar} data-ai-hint="user avatar" />
+                        <AvatarFallback>{name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex items-center gap-2">
+                        <Label htmlFor="avatar-upload" className="cursor-pointer">
+                            <Button asChild variant="outline">
+                                <span><Upload className="mr-2 h-4 w-4" /> Change Photo</span>
+                            </Button>
+                        </Label>
+                        <Input id="avatar-upload" type="file" className="sr-only" onChange={handleAvatarChange} accept="image/*" />
+                    </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Full Name</Label>
+                        <Input id="name" value={name} onChange={e => setName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="email">Email</Label>
+                        <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="team">Team / Department</Label>
+                        <Input id="team" value={team} onChange={e => setTeam(e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="role">Role</Label>
+                        <Input id="role" value={user.role} disabled className="capitalize" />
+                    </div>
+                </div>
+            </CardContent>
+            <CardFooter className="border-t pt-6 flex justify-end gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
+function SecuritySettings({ onSave }: { onSave: (password: string) => void }) {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [enable2FA, setEnable2FA] = useState(false);
+    
+    const handleSave = () => {
+        if (newPassword !== confirmPassword) {
+            alert("New passwords do not match.");
+            return;
+        }
+        onSave(newPassword);
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+    }
+
+    return (
+         <Card>
+            <CardHeader>
+                <CardTitle>Security Settings</CardTitle>
+                <CardDescription>Manage your password and two-factor authentication.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+                 <div>
+                    <h4 className="font-medium text-lg mb-4">Change Password</h4>
+                    <div className="space-y-4 max-w-sm">
+                        <div className="space-y-2">
+                            <Label htmlFor="current-password">Current Password</Label>
+                            <Input id="current-password" type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="new-password">New Password</Label>
+                            <Input id="new-password" type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="confirm-password">Confirm New Password</Label>
+                            <Input id="confirm-password" type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h4 className="font-medium text-lg mb-4">Two-Factor Authentication</h4>
+                     <div className="flex items-center justify-between p-4 border rounded-lg max-w-sm">
+                        <div className="space-y-1">
+                            <Label htmlFor="enable-2fa">Enable 2FA</Label>
+                            <p className="text-sm text-muted-foreground">Receive a code via email to confirm your login.</p>
+                        </div>
+                        <Switch id="enable-2fa" checked={enable2FA} onCheckedChange={setEnable2FA}/>
+                    </div>
+                </div>
+            </CardContent>
+            <CardFooter className="border-t pt-6 flex justify-end gap-2">
+                <Button onClick={handleSave}>Update Password</Button>
+            </CardFooter>
+        </Card>
+    )
+}
+
+function NotificationsSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: (data: NotificationPreferences) => void; }) {
+    const [currentPreferences, setCurrentPreferences] = useState(preferences);
+    const { toast } = useToast();
+
+    useEffect(() => {
+        setCurrentPreferences(preferences);
+    }, [preferences]);
+
+    const handlePreferenceChange = (
+        category: keyof NotificationPreferences,
+        event: keyof NotificationPreferences[keyof NotificationPreferences],
+        channel: 'inApp' | 'email',
+        value: boolean
+    ) => {
+        setCurrentPreferences(prev => ({
+            ...prev,
+            [category]: {
+                ...prev[category],
+                [event]: {
+                    ...prev[category][event],
+                    [channel]: value,
+                },
+            },
+        }));
+    };
+
+    const handleSave = () => {
+        onSave(currentPreferences);
+    };
+
+    const hasChanges = JSON.stringify(currentPreferences) !== JSON.stringify(preferences);
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Notification Preferences</CardTitle>
+                <CardDescription>Choose how you receive notifications for important events.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+                {Object.entries(notificationConfig).map(([categoryKey, categoryValue]) => (
+                    <div key={categoryKey}>
+                        <h4 className="font-medium text-lg mb-4">{categoryValue.title}</h4>
+                        <div className="space-y-4">
+                            {Object.entries(categoryValue.events).map(([eventKey, eventLabel]) => (
+                                <div key={eventKey} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                    <Label className="flex-1 font-normal">{eventLabel}</Label>
+                                    <div className="flex items-center gap-6 w-full md:w-auto">
+                                        <div className="flex items-center space-x-2">
+                                            <Switch
+                                                id={`${categoryKey}-${eventKey}-inApp`}
+                                                checked={currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]].inApp}
+                                                onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'inApp', checked)}
+                                            />
+                                            <Label htmlFor={`${categoryKey}-${eventKey}-inApp`} className="text-sm font-normal">In-App</Label>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <Switch
+                                                id={`${categoryKey}-${eventKey}-email`}
+                                                checked={currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]].email}
+                                                onCheckedChange={(checked) => handlePreferenceChange(categoryKey as keyof NotificationPreferences, eventKey as any, 'email', checked)}
+                                            />
+                                            <Label htmlFor={`${categoryKey}-${eventKey}-email`} className="text-sm font-normal">Email</Label>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </CardContent>
+            <CardFooter className="border-t pt-6 justify-end flex gap-2">
+                {hasChanges && <Button variant="outline" onClick={() => setCurrentPreferences(preferences)}>Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges}>Save Preferences</Button>
+            </CardFooter>
+        </Card>
+    );
 }
