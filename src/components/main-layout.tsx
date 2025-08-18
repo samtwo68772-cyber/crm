@@ -38,7 +38,6 @@ const navItemsAdmin = [
     { href: '/reports', label: 'Reports', icon: BarChart },
     { href: '/admin', label: 'Users & Roles', icon: Users },
     { href: '/settings', label: 'System Settings', icon: Settings },
-    { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
 
 const navItemsStaff = [
@@ -49,7 +48,6 @@ const navItemsStaff = [
     { href: '/accounts', label: 'Accounts', icon: Contact },
     { href: '/documents', label: 'Documents', icon: FileText },
     { href: '/emails', label: 'Emails / Messages', icon: Mail },
-    { href: '/profile', label: 'Profile & Settings', icon: User },
 ];
 
 const getNotificationIcon = (type: Notification['type']) => {
@@ -117,6 +115,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     }
 
     const navItems = user.role === 'admin' ? navItemsAdmin : navItemsStaff;
+    const profileNavItem = { href: '/profile', label: 'Profile & Settings', icon: User };
 
     const sidebarContent = (
       <div className="flex flex-col h-full bg-card text-card-foreground border-r">
@@ -128,21 +127,38 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               </div>
             </Link>
         </div>
-        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
-            {navItems.map((item) => (
-               <Link key={item.href} href={item.href} onClick={handleLinkClick}
-                  className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
-                    ${pathname === item.href 
-                        ? 'bg-primary/10 text-primary border-l-4 border-primary' 
-                        : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
-                    ${sidebarCollapsed ? 'justify-center' : ''}
-                  `}
+        <div className="flex-1 overflow-y-auto">
+            <nav className="space-y-1 p-4">
+                {navItems.map((item) => (
+                   <Link key={item.href} href={item.href} onClick={handleLinkClick}
+                      className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
+                        ${pathname === item.href 
+                            ? 'bg-primary/10 text-primary border-l-4 border-primary' 
+                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
+                        ${sidebarCollapsed ? 'justify-center' : ''}
+                      `}
+                    >
+                      <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out ${sidebarCollapsed ? '' : 'mr-3'} ${pathname === item.href ? 'text-primary' : 'group-hover:text-primary'}`} />
+                      <span className={`truncate ${sidebarCollapsed ? 'hidden' : 'block'}`}>{item.label}</span>
+                  </Link>
+                ))}
+            </nav>
+        </div>
+        <div className="mt-auto p-4 border-t">
+             <nav className="space-y-1">
+                <Link key={profileNavItem.href} href={profileNavItem.href} onClick={handleLinkClick}
+                      className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
+                        ${pathname === profileNavItem.href 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
+                        ${sidebarCollapsed ? 'justify-center' : ''}
+                      `}
                 >
-                  <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out ${sidebarCollapsed ? '' : 'mr-3'} ${pathname === item.href ? 'text-primary' : 'group-hover:text-primary'}`} />
-                  <span className={`truncate ${sidebarCollapsed ? 'hidden' : 'block'}`}>{item.label}</span>
-              </Link>
-            ))}
-        </nav>
+                    <profileNavItem.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out ${sidebarCollapsed ? '' : 'mr-3'} ${pathname === profileNavItem.href ? 'text-primary' : 'group-hover:text-primary'}`} />
+                    <span className={`truncate ${sidebarCollapsed ? 'hidden' : 'block'}`}>{profileNavItem.label}</span>
+                </Link>
+            </nav>
+        </div>
       </div>
     );
 
