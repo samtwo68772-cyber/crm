@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck, XCircle, Activity, Hourglass, Folder, ChevronsUpDown, Smile, Hand, GanttChartSquare, FileText } from 'lucide-react';
 import type { DateRange } from "react-day-picker";
-import { isWithinInterval, startOfDay, endOfDay, subDays, format, eachDayOfInterval, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
+import { isWithinInterval, startOfDay, endOfDay, subDays, format, eachDayOfInterval, startOfWeek, endOfWeek, differenceInDays, parseISO } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -351,12 +351,14 @@ export default function ReportsPage() {
     const caseTrendsData = useMemo(() => {
         if (!dateRange?.from || !dateRange?.to) return [];
         const days = eachDayOfInterval({start: dateRange.from, end: dateRange.to});
-        // Use all cases in range for trends, not pre-filtered data
-        const casesInRange = mockCases.filter(c => isWithinInterval(new Date(c.createdAt), { start: dateRange.from!, end: dateRange.to! }));
+        
+        const createdCasesInRange = mockCases.filter(c => isWithinInterval(parseISO(c.createdAt), { start: dateRange.from!, end: dateRange.to! }));
+        const resolvedCasesInRange = mockCases.filter(c => c.resolvedAt && isWithinInterval(parseISO(c.resolvedAt), { start: dateRange.from!, end: dateRange.to! }));
+
         return days.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
-            const created = casesInRange.filter(c => format(new Date(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
-            const resolved = casesInRange.filter(c => c.resolvedAt && format(new Date(c.resolvedAt), 'yyyy-MM-dd') === dayStr).length;
+            const created = createdCasesInRange.filter(c => format(parseISO(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
+            const resolved = resolvedCasesInRange.filter(c => c.resolvedAt && format(parseISO(c.resolvedAt), 'yyyy-MM-dd') === dayStr).length;
             return {
                 date: format(day, 'MMM d'),
                 created,
