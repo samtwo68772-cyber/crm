@@ -372,4 +372,7 @@ export const emails: Email[] = [
 export const workflows: Workflow[] = [
     { id: 'wf-1', name: 'Assign High-Priority Cases', trigger: 'case-created', condition: 'priority-high', action: 'assign-team-t2' },
     { id: 'wf-2', name: 'Notify Customer on Resolution', trigger: 'case-status-changed', condition: 'status-resolved', action: 'send-email-customer' },
+    { id: 'wf-3', name: 'Escalate Unattended New Cases', trigger: 'case-unattended', condition: 'status-is-new-for-24h', action: 'change-priority-high' },
+    { id: 'wf-4', name: 'Manager Follow-up for Overdue Task', trigger: 'task-status-changed', condition: 'task-overdue', action: 'assign-to-manager' },
+
 ];

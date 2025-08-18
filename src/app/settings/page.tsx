@@ -966,9 +966,26 @@ function WorkflowsSettings({ workflows, setWorkflows }: { workflows: Workflow[],
 
     const getWorkflowStepLabel = (type: 'trigger' | 'condition' | 'action', value: string) => {
         const options: Record<string, Record<string, string>> = {
-            trigger: { 'case-created': 'Case is created', 'task-status-changed': 'Task status changes' },
-            condition: { 'priority-high': 'Priority is High', 'status-resolved': 'Status is Resolved', 'task-overdue': 'Task is overdue' },
-            action: { 'assign-team-t2': 'Assign to Tier 2 Support', 'send-email-customer': 'Send email to customer', 'create-followup-task': 'Create follow-up task' }
+            trigger: { 
+                'case-created': 'Case is created', 
+                'task-status-changed': 'Task status changes',
+                'case-unattended': 'Case is unattended',
+            },
+            condition: { 
+                'priority-high': 'Priority is High', 
+                'status-resolved': 'Status is Resolved', 
+                'task-overdue': 'Task is overdue',
+                'status-is-new-for-24h': 'Status is New for > 24h',
+                'case-in-progress-for-3-days': 'In Progress for > 3 days',
+            },
+            action: { 
+                'assign-team-t2': 'Assign to Tier 2 Support', 
+                'send-email-customer': 'Send email to customer', 
+                'create-followup-task': 'Create follow-up task',
+                'change-priority-high': 'Change priority to High',
+                'assign-to-manager': 'Assign to manager',
+                'send-escalation-email': 'Send escalation email',
+            }
         };
         return options[type][value] || value;
     };
@@ -1078,34 +1095,40 @@ function WorkflowFormDialog({ open, onOpenChange, workflow, onSave }: { open: bo
                         <Input id="name" value={name} onChange={e => setName(e.target.value)} placeholder="e.g., High-Priority Case Assignment" />
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="trigger">Trigger</Label>
+                        <Label htmlFor="trigger">Trigger (When...)</Label>
                         <Select onValueChange={setTrigger} value={trigger}>
-                            <SelectTrigger><SelectValue placeholder="When..." /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Select a trigger" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="case-created">A new case is created</SelectItem>
                                 <SelectItem value="task-status-changed">A task's status changes</SelectItem>
+                                <SelectItem value="case-unattended">A case is unattended</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="condition">Condition</Label>
+                        <Label htmlFor="condition">Condition (If...)</Label>
                         <Select onValueChange={setCondition} value={condition}>
-                            <SelectTrigger><SelectValue placeholder="If..." /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Select a condition" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="priority-high">Case priority is High</SelectItem>
                                 <SelectItem value="status-resolved">Case status is Resolved</SelectItem>
                                 <SelectItem value="task-overdue">Task is overdue</SelectItem>
+                                <SelectItem value="status-is-new-for-24h">Case status is 'New' for > 24 hours</SelectItem>
+                                <SelectItem value="case-in-progress-for-3-days">Case is 'In Progress' for > 3 days</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="action">Action</Label>
+                        <Label htmlFor="action">Action (Then...)</Label>
                         <Select onValueChange={setAction} value={action}>
-                            <SelectTrigger><SelectValue placeholder="Then..." /></SelectTrigger>
+                            <SelectTrigger><SelectValue placeholder="Select an action" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="assign-team-t2">Assign to Tier 2 Support</SelectItem>
                                 <SelectItem value="send-email-customer">Send email to customer</SelectItem>
                                 <SelectItem value="create-followup-task">Create follow-up task</SelectItem>
+                                <SelectItem value="change-priority-high">Change priority to High</SelectItem>
+                                <SelectItem value="assign-to-manager">Assign to manager</SelectItem>
+                                <SelectItem value="send-escalation-email">Send escalation email</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>

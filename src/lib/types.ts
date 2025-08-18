@@ -189,7 +189,7 @@ export type GeneralSettingsType = {
 export type Workflow = {
   id: string;
   name: string;
-  trigger: string;
-  condition: string;
-  action: string;
+  trigger: 'case-created' | 'task-status-changed' | 'case-unattended';
+  condition: 'priority-high' | 'status-resolved' | 'task-overdue' | 'status-is-new-for-24h' | 'case-in-progress-for-3-days';
+  action: 'assign-team-t2' | 'send-email-customer' | 'create-followup-task' | 'change-priority-high' | 'assign-to-manager' | 'send-escalation-email';
 };
