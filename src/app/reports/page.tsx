@@ -93,29 +93,6 @@ type SortConfig = {
     direction: 'ascending' | 'descending';
 } | null;
 
-function PerformanceKpiCard({ title, value, change, changeType, icon: Icon }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType }) {
-    const isPositive = changeType === 'positive';
-    return (
-        <Card className="shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-                <Icon className="h-5 w-5 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{value}</div>
-                {change && changeType &&
-                    <div className="flex items-center text-xs text-muted-foreground">
-                        <span className={`flex items-center gap-1 font-medium ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                            {isPositive ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
-                            {change}
-                        </span>
-                    </div>
-                }
-            </CardContent>
-        </Card>
-    );
-}
-
 
 export default function ReportsPage() {
     const { cases: mockCases, tasks: mockTasks, users: mockUsers, meetings: mockMeetings, teams: mockTeams, auditLogs } = useData();
@@ -187,22 +164,6 @@ export default function ReportsPage() {
             meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' as const, data: negTrendData, positiveChange: false },
         }
     }, [filteredData, mockCases]);
-    
-    const performanceKpiData = useMemo(() => {
-        const resolvedCases = filteredData.cases.filter(c => c.resolvedAt);
-        const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
-        const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a,b) => a+b, 0) / resolutionTimes.length).toFixed(1) : '0';
-        
-        const ratedCases = filteredData.cases.filter(c => c.satisfactionRating && c.satisfactionRating > 0);
-        const avgSatisfaction = ratedCases.length > 0 ? (ratedCases.reduce((acc, c) => acc + c.satisfactionRating!, 0) / ratedCases.length).toFixed(1) : 'N/A';
-        
-        return {
-             avgResolutionTime: { value: `${avgResolutionTime}d`, change: '-8%', type: 'positive' as const },
-             customerSatisfaction: { value: avgSatisfaction, change: '+0.2', type: 'positive' as const },
-             casesHandled: { value: filteredData.cases.length.toString(), change: '+15', type: 'positive' as const },
-             tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+10', type: 'positive' as const },
-        }
-    }, [filteredData]);
     
     const teamPerformanceData = useMemo(() => {
         let teamsToDisplay = mockTeams;
@@ -347,49 +308,6 @@ export default function ReportsPage() {
         }, {} as Record<string, number>);
         return Object.entries(counts).map(([name, value]) => ({ name, value }));
     }, [filteredData.cases]);
-    
-    const caseTrendsData = useMemo(() => {
-        if (!dateRange?.from || !dateRange?.to) return [];
-        const days = eachDayOfInterval({start: dateRange.from, end: dateRange.to});
-        
-        const createdCasesInRange = mockCases.filter(c => isWithinInterval(parseISO(c.createdAt), { start: dateRange.from!, end: dateRange.to! }));
-        const resolvedCasesInRange = mockCases.filter(c => c.resolvedAt && isWithinInterval(parseISO(c.resolvedAt), { start: dateRange.from!, end: dateRange.to! }));
-
-        return days.map(day => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            const created = createdCasesInRange.filter(c => format(parseISO(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
-            const resolved = resolvedCasesInRange.filter(c => c.resolvedAt && format(parseISO(c.resolvedAt), 'yyyy-MM-dd') === dayStr).length;
-            return {
-                date: format(day, 'MMM d'),
-                created,
-                resolved
-            }
-        });
-    }, [mockCases, dateRange]);
-
-    const tasksByPriorityData = useMemo(() => {
-        const counts = filteredData.tasks.reduce((acc, curr) => {
-            acc[curr.priority] = (acc[curr.priority] || 0) + 1;
-            return acc;
-        }, {} as Record<string, number>);
-        return Object.entries(counts).map(([name, value]) => ({ name, value }));
-    }, [filteredData.tasks]);
-
-    const activityHeatmapData = useMemo(() => {
-        if (!dateRange?.from || !dateRange?.to) return {};
-        const days = eachDayOfInterval({ start: startOfWeek(dateRange.from), end: endOfWeek(dateRange.to) });
-        const activityByDay: Record<string, number> = {};
-
-        days.forEach(day => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            const cases = filteredData.cases.filter(c => format(new Date(c.createdAt), 'yyyy-MM-dd') === dayStr).length;
-            const tasks = filteredData.tasks.filter(t => format(new Date(t.dueDate), 'yyyy-MM-dd') === dayStr).length;
-            const meetings = filteredData.meetings.filter(m => format(new Date(m.date), 'yyyy-MM-dd') === dayStr).length;
-            activityByDay[dayStr] = cases + tasks + meetings;
-        });
-
-        return activityByDay;
-    }, [filteredData, dateRange]);
     
     const handleExport = (formatType: 'pdf' | 'excel', reportName: string) => {
         const safeReportName = reportName.toLowerCase().replace(/ /g, '-');
@@ -558,7 +476,6 @@ export default function ReportsPage() {
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="cases">Case Reports</TabsTrigger>
                         <TabsTrigger value="performance">Performance</TabsTrigger>
-                        <TabsTrigger value="heatmap">Activity Heatmap</TabsTrigger>
                         <TabsTrigger value="export">Export & Share</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview" className="mt-6">
@@ -741,42 +658,6 @@ export default function ReportsPage() {
                             </CardContent>
                         </Card>
                     </TabsContent>
-                     <TabsContent value="heatmap" className="mt-6">
-                        <Card>
-                            <CardHeader><CardTitle>Activity Heatmap</CardTitle></CardHeader>
-                            <CardContent>
-                                <Calendar
-                                    mode="single"
-                                    month={dateRange?.from}
-                                    className="p-0"
-                                    onDayClick={(day) => alert(`Filtering to ${format(day, 'PPP')}`)}
-                                    components={{
-                                        DayContent: ({ date }) => {
-                                            const dayStr = format(date, 'yyyy-MM-dd');
-                                            const count = activityHeatmapData[dayStr] || 0;
-                                            const opacity = count > 0 ? Math.min(count / 10 + 0.1, 1) : 0;
-                                            return (
-                                                <TooltipProvider>
-                                                    <UITooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <div className="relative w-full h-full flex items-center justify-center">
-                                                                <div className="absolute inset-0 bg-primary transition-opacity" style={{ opacity }} />
-                                                                <span className="relative text-xs">{format(date, 'd')}</span>
-                                                            </div>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <p>{format(date, 'PPP')}</p>
-                                                            <p>{count} activities</p>
-                                                        </TooltipContent>
-                                                    </UITooltip>
-                                                </TooltipProvider>
-                                            )
-                                        }
-                                    }}
-                                />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
                     <TabsContent value="export" className="mt-6">
                         <div className="space-y-6">
                              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -826,5 +707,6 @@ export default function ReportsPage() {
 }
 
     
+
 
 
