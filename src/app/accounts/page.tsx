@@ -573,10 +573,6 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
                                 <SheetDescription>{contact.role} at {contact.company}</SheetDescription>
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
-                            {isAdmin && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
-                        </div>
                     </div>
                 </SheetHeader>
                 <div className="flex-1 overflow-y-auto p-6">
@@ -605,6 +601,12 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
                         </TabsContent>
                     </Tabs>
                 </div>
+                <SheetFooter className="p-4 border-t mt-auto">
+                    <div className="flex gap-2 w-full">
+                        <Button variant="outline" className="w-full" onClick={onEdit}><Edit className="mr-2 h-4 w-4"/>Edit</Button>
+                        {isAdmin && <Button variant="destructive" className="w-full" onClick={onDelete}><Trash2 className="mr-2 h-4 w-4"/>Delete</Button>}
+                    </div>
+                </SheetFooter>
             </SheetContent>
         </Sheet>
     )
@@ -704,3 +706,4 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
     
 
     
+
