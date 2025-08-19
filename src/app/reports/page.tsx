@@ -24,6 +24,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -97,6 +98,7 @@ type SortConfig = {
 export default function ReportsPage() {
     const { cases: mockCases, tasks: mockTasks, users: mockUsers, meetings: mockMeetings, teams: mockTeams, auditLogs } = useData();
     const router = useRouter();
+    const isMobile = useIsMobile();
     const [reportType, setReportType] = useState('overview');
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(new Date(), 30), to: new Date() });
     const [userFilter, setUserFilter] = useState('all');
@@ -433,6 +435,129 @@ export default function ReportsPage() {
         },
     ];
 
+    const renderTeamPerformance = () => {
+        if (isMobile) {
+            return (
+                <div className="space-y-4">
+                    {teamPerformanceData.map(team => (
+                        <Card key={team.id} onClick={() => { setTeamFilter(team.name); setUserFilter('all'); }}>
+                            <CardHeader>
+                                <CardTitle>{team.name}</CardTitle>
+                            </CardHeader>
+                            <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                <div><p className="text-muted-foreground">Cases Handled</p><p className="font-medium">{team.casesHandled}</p></div>
+                                <div><p className="text-muted-foreground">Tasks Completed</p><p className="font-medium">{team.tasksCompleted}</p></div>
+                                <div><p className="text-muted-foreground">Avg. Resolution</p><p className="font-medium">{team.avgResolutionTime} days</p></div>
+                                <div><p className="text-muted-foreground">Satisfaction</p><p className="font-medium">{team.satisfactionScore} / 5.0</p></div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )
+        }
+        return (
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Team</TableHead>
+                        <TableHead>Cases Handled</TableHead>
+                        <TableHead>Completed Tasks</TableHead>
+                        <TableHead>Avg. Resolution Time (Days)</TableHead>
+                        <TableHead>Satisfaction Score</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {teamPerformanceData.map(team => 
+                        <TableRow key={team.id} onClick={() => {setTeamFilter(team.name); setUserFilter('all');}} className="cursor-pointer">
+                            <TableCell className="font-medium">{team.name}</TableCell>
+                            <TableCell>{team.casesHandled}</TableCell>
+                            <TableCell>{team.tasksCompleted}</TableCell>
+                            <TableCell>{team.avgResolutionTime}</TableCell>
+                            <TableCell>
+                                <span className={cn(
+                                    parseFloat(team.satisfactionScore) >= 4.0 ? "text-green-600" :
+                                    parseFloat(team.satisfactionScore) < 3.0 ? "text-red-600" :
+                                    "text-muted-foreground"
+                                )}>
+                                    {team.satisfactionScore} / 5.0
+                                </span>
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        );
+    }
+    
+    const renderIndividualPerformance = () => {
+        if (isMobile) {
+            return (
+                <div className="space-y-4">
+                    {individualPerformanceData.map(p => (
+                        <Card key={p.id} onClick={() => setUserFilter(p.id)}>
+                            <CardHeader>
+                                <CardTitle>{p.name}</CardTitle>
+                                <CardDescription>{p.team}</CardDescription>
+                            </CardHeader>
+                             <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                <div><p className="text-muted-foreground">Resolved Cases</p><p className="font-medium">{p.resolvedCases}</p></div>
+                                <div><p className="text-muted-foreground">Completed Tasks</p><p className="font-medium">{p.tasksCompleted}</p></div>
+                                <div><p className="text-muted-foreground">Avg. Resolution</p><p className="font-medium">{p.avgResolutionTime} days</p></div>
+                                <div><p className="text-muted-foreground">Satisfaction</p><p className="font-medium">{p.satisfactionScore} / 5.0</p></div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )
+        }
+        return (
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="cursor-pointer" onClick={() => requestSort('name')}>
+                            <div className="flex items-center">Staff Member {getSortIcon('name')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer" onClick={() => requestSort('team')}>
+                             <div className="flex items-center">Team {getSortIcon('team')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer" onClick={() => requestSort('resolvedCases')}>
+                             <div className="flex items-center">Resolved Cases {getSortIcon('resolvedCases')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer" onClick={() => requestSort('tasksCompleted')}>
+                             <div className="flex items-center">Completed Tasks {getSortIcon('tasksCompleted')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer" onClick={() => requestSort('avgResolutionTime')}>
+                             <div className="flex items-center">Avg. Resolution (Days) {getSortIcon('avgResolutionTime')}</div>
+                        </TableHead>
+                        <TableHead className="cursor-pointer" onClick={() => requestSort('satisfactionScore')}>
+                            <div className="flex items-center">Satisfaction {getSortIcon('satisfactionScore')}</div>
+                        </TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {individualPerformanceData.map(p => 
+                        <TableRow key={p.id} onClick={() => setUserFilter(p.id)} className="cursor-pointer">
+                            <TableCell className="font-medium">{p.name}</TableCell>
+                            <TableCell>{p.team}</TableCell>
+                            <TableCell>{p.resolvedCases}</TableCell>
+                            <TableCell>{p.tasksCompleted}</TableCell>
+                            <TableCell>{p.avgResolutionTime}</TableCell>
+                            <TableCell>
+                                <span className={cn(
+                                    p.satisfactionScore >= 4.0 ? "text-green-600" :
+                                    p.satisfactionScore < 3.0 ? "text-red-600" :
+                                    "text-muted-foreground"
+                                )}>
+                                    {p.satisfactionScore} / 5.0
+                                </span>
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+            </Table>
+        )
+    }
+
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
             <header className="pb-6 border-b">
@@ -463,7 +588,7 @@ export default function ReportsPage() {
                  <Button variant="outline" onClick={() => { setUserFilter('all'); setTeamFilter('all'); }}>Clear Filters</Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
                 <KpiCard title="Total Cases" value={kpiData.totalCases.value} change={kpiData.totalCases.change} changeType={kpiData.totalCases.type} icon={Briefcase} onClick={() => router.push(buildNavUrl('/cases', { status: 'all' }))} data={kpiData.totalCases.data} positiveChange={kpiData.totalCases.positiveChange} />
                 <KpiCard title="Avg. Resolution Time" value={kpiData.avgResolutionTime.value} change={kpiData.avgResolutionTime.change} changeType={kpiData.avgResolutionTime.type} icon={Clock} data={kpiData.avgResolutionTime.data} positiveChange={kpiData.avgResolutionTime.positiveChange} />
                 <KpiCard title="Tasks Completed" value={kpiData.tasksCompleted.value} change={kpiData.tasksCompleted.change} changeType={kpiData.tasksCompleted.type} icon={CheckCircle} onClick={() => router.push(buildNavUrl('/tasks', { status: 'Done' }))} data={kpiData.tasksCompleted.data} positiveChange={kpiData.tasksCompleted.positiveChange} />
@@ -472,7 +597,7 @@ export default function ReportsPage() {
 
             <main className="mt-8">
                 <Tabs defaultValue="overview" value={reportType} onValueChange={setReportType}>
-                    <TabsList>
+                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="cases">Case Reports</TabsTrigger>
                         <TabsTrigger value="performance">Performance</TabsTrigger>
@@ -572,36 +697,7 @@ export default function ReportsPage() {
                                 <CardDescription>Productivity metrics for each team.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Team</TableHead>
-                                            <TableHead>Cases Handled</TableHead>
-                                            <TableHead>Completed Tasks</TableHead>
-                                            <TableHead>Avg. Resolution Time (Days)</TableHead>
-                                            <TableHead>Satisfaction Score</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {teamPerformanceData.map(team => 
-                                            <TableRow key={team.id} onClick={() => {setTeamFilter(team.name); setUserFilter('all');}} className="cursor-pointer">
-                                                <TableCell className="font-medium">{team.name}</TableCell>
-                                                <TableCell>{team.casesHandled}</TableCell>
-                                                <TableCell>{team.tasksCompleted}</TableCell>
-                                                <TableCell>{team.avgResolutionTime}</TableCell>
-                                                <TableCell>
-                                                    <span className={cn(
-                                                        parseFloat(team.satisfactionScore) >= 4.0 ? "text-green-600" :
-                                                        parseFloat(team.satisfactionScore) < 3.0 ? "text-red-600" :
-                                                        "text-muted-foreground"
-                                                    )}>
-                                                        {team.satisfactionScore} / 5.0
-                                                    </span>
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                {renderTeamPerformance()}
                             </CardContent>
                         </Card>
                         
@@ -611,50 +707,7 @@ export default function ReportsPage() {
                                 <CardDescription>Productivity metrics for each staff member.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('name')}>
-                                                <div className="flex items-center">Staff Member {getSortIcon('name')}</div>
-                                            </TableHead>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('team')}>
-                                                 <div className="flex items-center">Team {getSortIcon('team')}</div>
-                                            </TableHead>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('resolvedCases')}>
-                                                 <div className="flex items-center">Resolved Cases {getSortIcon('resolvedCases')}</div>
-                                            </TableHead>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('tasksCompleted')}>
-                                                 <div className="flex items-center">Completed Tasks {getSortIcon('tasksCompleted')}</div>
-                                            </TableHead>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('avgResolutionTime')}>
-                                                 <div className="flex items-center">Avg. Resolution (Days) {getSortIcon('avgResolutionTime')}</div>
-                                            </TableHead>
-                                            <TableHead className="cursor-pointer" onClick={() => requestSort('satisfactionScore')}>
-                                                <div className="flex items-center">Satisfaction {getSortIcon('satisfactionScore')}</div>
-                                            </TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {individualPerformanceData.map(p => 
-                                            <TableRow key={p.id} onClick={() => setUserFilter(p.id)} className="cursor-pointer">
-                                                <TableCell className="font-medium">{p.name}</TableCell>
-                                                <TableCell>{p.team}</TableCell>
-                                                <TableCell>{p.resolvedCases}</TableCell>
-                                                <TableCell>{p.tasksCompleted}</TableCell>
-                                                <TableCell>{p.avgResolutionTime}</TableCell>
-                                                <TableCell>
-                                                    <span className={cn(
-                                                        p.satisfactionScore >= 4.0 ? "text-green-600" :
-                                                        p.satisfactionScore < 3.0 ? "text-red-600" :
-                                                        "text-muted-foreground"
-                                                    )}>
-                                                        {p.satisfactionScore} / 5.0
-                                                    </span>
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                {renderIndividualPerformance()}
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -705,8 +758,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
-    
-
-
-
