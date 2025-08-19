@@ -328,7 +328,7 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-sm p-0 flex flex-col">
+            <SheetContent className="w-full sm:max-w-md p-0 flex flex-col">
                 <SheetHeader className="p-6 border-b">
                     <div className="flex items-start justify-between">
                         <div className="pr-4">
@@ -415,9 +415,16 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                     </Select>
                 </div>
             </div>
-            <DialogFooter className="justify-between">
+            <DialogFooter className="flex-row justify-between items-center">
                 <div>
-                    <Button variant="destructive" onClick={() => onDelete(meeting.id)}><Trash2 className="mr-2 h-4 w-4" />Delete Meeting</Button>
+                    <Button variant="destructive" onClick={() => onDelete(meeting.id)} size="sm" className="sm:hidden">
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete Meeting</span>
+                    </Button>
+                     <Button variant="destructive" onClick={() => onDelete(meeting.id)} className="hidden sm:inline-flex">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Meeting
+                    </Button>
                 </div>
                 <div className="flex gap-2">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
