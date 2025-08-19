@@ -328,36 +328,34 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-md p-0">
-                 <div className="flex flex-col h-full">
-                    <SheetHeader className="p-6 border-b">
-                         <div className="flex items-start justify-between">
-                            <div className="pr-4">
-                                <SheetTitle className="font-headline text-2xl">{meeting.title}</SheetTitle>
-                                <SheetDescription>{meeting.description}</SheetDescription>
-                            </div>
-                        </div>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                        <div className="flex items-center justify-between flex-wrap gap-2">
-                             <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
-                             <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP p')}</div>
-                        </div>
-                        {linkedCase && 
-                            <div className="flex items-center gap-2 text-sm"><LinkIcon className="h-4 w-4 text-muted-foreground" /> <strong>Linked Case:</strong> {linkedCase.subject}</div>
-                        }
-                         <div>
-                            <h4 className="font-semibold mb-2">Participants</h4>
-                            <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
-                                const participant = users.find(u => u.id === pId);
-                                return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
-                            })}</div>
+            <SheetContent className="w-full sm:max-w-sm p-0 flex flex-col">
+                <SheetHeader className="p-6 border-b">
+                    <div className="flex items-start justify-between">
+                        <div className="pr-4">
+                            <SheetTitle className="font-headline text-2xl">{meeting.title}</SheetTitle>
+                            <SheetDescription>{meeting.description}</SheetDescription>
                         </div>
                     </div>
-                     <SheetFooter className="p-6 border-t">
-                        {isAdmin && <Button onClick={onEdit} className="w-full"><Edit className="mr-2 h-4 w-4" /> Edit Meeting Details</Button>}
-                    </SheetFooter>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP p')}</div>
+                    </div>
+                    {linkedCase &&
+                        <div className="flex items-center gap-2 text-sm"><LinkIcon className="h-4 w-4 text-muted-foreground" /> <strong>Linked Case:</strong> {linkedCase.subject}</div>
+                    }
+                    <div>
+                        <h4 className="font-semibold mb-2">Participants</h4>
+                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
+                            const participant = users.find(u => u.id === pId);
+                            return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
+                        })}</div>
+                    </div>
                 </div>
+                <SheetFooter className="p-6 border-t mt-auto">
+                    {isAdmin && <Button onClick={onEdit} className="w-full"><Edit className="mr-2 h-4 w-4" /> Edit Meeting Details</Button>}
+                </SheetFooter>
             </SheetContent>
         </Sheet>
     )
