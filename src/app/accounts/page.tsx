@@ -18,7 +18,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { MoreHorizontal, PlusCircle, Trash2, Edit, X, Building2, Users, Briefcase, ListTodo, Calendar, Globe, Users2, Search, Mail, Phone, ChevronDown, Link as LinkIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Trash2, Edit, X, Building2, Users, Briefcase, ListTodo, Calendar, Globe, Users2, Search, Mail, Phone, ChevronDown, Link as LinkIcon, ArrowLeft, ArrowRight } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -346,6 +346,8 @@ function ContactsView() {
   const [isDetailSheetOpen, setDetailSheetOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const isMobile = useIsMobile();
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -355,6 +357,7 @@ function ContactsView() {
   const roles = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.role).filter(Boolean)))], [contacts]);
 
   const filteredContacts = useMemo(() => {
+    setCurrentPage(1); // Reset to first page on filter change
     return contacts.filter(contact =>
       (contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       contact.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
@@ -362,6 +365,13 @@ function ContactsView() {
       (roleFilter === 'all' || contact.role === roleFilter)
     );
   }, [contacts, searchQuery, companyFilter, roleFilter]);
+  
+  const paginatedContacts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredContacts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredContacts, currentPage]);
+  
+  const totalPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
   
   const handleAddContact = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
     const newContact: Contact = {
@@ -408,6 +418,34 @@ function ContactsView() {
       setRoleFilter('all');
   }
 
+  const PaginationControls = () => (
+     <div className="flex items-center justify-between pt-4">
+        <div className="text-sm text-muted-foreground">
+            Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({filteredContacts.length} total contacts)
+        </div>
+        <div className="flex items-center gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+            >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+            >
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+        </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 pt-2">
        <Card>
@@ -436,7 +474,7 @@ function ContactsView() {
 
       {isMobile ? (
          <div className="space-y-4">
-            {filteredContacts.map((contact) => (
+            {paginatedContacts.map((contact) => (
                 <Card key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
                     <CardContent className="p-4 flex items-center gap-4">
                         <Avatar className="h-12 w-12">
@@ -475,7 +513,7 @@ function ContactsView() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {filteredContacts.map((contact) => (
+                    {paginatedContacts.map((contact) => (
                         <TableRow key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
                             <TableCell>
                                 <div className="flex items-center gap-3">
@@ -512,8 +550,10 @@ function ContactsView() {
                     ))}
                 </TableBody>
             </Table>
+             {totalPages > 1 && <div className="p-4 border-t"><PaginationControls /></div>}
         </div>
       )}
+      {isMobile && totalPages > 1 && <PaginationControls />}
       
        {filteredContacts.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
@@ -707,3 +747,6 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
 
     
 
+
+
+    
