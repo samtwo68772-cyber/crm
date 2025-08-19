@@ -46,6 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useSearchParams } from 'next/navigation';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 function EmailClientView() {
@@ -62,6 +63,7 @@ function EmailClientView() {
     const [processedEmailIds, setProcessedEmailIds] = useState(new Set<string>());
     const searchParams = useSearchParams();
     const [showUnread, setShowUnread] = useState(false);
+    const isMobile = useIsMobile();
 
     useEffect(() => {
         if (searchParams.get('filter') === 'unread') {
@@ -265,6 +267,64 @@ function EmailClientView() {
              processIncomingEmails();
         }
     };
+
+    const DesktopView = () => (
+        <div className="flex-1 overflow-y-auto">
+            {filteredEmails.length > 0 ? (
+                filteredEmails.map(email => (
+                    <div 
+                        key={email.id} 
+                        className={cn(
+                            "p-4 border-b cursor-pointer transition-colors hover:bg-muted/50",
+                            !email.read && "bg-primary/5 hover:bg-primary/10"
+                        )}
+                        onClick={() => handleSelectEmail(email)}
+                    >
+                        <div className="flex justify-between items-start">
+                            <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
+                            <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
+                        </div>
+                        <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
+                        <p className="text-xs text-muted-foreground truncate">{email.body}</p>
+                        {email.linkedCaseId && <Badge variant="secondary" className="mt-2 text-xs">Linked</Badge>}
+                    </div>
+                ))
+            ) : (
+                <p className="p-8 text-center text-muted-foreground">No emails in {mailbox}.</p>
+            )}
+        </div>
+    );
+
+    const MobileView = () => (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {filteredEmails.length > 0 ? (
+                filteredEmails.map(email => (
+                    <Card 
+                        key={email.id} 
+                        className={cn(
+                            "cursor-pointer transition-shadow hover:shadow-md",
+                            !email.read && "border-primary/50 bg-primary/5"
+                        )}
+                        onClick={() => handleSelectEmail(email)}
+                    >
+                        <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                                <p className={cn("truncate text-sm font-semibold", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
+                                <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
+                            </div>
+                            <p className={cn("text-sm font-medium truncate", !email.read && "text-foreground")}>{email.subject}</p>
+                            <div className="flex justify-between items-center mt-2">
+                                <p className="text-xs text-muted-foreground truncate flex-1 pr-2">{email.body}</p>
+                                {email.linkedCaseId && <Badge variant="secondary" className="text-xs shrink-0">Linked</Badge>}
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))
+            ) : (
+                 <p className="p-8 text-center text-muted-foreground">No emails in {mailbox}.</p>
+            )}
+        </div>
+    );
     
     return (
         <div className="flex flex-col h-full">
@@ -297,30 +357,8 @@ function EmailClientView() {
                     </Button>
                 </div>
             </div>
-            <div className="flex-1 overflow-y-auto">
-                {filteredEmails.length > 0 ? (
-                    filteredEmails.map(email => (
-                        <div 
-                            key={email.id} 
-                            className={cn(
-                                "p-4 border-b cursor-pointer transition-colors hover:bg-muted/50",
-                                !email.read && "bg-primary/5 hover:bg-primary/10"
-                            )}
-                            onClick={() => handleSelectEmail(email)}
-                        >
-                            <div className="flex justify-between items-start">
-                                <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
-                                <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
-                            </div>
-                            <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
-                            <p className="text-xs text-muted-foreground truncate">{email.body}</p>
-                            {email.linkedCaseId && <Badge variant="secondary" className="mt-2 text-xs">Linked</Badge>}
-                        </div>
-                    ))
-                ) : (
-                    <p className="p-8 text-center text-muted-foreground">No emails in {mailbox}.</p>
-                )}
-            </div>
+
+            {isMobile ? <MobileView /> : <DesktopView />}
              
             {selectedEmail && (
                 <EmailDetailSheet
@@ -526,5 +564,3 @@ export default function EmailsPage() {
         </div>
     );
 }
-
-    
