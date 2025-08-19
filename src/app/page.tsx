@@ -71,7 +71,7 @@ function RecentCases() {
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <Card className="shadow-none border-0">
+            <Card className="shadow-none border-0 bg-transparent">
                 <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-6 cursor-pointer">
                         <div>
@@ -186,7 +186,7 @@ function RecentActivity() {
 
     return (
          <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-            <Card className="shadow-none border-0">
+            <Card className="shadow-none border-0 bg-transparent">
                 <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-6 cursor-pointer">
                         <div>
@@ -279,3 +279,5 @@ export default function DashboardPage() {
         </div>
     );
 }
+
+    

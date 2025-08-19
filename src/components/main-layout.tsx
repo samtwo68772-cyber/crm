@@ -119,11 +119,11 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     const sidebarContent = (
       <div className="flex flex-col h-full bg-card text-card-foreground border-r">
-        <div className={`flex h-20 items-center border-b px-6 shrink-0 ${sidebarCollapsed ? 'justify-center' : ''}`}>
-            <Link href="/" className={`flex items-center gap-3 font-semibold text-foreground ${sidebarCollapsed ? 'justify-center' : ''}`}>
+        <div className={cn("flex h-20 items-center border-b px-6 shrink-0", sidebarCollapsed ? 'justify-center' : '')}>
+            <Link href="/" className={cn("flex items-center gap-3 font-semibold text-foreground", sidebarCollapsed ? 'justify-center' : '')}>
               {generalSettings.logoUrl ? <img src={generalSettings.logoUrl} alt="Logo" className="h-8 w-8 object-contain" /> : <Logo className="h-8 w-8 text-primary shrink-0" />}
-              <div className={`flex flex-col ${sidebarCollapsed ? 'hidden' : 'block'}`}>
-                <span className={`font-headline text-xl`}>{generalSettings.systemName}</span>
+              <div className={cn("flex flex-col", sidebarCollapsed ? 'hidden' : 'block')}>
+                <span className="font-headline text-xl">{generalSettings.systemName}</span>
               </div>
             </Link>
         </div>
@@ -131,15 +131,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
             <nav className="space-y-1 p-4">
                 {navItems.map((item) => (
                    <Link key={item.href} href={item.href} onClick={handleLinkClick}
-                      className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
-                        ${pathname === item.href 
-                            ? 'bg-primary/10 text-primary border-l-4 border-primary' 
-                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
-                        ${sidebarCollapsed ? 'justify-center' : ''}
-                      `}
+                      className={cn(
+                        "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out",
+                        pathname === item.href 
+                            ? 'bg-primary/10 text-primary' 
+                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary',
+                        sidebarCollapsed ? 'justify-center' : ''
+                      )}
                     >
-                      <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out ${sidebarCollapsed ? '' : 'mr-3'} ${pathname === item.href ? 'text-primary' : 'group-hover:text-primary'}`} />
-                      <span className={`truncate ${sidebarCollapsed ? 'hidden' : 'block'}`}>{item.label}</span>
+                      <item.icon className={cn("h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out", sidebarCollapsed ? '' : 'mr-3', pathname === item.href ? 'text-primary' : 'group-hover:text-primary')} />
+                      <span className={cn("truncate", sidebarCollapsed ? 'hidden' : 'block')}>{item.label}</span>
                   </Link>
                 ))}
             </nav>
@@ -147,15 +148,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <div className="mt-auto p-4 border-t">
              <nav className="space-y-1">
                 <Link key={profileNavItem.href} href={profileNavItem.href} onClick={handleLinkClick}
-                      className={`group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out
-                        ${pathname === profileNavItem.href 
+                      className={cn(
+                        "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out",
+                        pathname === profileNavItem.href 
                             ? 'bg-primary/10 text-primary' 
-                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary'}
-                        ${sidebarCollapsed ? 'justify-center' : ''}
-                      `}
+                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary',
+                        sidebarCollapsed ? 'justify-center' : ''
+                      )}
                 >
-                    <profileNavItem.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out ${sidebarCollapsed ? '' : 'mr-3'} ${pathname === profileNavItem.href ? 'text-primary' : 'group-hover:text-primary'}`} />
-                    <span className={`truncate ${sidebarCollapsed ? 'hidden' : 'block'}`}>{profileNavItem.label}</span>
+                    <profileNavItem.icon className={cn("h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out", sidebarCollapsed ? '' : 'mr-3', pathname === profileNavItem.href ? 'text-primary' : 'group-hover:text-primary')} />
+                    <span className={cn("truncate", sidebarCollapsed ? 'hidden' : 'block')}>{profileNavItem.label}</span>
                 </Link>
             </nav>
         </div>
@@ -164,18 +166,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
 
     return (
-        <div className="flex h-screen w-full bg-background">
-            <div className={cn("fixed h-full bg-card transition-all duration-300", sidebarCollapsed ? 'w-[80px]' : 'w-[280px]')}>
-                 {isMobile ? (
-                    <Sheet open={isSidebarOpen} onOpenChange={setSidebarOpen}>
-                      <SheetContent side="left" className="p-0 w-[280px]">
-                        <VisuallyHidden><SheetTitle>Mobile Navigation Menu</SheetTitle></VisuallyHidden>
-                        {sidebarContent}
-                      </SheetContent>
-                  </Sheet>
-                 ) : sidebarContent }
-            </div>
-            <div className={cn("flex flex-col flex-1 transition-all duration-300", sidebarCollapsed ? 'ml-[80px]' : 'ml-[280px]')}>
+        <div className="flex min-h-screen w-full bg-background">
+            {isMobile ? (
+                <Sheet open={isSidebarOpen} onOpenChange={setSidebarOpen}>
+                    <SheetContent side="left" className="p-0 w-[280px]">
+                      <VisuallyHidden><SheetTitle>Mobile Navigation Menu</SheetTitle></VisuallyHidden>
+                      {sidebarContent}
+                    </SheetContent>
+                </Sheet>
+            ) : (
+                <div className={cn("h-screen sticky top-0 transition-all duration-300", sidebarCollapsed ? 'w-[80px]' : 'w-[280px]')}>
+                    {sidebarContent}
+                </div>
+            )}
+            <div className="flex flex-col flex-1">
                 <header className="flex h-20 items-center gap-4 border-b bg-card px-6 sticky top-0 z-30">
                   <Button variant="outline" size="icon" className="shrink-0" onClick={() => isMobile ? setSidebarOpen(true) : setSidebarCollapsed(!sidebarCollapsed)}>
                       <Menu className="h-6 w-6" />
@@ -230,7 +234,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                                 <Avatar className="h-8 w-8">
-                                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="user avatar" alt={user.name} />
+                                    <AvatarImage src={'https://placehold.co/40x40.png'} data-ai-hint="user avatar" alt={user.name} />
                                     <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                             </Button>
@@ -247,10 +251,12 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                                <User className="mr-2 h-4 w-4" />
                                <span>Profile</span>
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push('/settings')}>
-                               <Settings className="mr-2 h-4 w-4" />
-                               <span>Settings</span>
-                            </DropdownMenuItem>
+                            {user.role === 'admin' && (
+                                <DropdownMenuItem onClick={() => router.push('/settings')}>
+                                <Settings className="mr-2 h-4 w-4" />
+                                <span>Settings</span>
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={logout} className="text-destructive focus:bg-destructive/10 focus:text-destructive">
                                 <LogOut className="mr-2 h-4 w-4" />
@@ -264,3 +270,5 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
+
+    
