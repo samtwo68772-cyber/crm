@@ -49,7 +49,7 @@ function getStatusVariant(status: Case['status']) {
 
 
 export default function CasesPage() {
-  const { cases, setCases, users: mockUsers, tasks, setTasks, setNotifications } = useData();
+  const { cases, setCases, users: mockUsers, tasks, setTasks, setNotifications, workflows } = useData();
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
@@ -71,14 +71,13 @@ export default function CasesPage() {
     }
   }, [searchParams]);
 
-  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'>) => {
+  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
     const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
     const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
     
     let newCase: Case = {
       id: `case-${newCaseNumber}`,
       createdAt: new Date().toISOString().split('T')[0],
-      description: "Initial case description.",
       communications: [],
       ...newCaseData
     };
@@ -385,7 +384,6 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
                             <Button size="sm" variant="destructive" onClick={() => handleStatusChange('Declined')}><XCircle className="mr-2 h-4 w-4" /> Decline</Button>
                         </>
                     )}
-                    <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4" /></Button></SheetClose>
                 </div>
             </div>
         </SheetHeader>
@@ -606,9 +604,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   const { toast } = useToast();
 
   const handleSubmit = () => {
-    // Create a temporary case ID to link tasks before the real case is created
-    const tempCaseId = `case-${Date.now()}`;
-    const caseData: Omit<Case, 'id' | 'createdAt' | 'description' | 'communications'> & { id?: string } = { 
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> & { id?: string } = { 
         subject, 
         customer, 
         email, 
@@ -645,6 +641,10 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
             }
             // Create Task Action
             if (workflow.action === 'create-followup-task') {
+                const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
+                const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
+                const tempCaseId = `case-${newCaseNumber}`;
+
                 const assignedUser = users.find(u => u.name === caseData.assignedTo);
                 const newTask: Task = {
                     id: `task-${Date.now()}`,
