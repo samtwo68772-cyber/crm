@@ -332,15 +332,14 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
                  <div className="flex flex-col h-full">
                     <SheetHeader className="p-6 border-b">
                          <div className="flex items-start justify-between">
-                            <div>
+                            <div className="pr-4">
                                 <SheetTitle className="font-headline text-2xl">{meeting.title}</SheetTitle>
                                 <SheetDescription>{meeting.description}</SheetDescription>
                             </div>
-                            <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
                         </div>
                     </SheetHeader>
                     <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
                              <Badge variant={getStatusVariant(meeting.status)}>{meeting.status}</Badge>
                              <div className="flex items-center gap-2 text-sm text-muted-foreground"><CalendarIcon className="h-4 w-4" /> {safeFormat(meeting.date, 'PPP p')}</div>
                         </div>
@@ -517,5 +516,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-
-    
