@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams } from 'next/navigation';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 function getStatusVariant(status: Meeting['status']) {
@@ -155,6 +156,7 @@ export default function MeetingsPage() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [activeTab, setActiveTab] = useState('calendar');
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (searchParams.get('filter') === 'upcoming') {
@@ -247,7 +249,7 @@ export default function MeetingsPage() {
                                         return (
                                             <div className="h-full w-full">
                                                 <div className="w-full text-right p-1 text-sm">{format(date, 'd')}</div>
-                                                <div className="flex flex-col gap-1 px-1">
+                                                <div className={cn("flex flex-col gap-1 px-1", isMobile && "flex-row flex-wrap justify-start items-start")}>
                                                     {dayMeetings.map(m => (
                                                         <TooltipProvider key={m.id}>
                                                             <Tooltip>
@@ -255,11 +257,12 @@ export default function MeetingsPage() {
                                                                      <div onClick={(e) => { e.stopPropagation(); handleMeetingClick(m); }}
                                                                          className={cn(
                                                                             "w-full text-left text-xs px-1.5 py-0.5 rounded-sm truncate cursor-pointer text-white",
-                                                                            getStatusColor(m.status)
+                                                                            getStatusColor(m.status),
+                                                                            isMobile && "w-2 h-2 p-0 rounded-full"
                                                                          )}
                                                                          title={m.title}
                                                                     >
-                                                                        {m.title}
+                                                                        {!isMobile && m.title}
                                                                     </div>
                                                                 </TooltipTrigger>
                                                                 <TooltipContent>
@@ -514,3 +517,5 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
+
+    
