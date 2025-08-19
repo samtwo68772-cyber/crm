@@ -328,7 +328,7 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-sm p-0">
+            <SheetContent className="w-full sm:max-w-md p-0">
                  <div className="flex flex-col h-full">
                     <SheetHeader className="p-6 border-b">
                          <div className="flex items-start justify-between">
