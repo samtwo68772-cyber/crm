@@ -84,7 +84,7 @@ export default function ProfilePage() {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className={cn("grid w-full", currentUser.team ? "grid-cols-4" : "grid-cols-3")}>
+                 <TabsList className={cn("grid w-full", currentUser.team ? "md:grid-cols-4" : "md:grid-cols-3", "grid-cols-1 h-auto")}>
                     <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>
                     <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
                     <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" />Notifications</TabsTrigger>
@@ -206,7 +206,7 @@ function ProfileSettings({ user, onSave }: { user: UserType, onSave: (data: Part
                 <CardDescription>Update your photo and personal details here.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col md:flex-row items-center gap-4">
                     <Avatar className="h-20 w-20">
                         <AvatarImage src={avatar} data-ai-hint="user avatar" />
                         <AvatarFallback>{name.charAt(0)}</AvatarFallback>
@@ -240,9 +240,9 @@ function ProfileSettings({ user, onSave }: { user: UserType, onSave: (data: Part
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="border-t pt-6 flex justify-end gap-2">
-                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
+            <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Changes</Button>
             </CardFooter>
         </Card>
     )
@@ -300,8 +300,8 @@ function SecuritySettings({ onSave }: { onSave: (password: string) => void }) {
                     </div>
                 </div>
             </CardContent>
-            <CardFooter className="border-t pt-6 flex justify-end gap-2">
-                <Button onClick={handleSave}>Update Password</Button>
+            <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
+                <Button onClick={handleSave} className="w-full sm:w-auto">Update Password</Button>
             </CardFooter>
         </Card>
     )
@@ -393,9 +393,9 @@ function NotificationsSettings({ globalPreferences, userPreferences, onSave }: {
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className="border-t pt-6 justify-end flex gap-2">
-                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges}>Save Preferences</Button>
+            <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Preferences</Button>
             </CardFooter>
         </Card>
     );
