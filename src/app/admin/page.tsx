@@ -11,7 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -74,8 +74,12 @@ function UserManagement() {
     const [roleFilter, setRoleFilter] = useState('all');
     const [statusFilter, setStatusFilter] = useState('all');
     const { toast } = useToast();
+    
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     const filteredUsers = useMemo(() => {
+        setCurrentPage(1); // Reset to first page on filter change
         return users.filter(user => {
             const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesRole = roleFilter === 'all' || user.role === roleFilter;
@@ -83,6 +87,13 @@ function UserManagement() {
             return matchesSearch && matchesRole && matchesStatus;
         });
     }, [users, searchQuery, roleFilter, statusFilter]);
+
+    const paginatedUsers = useMemo(() => {
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filteredUsers, currentPage]);
+
+    const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
 
     const handleAddUser = (newUserData: Omit<User, 'id' | 'avatar'>) => {
         const newUser: User = {
@@ -111,6 +122,34 @@ function UserManagement() {
         setEditingUser(user);
         setIsFormOpen(true);
     };
+
+    const PaginationControls = () => (
+     <div className="flex items-center justify-between pt-4">
+        <div className="text-sm text-muted-foreground">
+            Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({filteredUsers.length} total users)
+        </div>
+        <div className="flex items-center gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+            >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Previous
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+            >
+                Next
+                <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+        </div>
+    </div>
+  );
 
 
     return (
@@ -145,7 +184,7 @@ function UserManagement() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {filteredUsers.map((user) => (
+                        {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
                             <TableRow key={user.id}>
                                 <TableCell>
                                     <div className="flex items-center gap-3">
@@ -170,9 +209,16 @@ function UserManagement() {
                                     </DropdownMenu>
                                 </TableCell>
                             </TableRow>
-                        ))}
+                        )) : (
+                            <TableRow>
+                                <TableCell colSpan={6} className="h-24 text-center">
+                                    No users found.
+                                </TableCell>
+                            </TableRow>
+                        )}
                     </TableBody>
                 </Table>
+                {totalPages > 1 && <div className="p-4 border-t"><PaginationControls /></div>}
             </div>
             <UserFormDialog
                 key={editingUser ? editingUser.id : 'create'}
@@ -529,3 +575,4 @@ function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, o
         </Dialog>
     );
 }
+    
