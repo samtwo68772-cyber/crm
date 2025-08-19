@@ -391,102 +391,99 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
         if (!isEditMode) {
             resetForm();
         }
-        onOpenChange(false);
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]">
-                <DialogHeader>
-                    <DialogTitle className="font-headline">{isEditMode ? 'Edit Task' : 'Create New Task'}</DialogTitle>
-                    <DialogDescription>{isEditMode ? 'Update the details for this task.' : 'Fill in the details for the new task below.'}</DialogDescription>
-                </DialogHeader>
-                <ScrollArea className="flex-1 pr-6 -mr-6">
-                    <div className="grid gap-6 py-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="title">Title</Label>
-                            <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Follow up with client" />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="description">Description</Label>
-                            <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Add a detailed description..." />
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="priority">Priority</Label>
-                                <Select onValueChange={(v: Task['priority']) => setPriority(v)} value={priority}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="Low">Low</SelectItem>
-                                        <SelectItem value="Medium">Medium</SelectItem>
-                                        <SelectItem value="High">High</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="status">Status</Label>
-                                <Select onValueChange={(v: Task['status']) => setStatus(v)} value={status}>
-                                    <SelectTrigger><SelectValue /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="To Do">To Do</SelectItem>
-                                        <SelectItem value="In Progress">In Progress</SelectItem>
-                                        <SelectItem value="Done">Done</SelectItem>
-                                         <SelectItem value="Canceled">Canceled</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="dueDate">Due Date</Label>
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant={"outline"}
-                                        className={`w-full justify-start text-left font-normal ${!dueDate && "text-muted-foreground"}`}
-                                      >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                      <Calendar
-                                        mode="single"
-                                        selected={dueDate}
-                                        onSelect={setDueDate}
-                                        initialFocus
-                                      />
-                                    </PopoverContent>
-                                  </Popover>
-                            </div>
-                             <div className="grid gap-2">
-                                <Label htmlFor="assignedTo">Assigned Staff</Label>
-                                <Select onValueChange={setAssignedTo} value={assignedTo}>
-                                    <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
-                                    <SelectContent>
-                                        {staffOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="linkedCase">Linked Case (Optional)</Label>
-                            <Select onValueChange={setLinkedCase} value={linkedCase} disabled={isEditMode && !!task?.linkedCase}>
-                                <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
-                                <SelectContent>
-                                    {caseOptions.map(c => <SelectItem key={c.value} value={c.value} disabled={c.disabled}>{c.label}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        </div>
-                    </div>
-                </ScrollArea>
-                <DialogFooter className="mt-auto pt-4 border-t">
-                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button type="submit" onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Create Task'}</Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[600px] flex flex-col max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="font-headline">{isEditMode ? 'Edit Task' : 'Create New Task'}</DialogTitle>
+            <DialogDescription>{isEditMode ? 'Update the details for this task.' : 'Fill in the details for the new task below.'}</DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto pr-6 -mr-6">
+            <div className="grid gap-6 py-4 ">
+              <div className="grid gap-2">
+                <Label htmlFor="title">Title</Label>
+                <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Follow up with client" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Add a detailed description..." />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="priority">Priority</Label>
+                  <Select onValueChange={(v: Task['priority']) => setPriority(v)} value={priority}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low">Low</SelectItem>
+                      <SelectItem value="Medium">Medium</SelectItem>
+                      <SelectItem value="High">High</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select onValueChange={(v: Task['status']) => setStatus(v)} value={status}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="To Do">To Do</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Done">Done</SelectItem>
+                      <SelectItem value="Canceled">Canceled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="dueDate">Due Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant={"outline"}
+                        className={`w-full justify-start text-left font-normal ${!dueDate && "text-muted-foreground"}`}
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dueDate ? format(dueDate, "PPP") : <span>Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                      <Calendar
+                        mode="single"
+                        selected={dueDate}
+                        onSelect={setDueDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="assignedTo">Assigned Staff</Label>
+                  <Select onValueChange={setAssignedTo} value={assignedTo}>
+                    <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
+                    <SelectContent>
+                      {staffOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="linkedCase">Linked Case (Optional)</Label>
+                <Select onValueChange={setLinkedCase} value={linkedCase} disabled={isEditMode && !!task?.linkedCase}>
+                  <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
+                  <SelectContent>
+                    {caseOptions.map(c => <SelectItem key={c.value} value={c.value} disabled={c.disabled}>{c.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="mt-auto pt-4 border-t">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Create Task'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
 }
-
