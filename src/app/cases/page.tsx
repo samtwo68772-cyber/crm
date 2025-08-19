@@ -27,6 +27,7 @@ import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -237,7 +238,7 @@ export default function CasesPage() {
 
       {selectedCase && (
         <Sheet open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
-            <SheetContent className="w-full sm:max-w-xl md:max-w-2xl p-0">
+            <SheetContent className="w-full sm:max-w-xl md:max-w-2xl lg:max-w-4xl p-0">
                <CaseDetailPanel 
                     caseItem={selectedCase} 
                     onUpdateCase={handleUpdateCase} 
@@ -379,10 +380,26 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
                 </div>
                  <div className="flex items-center gap-2">
                     {isAdmin && caseItem.status === 'New' && (
-                        <>
-                            <Button size="sm" onClick={() => handleStatusChange('Under Review')}><Check className="mr-2 h-4 w-4" /> Accept</Button>
-                            <Button size="sm" variant="destructive" onClick={() => handleStatusChange('Declined')}><XCircle className="mr-2 h-4 w-4" /> Decline</Button>
-                        </>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button size="icon" onClick={() => handleStatusChange('Under Review')} className="h-8 w-8">
+                                        <Check className="h-4 w-4" />
+                                        <span className="sr-only">Accept Case</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Accept Case</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button size="icon" variant="destructive" onClick={() => handleStatusChange('Declined')} className="h-8 w-8">
+                                        <XCircle className="h-4 w-4" />
+                                        <span className="sr-only">Decline Case</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Decline Case</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     )}
                 </div>
             </div>
