@@ -84,7 +84,7 @@ export default function ProfilePage() {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                 <TabsList className={cn("grid w-full", currentUser.team ? "md:grid-cols-4" : "md:grid-cols-3", "grid-cols-1 h-auto")}>
+                 <TabsList className={cn("grid w-full", currentUser.team ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-3", "h-auto")}>
                     <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>
                     <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
                     <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" />Notifications</TabsTrigger>
