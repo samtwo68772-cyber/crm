@@ -88,12 +88,12 @@ export default function SettingsPage() {
 
             <Tabs defaultValue={defaultTab} className="w-full">
                  <div className="overflow-x-auto pb-1">
-                     <TabsList className="inline-flex h-auto items-center justify-start rounded-lg bg-muted p-1 gap-1 text-muted-foreground">
+                     <TabsList className="inline-flex h-auto items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground md:w-full md:grid md:grid-cols-7">
                         <TabsTrigger value="general" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">General</TabsTrigger>
                         <TabsTrigger value="security" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Security</TabsTrigger>
                         <TabsTrigger value="email" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Email</TabsTrigger>
                         <TabsTrigger value="alerts" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Alerts</TabsTrigger>
-                        <TabsTrigger value="api" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">API & Integrations</TabsTrigger>
+                        <TabsTrigger value="api" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">API</TabsTrigger>
                         <TabsTrigger value="workflows" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Workflows</TabsTrigger>
                         <TabsTrigger value="audit" className="rounded-md px-3 py-1.5 text-sm font-medium data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">Audit Log</TabsTrigger>
                     </TabsList>
@@ -227,9 +227,9 @@ function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSetti
                     </div>
                  </div>
             </CardContent>
-            <CardFooter className="border-t pt-6 justify-end flex gap-2">
-                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
+            <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Changes</Button>
             </CardFooter>
         </Card>
     );
@@ -294,9 +294,9 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
                      <Textarea value={settings.ipWhitelist} onChange={(e) => setSettings(s => ({...s, ipWhitelist: e.target.value}))} rows={5}/>
                 </div>
             </CardContent>
-            <CardFooter className="border-t pt-6 flex justify-end gap-2">
-                {hasChanges && <Button variant="outline" onClick={handleCancel}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges}>Save Changes</Button>
+            <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
+                {hasChanges && <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Changes</Button>
             </CardFooter>
         </Card>
     );
@@ -318,18 +318,18 @@ function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSett
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="border rounded-lg p-4 flex items-center justify-between">
+                    <div className="border rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                             <h4 className="font-medium">Email Server</h4>
                             <p className="text-sm text-muted-foreground">
                                 {initialSettings.configured ? `Connected to ${initialSettings.smtpHost} / ${initialSettings.imapHost}` : 'Not configured'}
                             </p>
                         </div>
-                        <div className="flex items-center gap-2">
-                             <Badge variant={initialSettings.configured ? 'success' : 'secondary'}>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                             <Badge variant={initialSettings.configured ? 'success' : 'secondary'} className="mr-auto sm:mr-0">
                                 {initialSettings.configured ? 'Connected' : 'Inactive'}
                             </Badge>
-                            <Button variant="outline" onClick={() => setDialogOpen(true)}>Configure</Button>
+                            <Button variant="outline" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">Configure</Button>
                         </div>
                     </div>
                 </CardContent>
@@ -425,7 +425,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
                         </div>
                     </TabsContent>
                 </Tabs>
-                <DialogFooter className="justify-between pt-4 border-t">
+                <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t">
                      <div className="flex items-center gap-2">
                         <Button variant="outline" onClick={handleTestConnection} disabled={testStatus === 'testing' || !isFormValid}>
                             {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
@@ -568,9 +568,9 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
                     </div>
                 ))}
             </CardContent>
-            <CardFooter className="border-t pt-6 justify-end flex gap-2">
-                {hasChanges && <Button variant="outline" onClick={() => setCurrentPreferences(preferences)}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges}>Save Preferences</Button>
+            <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
+                {hasChanges && <Button variant="outline" className="w-full sm:w-auto" onClick={() => setCurrentPreferences(preferences)}>Cancel</Button>}
+                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Preferences</Button>
             </CardFooter>
         </Card>
     );
@@ -610,7 +610,7 @@ function ApiSettings() {
         <>
             <Card>
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                             <KeyRound className="h-6 w-6" />
                             <div>
@@ -618,7 +618,7 @@ function ApiSettings() {
                                 <CardDescription>Manage API keys and connected third-party applications.</CardDescription>
                             </div>
                         </div>
-                        <Button onClick={generateKey}><PlusCircle className="mr-2 h-4 w-4" /> Generate API Key</Button>
+                        <Button onClick={generateKey} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Generate API Key</Button>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
@@ -629,8 +629,8 @@ function ApiSettings() {
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Key</TableHead>
-                                        <TableHead>Created</TableHead>
-                                        <TableHead>Last Used</TableHead>
+                                        <TableHead className="hidden md:table-cell">Created</TableHead>
+                                        <TableHead className="hidden md:table-cell">Last Used</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -638,16 +638,16 @@ function ApiSettings() {
                                     {apiKeys.map((key) => (
                                         <TableRow key={key.id}>
                                             <TableCell className="font-mono">{key.displayName}</TableCell>
-                                            <TableCell>{key.createdAt}</TableCell>
-                                            <TableCell>{key.lastUsed}</TableCell>
+                                            <TableCell className="hidden md:table-cell">{key.createdAt}</TableCell>
+                                            <TableCell className="hidden md:table-cell">{key.lastUsed}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="sm" onClick={() => copyToClipboard(key.key, "API key copied to clipboard.")}>
-                                                    <Copy className="mr-2 h-4 w-4" /> Copy
+                                                    <Copy className="mr-2 h-4 w-4" /> <span className="hidden sm:inline">Copy</span>
                                                 </Button>
                                                 <AlertDialog>
                                                     <AlertDialogTrigger asChild>
                                                         <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                                                            <Trash2 className="mr-2 h-4 w-4" /> Revoke
+                                                            <Trash2 className="mr-2 h-4 w-4" /> <span className="hidden sm:inline">Revoke</span>
                                                         </Button>
                                                     </AlertDialogTrigger>
                                                     <AlertDialogContent>
@@ -791,7 +791,7 @@ function WorkflowsSettings({ workflows, setWorkflows }: { workflows: Workflow[],
         <>
             <Card>
                 <CardHeader>
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
                             <Bot className="h-6 w-6" />
                             <div>
@@ -799,7 +799,7 @@ function WorkflowsSettings({ workflows, setWorkflows }: { workflows: Workflow[],
                                 <CardDescription>Configure automated workflows and business rules.</CardDescription>
                             </div>
                         </div>
-                        <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Add Workflow</Button>
+                        <Button onClick={openCreateForm} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Add Workflow</Button>
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -828,11 +828,11 @@ function WorkflowsSettings({ workflows, setWorkflows }: { workflows: Workflow[],
                                     </AlertDialog>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 text-sm text-muted-foreground mt-2">
                                 <Badge variant="secondary">{getWorkflowStepLabel('trigger', workflow.trigger)}</Badge>
-                                <ArrowRight className="h-4 w-4" />
+                                <ArrowRight className="h-4 w-4 hidden sm:block" />
                                 <Badge variant="secondary">{getWorkflowStepLabel('condition', workflow.condition)}</Badge>
-                                <ArrowRight className="h-4 w-4" />
+                                <ArrowRight className="h-4 w-4 hidden sm:block" />
                                 <Badge variant="secondary">{getWorkflowStepLabel('action', workflow.action)}</Badge>
                             </div>
                         </div>
@@ -1025,3 +1025,4 @@ function AuditLog() {
         </Card>
     )
 }
+
