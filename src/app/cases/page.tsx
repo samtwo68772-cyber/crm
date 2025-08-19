@@ -12,9 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -23,6 +24,9 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { format, isWithinInterval, subDays, addDays } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
+import { Card, CardContent } from '@/components/ui/card';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -51,6 +55,7 @@ export default function CasesPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
 
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -123,21 +128,27 @@ export default function CasesPage() {
   }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange]);
 
 
-  return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
-        <h2 className="text-3xl font-bold tracking-tight font-headline">Cases Management</h2>
-        {user?.role === 'admin' && <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> Create Case</Button>}
+  const MainContent = () => (
+    <>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div className="flex-1">
+          <h2 className="text-3xl font-bold tracking-tight font-headline">Cases Management</h2>
+          <p className="text-muted-foreground">Manage and track customer support cases.</p>
+        </div>
+        {user?.role === 'admin' && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Create Case</Button>}
       </div>
       <div className="flex flex-col space-y-4">
-        <div className="flex items-center space-x-2">
-           <Input placeholder="Filter by keyword..." className="max-w-sm" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-           <DateRangePicker onDateChange={setDateRange} />
-           <Button variant="outline" onClick={() => setDateRange({from: subDays(new Date(), 7), to: new Date()})}>Recent</Button>
+         <div className="flex flex-col sm:flex-row items-center gap-2">
+           <div className="relative w-full sm:flex-1">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+               <Input placeholder="Filter by keyword..." className="pl-9 w-full" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+           </div>
+           {!isMobile && <DateRangePicker onDateChange={setDateRange} />}
+           <Button variant="outline" className="w-full sm:w-auto" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setTypeFilter('all'); setSearchQuery(''); setAssignedToFilter('all'); setDateRange(undefined)}}>Clear Filters</Button>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="active">All Active</SelectItem>
@@ -145,14 +156,14 @@ export default function CasesPage() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Priority" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Priority" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Priorities</SelectItem>
               <SelectItem value="High">High</SelectItem><SelectItem value="Medium">Medium</SelectItem><SelectItem value="Low">Low</SelectItem>
             </SelectContent>
           </Select>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Case Type" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Case Type" /></SelectTrigger>
             <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="Bug Report">Bug Report</SelectItem><SelectItem value="Feature Request">Feature Request</SelectItem><SelectItem value="Billing Inquiry">Billing Inquiry</SelectItem><SelectItem value="General Question">General Question</SelectItem>
@@ -160,7 +171,7 @@ export default function CasesPage() {
           </Select>
           {user?.role === 'admin' && (
             <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
-                <SelectTrigger className="w-[180px]"><SelectValue placeholder="Assigned To" /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Assigned To" /></SelectTrigger>
                 <SelectContent>
                     <SelectItem value="all">All Users</SelectItem>
                     <SelectItem value="Unassigned">Unassigned</SelectItem>
@@ -168,19 +179,18 @@ export default function CasesPage() {
                 </SelectContent>
             </Select>
           )}
-          <Button variant="outline" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setTypeFilter('all'); setSearchQuery(''); setAssignedToFilter('all'); setDateRange(undefined)}}>Clear Filters</Button>
         </div>
       </div>
-      <div className="rounded-md border bg-card">
+      <div className="rounded-md border bg-card hidden md:block">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Case ID</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Priority</TableHead>
+              <TableHead className="w-[120px]">Case ID</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead className="hidden lg:table-cell">Priority</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Assigned Staff</TableHead>
-              <TableHead>Created</TableHead>
+              <TableHead className="hidden lg:table-cell">Assigned Staff</TableHead>
+              <TableHead className="hidden lg:table-cell">Created</TableHead>
               <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
           </TableHeader>
@@ -189,10 +199,10 @@ export default function CasesPage() {
               <TableRow key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
                 <TableCell className="font-mono text-xs">{caseItem.id}</TableCell>
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
-                <TableCell><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
+                <TableCell className="hidden lg:table-cell"><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
                 <TableCell><Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge></TableCell>
-                <TableCell>{caseItem.assignedTo}</TableCell>
-                <TableCell>{caseItem.createdAt}</TableCell>
+                <TableCell className="hidden lg:table-cell">{caseItem.assignedTo}</TableCell>
+                <TableCell className="hidden lg:table-cell">{caseItem.createdAt}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedCase(caseItem)}>View</Button>
                 </TableCell>
@@ -201,23 +211,49 @@ export default function CasesPage() {
           </TableBody>
         </Table>
       </div>
+       <div className="md:hidden space-y-4">
+        {filteredCases.map((caseItem) => (
+          <Card key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
+            <CardContent className="p-4 space-y-2">
+              <div className="flex justify-between items-start">
+                  <span className="font-semibold">{caseItem.subject}</span>
+                  <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
+              </div>
+              <div className="text-sm text-muted-foreground space-y-1">
+                  <p>ID: <span className="font-mono text-xs">{caseItem.id}</span></p>
+                  <p>Priority: <Badge variant={getPriorityVariant(caseItem.priority)} className="text-xs">{caseItem.priority}</Badge></p>
+                  <p>Assigned: {caseItem.assignedTo}</p>
+                  <p>Created: {caseItem.createdAt}</p>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </>
+  );
 
-      <Dialog open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
-        <DialogContent className="sm:max-w-4xl md:max-w-5xl lg:max-w-6xl">
-           <VisuallyHidden>
-            <DialogTitle>Case Details</DialogTitle>
-            <DialogDescription>Detailed view of a customer case.</DialogDescription>
-          </VisuallyHidden>
-          {selectedCase && <CaseDetailPanel caseItem={selectedCase} onUpdateCase={handleUpdateCase} />}
-        </DialogContent>
-      </Dialog>
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      {isMobile && selectedCase ? null : <MainContent />}
+
+      {selectedCase && (
+        <Sheet open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
+            <SheetContent className="w-full sm:max-w-xl md:max-w-2xl p-0">
+               <CaseDetailPanel 
+                    caseItem={selectedCase} 
+                    onUpdateCase={handleUpdateCase} 
+                    onBack={() => setSelectedCase(null)}
+                />
+            </SheetContent>
+        </Sheet>
+      )}
 
       <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} />
     </div>
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void, onBack: () => void }) {
   const { users: mockUsers, tasks, setTasks } = useData();
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
@@ -231,6 +267,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
+  const isMobile = useIsMobile();
 
   const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
   const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
@@ -331,23 +368,29 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
 
   return (
     <>
-    <div className="flex flex-col h-full max-h-[85vh]">
-        <DialogHeader className="p-6 border-b">
+    <div className="flex flex-col h-full max-h-[100vh]">
+        <SheetHeader className="p-4 md:p-6 border-b flex-shrink-0">
             <div className="flex justify-between items-start">
-                <div>
-                    <DialogTitle className="font-headline text-2xl">{caseItem.subject}</DialogTitle>
-                    <DialogDescription>From {caseItem.customer} ({caseItem.email}) | Created on {caseItem.createdAt}</DialogDescription>
-                </div>
-                {isAdmin && caseItem.status === 'New' && (
-                    <div className="flex gap-2">
-                        <Button onClick={() => handleStatusChange('Under Review')}><Check className="mr-2 h-4 w-4" /> Accept Case</Button>
-                        <Button variant="destructive" onClick={() => handleStatusChange('Declined')}><XCircle className="mr-2 h-4 w-4" /> Decline Case</Button>
+                <div className="flex items-center gap-2">
+                    {isMobile && <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>}
+                    <div className="flex-1">
+                        <SheetTitle className="font-headline text-lg md:text-2xl">{caseItem.subject}</SheetTitle>
+                        <SheetDescription className="text-xs md:text-sm">From {caseItem.customer} ({caseItem.email}) | Created on {caseItem.createdAt}</SheetDescription>
                     </div>
-                )}
+                </div>
+                 <div className="flex items-center gap-2">
+                    {isAdmin && caseItem.status === 'New' && (
+                        <>
+                            <Button size="sm" onClick={() => handleStatusChange('Under Review')}><Check className="mr-2 h-4 w-4" /> Accept</Button>
+                            <Button size="sm" variant="destructive" onClick={() => handleStatusChange('Declined')}><XCircle className="mr-2 h-4 w-4" /> Decline</Button>
+                        </>
+                    )}
+                    <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4" /></Button></SheetClose>
+                </div>
             </div>
-        </DialogHeader>
+        </SheetHeader>
         <div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden">
-            <div className="col-span-1 border-r p-6 space-y-6 overflow-y-auto">
+            <div className="col-span-1 border-r p-4 md:p-6 space-y-6 overflow-y-auto">
                 <div className="space-y-4">
                     <h4 className="font-semibold">Details</h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
@@ -404,7 +447,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase }: { caseItem: Case, onUpdateC
                     </Button>
                 )}
             </div>
-            <div className="col-span-2 overflow-y-auto p-6">
+            <div className="col-span-2 overflow-y-auto p-4 md:p-6">
                 <Tabs defaultValue="communication">
                     <TabsList className="mb-4">
                         <TabsTrigger value="communication">Internal Communications</TabsTrigger>

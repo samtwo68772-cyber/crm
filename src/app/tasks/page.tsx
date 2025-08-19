@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/componen
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { PlusCircle, Calendar as CalendarIcon, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal, XCircle } from 'lucide-react';
+import { PlusCircle, Calendar as CalendarIcon, Flag, ListTodo, Activity, CheckCircle, Pencil, Trash2, Search, Link as LinkIcon, MoreHorizontal, XCircle, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/hooks/use-toast"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -20,6 +20,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 
 type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'Canceled' | 'all' | 'pending';
@@ -49,6 +50,7 @@ export default function TasksPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
+  const isMobile = useIsMobile();
   
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriorityFilter>('all');
@@ -141,15 +143,15 @@ export default function TasksPage() {
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      <div className="flex items-center justify-between space-y-2">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
             <h2 className="text-3xl font-bold tracking-tight font-headline">Tasks</h2>
             <p className="text-muted-foreground">Manage all assigned tasks and track performance.</p>
         </div>
-        {isAdmin && <Button onClick={() => setCreateDialogOpen(true)}><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>}
+        {isAdmin && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>}
       </div>
       
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card className="cursor-pointer hover:bg-muted/50" onClick={() => setStatusFilter('To Do')}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">To Do</CardTitle>
@@ -182,13 +184,13 @@ export default function TasksPage() {
         </Card>
       </div>
 
-       <div className="flex items-center space-x-2">
-         <div className="relative flex-1">
+       <div className="flex flex-col md:flex-row items-center gap-2">
+         <div className="relative flex-1 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search tasks or cases..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <Input placeholder="Search tasks or cases..." className="pl-9 w-full" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
         <Select value={statusFilter} onValueChange={(v: TaskStatusFilter) => setStatusFilter(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
@@ -199,7 +201,7 @@ export default function TasksPage() {
           </SelectContent>
         </Select>
         <Select value={priorityFilter} onValueChange={(v: TaskPriorityFilter) => setPriorityFilter(v)}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Priority" /></SelectTrigger>
+          <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Priority" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Priorities</SelectItem>
             <SelectItem value="High">High</SelectItem>
@@ -207,33 +209,30 @@ export default function TasksPage() {
             <SelectItem value="Low">Low</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setSearchQuery('')}}>Clear Filters</Button>
+        <Button variant="outline" className="w-full md:w-auto" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setSearchQuery('')}}><X className="mr-2 h-4 w-4"/>Clear</Button>
        </div>
        
-       <div className="space-y-8">
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         {statusGroups.map(status => {
            const tasksInGroup = filteredTasks.filter(t => t.status === status);
            if (statusFilter !== 'all' && statusFilter !== 'pending' && statusFilter !== status ) {
-               if (tasksInGroup.length === 0) return null;
+               return null;
            }
            if (statusFilter === 'pending' && (status === 'Done' || status === 'Canceled')) return null;
-           if (tasksInGroup.length === 0) return null;
            
            return (
-            <div key={status}>
-                <h3 className="text-xl font-semibold tracking-tight mb-4 flex items-center gap-2">
+            <div key={status} className="col-span-1 md:col-span-2 lg:col-span-1 flex flex-col gap-4">
+                <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
                     {getStatusIcon(status)}
                     {status} 
                     <span className="text-sm font-normal text-muted-foreground">({tasksInGroup.length})</span>
                 </h3>
                  {tasksInGroup.length > 0 ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                        {tasksInGroup.map(task => (
-                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} />
-                        ))}
-                    </div>
+                    tasksInGroup.map(task => (
+                        <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} />
+                    ))
                  ) : (
-                    <div className="text-center py-8 text-muted-foreground text-sm">No tasks in this category.</div>
+                    <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">No tasks in this category.</div>
                  )}
             </div>
            )
