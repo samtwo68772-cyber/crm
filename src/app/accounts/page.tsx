@@ -224,7 +224,6 @@ function AccountDetailSheet({ open, onOpenChange, account, onEdit, onDelete }: {
                             <div className="flex gap-2">
                                 <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
                                 {isAdmin && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
-                                <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
                             </div>
                         </div>
                     </SheetHeader>
@@ -561,53 +560,50 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent className="w-full sm:max-w-2xl p-0">
-                 <div className="flex flex-col h-full">
-                    <SheetHeader className="p-6 border-b bg-card">
-                         <div className="flex items-start justify-between">
-                            <div className="flex items-center gap-4">
-                                <Avatar className="h-16 w-16">
-                                    <AvatarImage src={`https://placehold.co/64x64.png`} data-ai-hint="person avatar" alt={contact.name} />
-                                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <SheetTitle className="font-headline text-2xl">{contact.name}</SheetTitle>
-                                    <SheetDescription>{contact.role} at {contact.company}</SheetDescription>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
-                                {isAdmin && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
-                                <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
+            <SheetContent className="w-full sm:max-w-md p-0 flex flex-col">
+                <SheetHeader className="p-6 border-b bg-card">
+                    <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-16 w-16">
+                                <AvatarImage src={`https://placehold.co/64x64.png`} data-ai-hint="person avatar" alt={contact.name} />
+                                <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <SheetTitle className="font-headline text-2xl">{contact.name}</SheetTitle>
+                                <SheetDescription>{contact.role} at {contact.company}</SheetDescription>
                             </div>
                         </div>
-                    </SheetHeader>
-                    <div className="flex-1 overflow-y-auto p-6">
-                        <Tabs defaultValue="details">
-                            <TabsList>
-                                <TabsTrigger value="details">Details</TabsTrigger>
-                                <TabsTrigger value="related">Related Items</TabsTrigger>
-                            </TabsList>
-                            <TabsContent value="details" className="mt-4 space-y-4">
-                                <div>
-                                    <h4 className="font-semibold mb-2">Contact Information</h4>
-                                    <div className="text-sm space-y-2">
-                                        <p><span className="text-muted-foreground w-20 inline-block">Email:</span> {contact.email}</p>
-                                        <p><span className="text-muted-foreground w-20 inline-block">Phone:</span> {contact.phone}</p>
-                                    </div>
-                                </div>
-                                 <div>
-                                    <h4 className="font-semibold mb-2">Notes</h4>
-                                    <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{contact.notes || "No notes for this contact."}</p>
-                                 </div>
-                            </TabsContent>
-                            <TabsContent value="related" className="mt-4 space-y-6">
-                                <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
-                                <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
-                                <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
-                            </TabsContent>
-                        </Tabs>
+                        <div className="flex gap-2">
+                            <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
+                            {isAdmin && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
+                        </div>
                     </div>
+                </SheetHeader>
+                <div className="flex-1 overflow-y-auto p-6">
+                    <Tabs defaultValue="details">
+                        <TabsList>
+                            <TabsTrigger value="details">Details</TabsTrigger>
+                            <TabsTrigger value="related">Related Items</TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="details" className="mt-4 space-y-4">
+                            <div>
+                                <h4 className="font-semibold mb-2">Contact Information</h4>
+                                <div className="text-sm space-y-2">
+                                    <p><span className="text-muted-foreground w-20 inline-block">Email:</span> {contact.email}</p>
+                                    <p><span className="text-muted-foreground w-20 inline-block">Phone:</span> {contact.phone}</p>
+                                </div>
+                            </div>
+                                <div>
+                                <h4 className="font-semibold mb-2">Notes</h4>
+                                <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md whitespace-pre-wrap">{contact.notes || "No notes for this contact."}</p>
+                                </div>
+                        </TabsContent>
+                        <TabsContent value="related" className="mt-4 space-y-6">
+                            <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
+                            <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
+                            <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
+                        </TabsContent>
+                    </Tabs>
                 </div>
             </SheetContent>
         </Sheet>
