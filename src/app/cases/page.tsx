@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -64,6 +64,9 @@ export default function CasesPage() {
   const [assignedToFilter, setAssignedToFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     const status = searchParams.get('status');
@@ -114,6 +117,7 @@ export default function CasesPage() {
   }, [cases, user]);
 
   const filteredCases = useMemo(() => {
+    setCurrentPage(1); // Reset to first page on filter change
     return userCases.filter(c => {
         const matchesStatus = statusFilter === 'all' || 
             (statusFilter === 'active' && ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)) ||
@@ -126,6 +130,42 @@ export default function CasesPage() {
         return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
     });
   }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange]);
+  
+  const paginatedCases = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredCases.slice(startIndex, endIndex);
+  }, [filteredCases, currentPage]);
+  
+  const totalPages = Math.ceil(filteredCases.length / ITEMS_PER_PAGE);
+
+  const PaginationControls = () => (
+     <div className="flex items-center justify-between pt-4">
+        <div className="text-sm text-muted-foreground">
+            Page {currentPage} of {totalPages} ({filteredCases.length} total cases)
+        </div>
+        <div className="flex items-center gap-2">
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+            >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Previous
+            </Button>
+            <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+            >
+                Next
+                <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+        </div>
+    </div>
+  );
 
 
   const MainContent = () => (
@@ -195,7 +235,7 @@ export default function CasesPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredCases.map((caseItem) => (
+            {paginatedCases.map((caseItem) => (
               <TableRow key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
                 <TableCell className="font-mono text-xs">{caseItem.id}</TableCell>
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
@@ -210,9 +250,10 @@ export default function CasesPage() {
             ))}
           </TableBody>
         </Table>
+        {totalPages > 1 && <PaginationControls />}
       </div>
        <div className="md:hidden space-y-4">
-        {filteredCases.map((caseItem) => (
+        {paginatedCases.map((caseItem) => (
           <Card key={caseItem.id} onClick={() => setSelectedCase(caseItem)} className="cursor-pointer">
             <CardContent className="p-4 space-y-2">
               <div className="flex justify-between items-start">
@@ -228,6 +269,7 @@ export default function CasesPage() {
             </CardContent>
           </Card>
         ))}
+         {totalPages > 1 && <PaginationControls />}
       </div>
     </>
   );
