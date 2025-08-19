@@ -12,8 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { User, Shield, Bell, Upload, Lock } from 'lucide-react';
-import type { User as UserType, NotificationPreferences } from '@/lib/types';
+import { User, Shield, Bell, Upload, Lock, Users as UsersIcon } from 'lucide-react';
+import type { User as UserType, NotificationPreferences, Team } from '@/lib/types';
+import { Badge } from '@/components/ui/badge';
 
 const notificationConfig = {
     cases: {
@@ -49,8 +50,6 @@ export default function ProfilePage() {
     
     const currentUser = users.find(u => u.id === user?.id);
     
-    // We'll use the global state as the single source of truth for this demo.
-    // In a real app, this would be a user-specific setting fetched from a DB.
     const [userNotificationPrefs, setUserNotificationPrefs] = useState<NotificationPreferences>(notificationPreferences);
 
     const handleProfileUpdate = (updatedData: Partial<UserType>) => {
@@ -69,8 +68,6 @@ export default function ProfilePage() {
     };
 
     const handleNotificationsSave = (newPreferences: NotificationPreferences) => {
-        // For this demo, user changes update a local version of preferences.
-        // In a real app, you'd save this to the specific user's record in a database.
         setUserNotificationPrefs(newPreferences);
         toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
     };
@@ -91,6 +88,7 @@ export default function ProfilePage() {
                     <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>
                     <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
                     <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" />Notifications</TabsTrigger>
+                    {currentUser.team && <TabsTrigger value="team"><UsersIcon className="mr-2 h-4 w-4" />My Team</TabsTrigger>}
                 </TabsList>
                 <TabsContent value="profile" className="mt-6">
                     <ProfileSettings user={currentUser} onSave={handleProfileUpdate} />
@@ -105,8 +103,64 @@ export default function ProfilePage() {
                         onSave={handleNotificationsSave} 
                     />
                 </TabsContent>
+                 {currentUser.team && 
+                    <TabsContent value="team" className="mt-6">
+                        <MyTeamView />
+                    </TabsContent>
+                }
             </Tabs>
         </div>
+    );
+}
+
+function MyTeamView() {
+    const { user: authUser } = useAuth();
+    const { users, teams } = useData();
+    
+    const myTeam = teams.find(t => t.name === authUser?.team);
+    
+    if (!myTeam) {
+        return (
+             <Card>
+                <CardHeader>
+                    <CardTitle>My Team</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-muted-foreground">You are not currently assigned to a team.</p>
+                </CardContent>
+            </Card>
+        )
+    }
+    
+    const leader = users.find(u => u.id === myTeam.leaderId);
+    const members = users.filter(u => myTeam.memberIds.includes(u.id));
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>{myTeam.name}</CardTitle>
+                <CardDescription>{myTeam.description}</CardDescription>
+                {leader && <p className="pt-2 text-sm text-muted-foreground">Led by: <span className="font-medium text-foreground">{leader.name}</span></p>}
+            </CardHeader>
+            <CardContent>
+                <h4 className="font-medium text-lg mb-4">Members ({members.length})</h4>
+                <div className="space-y-4">
+                    {members.map(member => (
+                        <div key={member.id} className="flex items-center gap-4">
+                            <Avatar>
+                                <AvatarImage src={member.avatar} data-ai-hint="person avatar" />
+                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                                <p className="font-semibold">{member.name}</p>
+                                <p className="text-sm text-muted-foreground">{member.email}</p>
+                            </div>
+                            <Badge variant="outline" className="capitalize">{member.role} {member.id === leader?.id && <span className="ml-1 font-semibold">(Leader)</span>}</Badge>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 
