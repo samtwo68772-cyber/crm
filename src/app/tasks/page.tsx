@@ -213,25 +213,28 @@ export default function TasksPage() {
         <Button variant="outline" className="w-full md:w-auto" onClick={() => { setStatusFilter('all'); setPriorityFilter('all'); setSearchQuery('')}}><X className="mr-2 h-4 w-4"/>Clear</Button>
        </div>
        
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+       <div className="space-y-8">
         {statusGroups.map(status => {
            const tasksInGroup = filteredTasks.filter(t => t.status === status);
            if (statusFilter !== 'all' && statusFilter !== 'pending' && statusFilter !== status ) {
                return null;
            }
            if (statusFilter === 'pending' && (status === 'Done' || status === 'Canceled')) return null;
+           if (tasksInGroup.length === 0 && statusFilter !== 'all' && status !== 'all' && filteredTasks.length > 0) return null;
            
            return (
-            <div key={status} className="col-span-1 md:col-span-2 lg:col-span-1 flex flex-col gap-4">
-                <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+            <div key={status}>
+                <h3 className="text-lg font-semibold tracking-tight flex items-center gap-2 mb-4">
                     {getStatusIcon(status)}
                     {status} 
                     <span className="text-sm font-normal text-muted-foreground">({tasksInGroup.length})</span>
                 </h3>
                  {tasksInGroup.length > 0 ? (
-                    tasksInGroup.map(task => (
-                        <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} />
-                    ))
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {tasksInGroup.map(task => (
+                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} />
+                        ))}
+                    </div>
                  ) : (
                     <div className="text-center py-8 text-muted-foreground text-sm border-2 border-dashed rounded-lg">No tasks in this category.</div>
                  )}
@@ -472,8 +475,9 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
                                 <SelectTrigger><SelectValue placeholder="Select a case to link" /></SelectTrigger>
                                 <SelectContent>
                                     {caseOptions.map(c => <SelectItem key={c.value} value={c.value} disabled={c.disabled}>{c.label}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                     </div>
                 </ScrollArea>
@@ -485,3 +489,4 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
         </Dialog>
     );
 }
+
