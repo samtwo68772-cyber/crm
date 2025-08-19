@@ -221,7 +221,7 @@ export default function CasesPage() {
               </div>
               <div className="text-sm text-muted-foreground space-y-1">
                   <p>ID: <span className="font-mono text-xs">{caseItem.id}</span></p>
-                  <p>Priority: <Badge variant={getPriorityVariant(caseItem.priority)} className="text-xs">{caseItem.priority}</Badge></p>
+                  <div>Priority: <Badge variant={getPriorityVariant(caseItem.priority)} className="text-xs">{caseItem.priority}</Badge></div>
                   <p>Assigned: {caseItem.assignedTo}</p>
                   <p>Created: {caseItem.createdAt}</p>
               </div>
