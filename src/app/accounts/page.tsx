@@ -23,6 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSearchParams } from 'next/navigation';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 export default function CustomersPage() {
     const searchParams = useSearchParams();
@@ -344,6 +346,7 @@ function ContactsView() {
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
   const [isDetailSheetOpen, setDetailSheetOpen] = useState(false);
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const isMobile = useIsMobile();
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -415,8 +418,8 @@ function ContactsView() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input placeholder="Search contacts..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-muted-foreground">Filter by:</span>
+            <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+                <span className="text-sm font-medium text-muted-foreground hidden sm:block">Filter by:</span>
                  <Select value={companyFilter} onValueChange={setCompanyFilter}>
                     <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Company" /></SelectTrigger>
                     <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</SelectItem>)}</SelectContent>
@@ -425,69 +428,100 @@ function ContactsView() {
                     <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
                     <SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r === 'all' ? 'All Roles' : r}</SelectItem>)}</SelectContent>
                 </Select>
-                <Button variant="outline" onClick={clearFilters}><X className="mr-2 h-4 w-4" /> Clear</Button>
+                <Button variant="outline" onClick={clearFilters} className="w-full md:w-auto"><X className="mr-2 h-4 w-4" /> Clear</Button>
             </div>
-            <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Add Contact</Button>
+            <Button onClick={openCreateForm} className="w-full md:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Add Contact</Button>
           </div>
         </CardContent>
        </Card>
 
-      <div className="border rounded-lg bg-card overflow-hidden">
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead className="w-[250px]">Name</TableHead>
-                    <TableHead>Company</TableHead>
-                    <TableHead className="hidden md:table-cell">Email</TableHead>
-                    <TableHead className="hidden lg:table-cell">Phone</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {filteredContacts.map((contact) => (
-                    <TableRow key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
-                        <TableCell>
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-10 w-10">
-                                    <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
-                                    <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <p className="font-semibold">{contact.name}</p>
-                                    <p className="text-sm text-muted-foreground">{contact.role}</p>
-                                </div>
-                            </div>
-                        </TableCell>
-                        <TableCell>{contact.company}</TableCell>
-                        <TableCell className="hidden md:table-cell">{contact.email}</TableCell>
-                        <TableCell className="hidden lg:table-cell">{contact.phone}</TableCell>
-                        <TableCell className="text-right">
-                             <div className="flex gap-1 items-center justify-end">
-                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
-                                    <Mail className="h-4 w-4" />
-                                    <span className="sr-only">Email</span>
-                                </Button>
-                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
-                                    <Phone className="h-4 w-4" />
-                                    <span className="sr-only">Call</span>
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetailSheet(contact)}}>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">View Details</span>
-                                </Button>
-                             </div>
-                        </TableCell>
+      {isMobile ? (
+         <div className="space-y-4">
+            {filteredContacts.map((contact) => (
+                <Card key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <Avatar className="h-12 w-12">
+                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
+                            <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                            <p className="font-semibold">{contact.name}</p>
+                            <p className="text-sm text-muted-foreground">{contact.role}</p>
+                            <p className="text-sm text-muted-foreground">{contact.company}</p>
+                        </div>
+                         <div className="flex flex-col gap-1">
+                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                                <Mail className="h-4 w-4" />
+                                <span className="sr-only">Email</span>
+                            </Button>
+                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                                <Phone className="h-4 w-4" />
+                                <span className="sr-only">Call</span>
+                            </Button>
+                         </div>
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+      ) : (
+        <div className="border rounded-lg bg-card overflow-hidden">
+            <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead className="w-[250px]">Name</TableHead>
+                        <TableHead>Company</TableHead>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Phone</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
-         {filteredContacts.length === 0 && (
+                </TableHeader>
+                <TableBody>
+                    {filteredContacts.map((contact) => (
+                        <TableRow key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
+                            <TableCell>
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-10 w-10">
+                                        <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
+                                        <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div>
+                                        <p className="font-semibold">{contact.name}</p>
+                                        <p className="text-sm text-muted-foreground">{contact.role}</p>
+                                    </div>
+                                </div>
+                            </TableCell>
+                            <TableCell>{contact.company}</TableCell>
+                            <TableCell>{contact.email}</TableCell>
+                            <TableCell>{contact.phone}</TableCell>
+                            <TableCell className="text-right">
+                                 <div className="flex gap-1 items-center justify-end">
+                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                                        <Mail className="h-4 w-4" />
+                                        <span className="sr-only">Email</span>
+                                    </Button>
+                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                                        <Phone className="h-4 w-4" />
+                                        <span className="sr-only">Call</span>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetailSheet(contact)}}>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                        <span className="sr-only">View Details</span>
+                                    </Button>
+                                 </div>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+      )}
+      
+       {filteredContacts.length === 0 && (
             <div className="text-center py-16 text-muted-foreground">
                 <p className="text-lg font-semibold">No contacts found</p>
                 <p>Try adjusting your search or filters.</p>
             </div>
         )}
-      </div>
       
       {selectedContact && (
         <ContactDetailSheet
