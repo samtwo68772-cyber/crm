@@ -597,7 +597,7 @@ export default function ReportsPage() {
 
             <main className="mt-8">
                 <Tabs defaultValue="overview" value={reportType} onValueChange={setReportType}>
-                    <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-4 h-auto md:h-10">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="cases">Case Reports</TabsTrigger>
                         <TabsTrigger value="performance">Performance</TabsTrigger>
