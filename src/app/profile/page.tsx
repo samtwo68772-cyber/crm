@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -15,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { User, Shield, Bell, Upload, Lock, Users as UsersIcon } from 'lucide-react';
 import type { User as UserType, NotificationPreferences, Team } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const notificationConfig = {
     cases: {
@@ -84,7 +84,7 @@ export default function ProfilePage() {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className={cn("grid w-full", currentUser.team ? "grid-cols-4" : "grid-cols-3")}>
                     <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>
                     <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
                     <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" />Notifications</TabsTrigger>
@@ -103,11 +103,9 @@ export default function ProfilePage() {
                         onSave={handleNotificationsSave} 
                     />
                 </TabsContent>
-                 {currentUser.team && 
-                    <TabsContent value="team" className="mt-6">
-                        <MyTeamView />
-                    </TabsContent>
-                }
+                <TabsContent value="team" className="mt-6">
+                    <MyTeamView />
+                </TabsContent>
             </Tabs>
         </div>
     );
