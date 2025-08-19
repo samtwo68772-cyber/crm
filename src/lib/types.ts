@@ -63,7 +63,10 @@ export type Contact = {
 export type Team = {
   id: string;
   name: string;
-  memberCount: number;
+  description: string;
+  leaderId: string;
+  memberIds: string[];
+  status: 'Active' | 'Archived';
 };
 
 export type Account = {

@@ -11,13 +11,17 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
+import { Textarea } from '@/components/ui/textarea';
+import { MultiSelect } from '@/components/ui/multi-select';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 
 
 function getStatusVariant(status: User['status']) {
@@ -63,7 +67,7 @@ export default function AdminPage() {
 }
 
 function UserManagement() {
-    const { users, setUsers, teams: mockTeams } = useData();
+    const { users, setUsers, teams } = useData();
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -182,7 +186,7 @@ function UserManagement() {
                         handleAddUser(data as Omit<User, 'id' | 'avatar'>);
                     }
                 }}
-                teams={mockTeams}
+                teams={teams}
             />
         </div>
     );
@@ -232,7 +236,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="team" className="text-right">Team</Label>
-                        <Select onValueChange={setTeam} value={team}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a team" /></SelectTrigger><SelectContent>{teams.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={setTeam} value={team}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a team" /></SelectTrigger><SelectContent>{teams.filter(t => t.status === 'Active').map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </div>
                 <DialogFooter>
@@ -245,42 +249,283 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
 }
 
 function TeamManagement() {
-    const { teams, users: mockUsers } = useData();
-    const usersInTeam = (teamName: string) => mockUsers.filter(u => u.team === teamName).length;
+    const { teams, setTeams, users, cases, tasks } = useData();
+    const { toast } = useToast();
+    const [searchQuery, setSearchQuery] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'Active' | 'Archived'>('Active');
+    const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+
+    const filteredTeams = useMemo(() => {
+        return teams.filter(team =>
+            team.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+            team.status === statusFilter
+        );
+    }, [teams, searchQuery, statusFilter]);
+
+    const handleCreateTeam = (newTeamData: Omit<Team, 'id'>) => {
+        const newTeam = { id: `team-${Date.now()}`, ...newTeamData };
+        setTeams([...teams, newTeam]);
+        setIsFormOpen(false);
+        toast({ title: "Team Created", description: `Team "${newTeam.name}" created.` });
+    };
+
+    const handleUpdateTeam = (updatedTeam: Team) => {
+        setTeams(teams.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+        setEditingTeam(null);
+        setIsFormOpen(false);
+        toast({ title: "Team Updated", description: `Team "${updatedTeam.name}" updated.` });
+    };
+
+    const handleDeleteTeam = (teamId: string) => {
+        const teamToArchive = teams.find(t => t.id === teamId);
+        if (!teamToArchive) return;
+        setTeams(teams.map(t => t.id === teamId ? { ...t, status: 'Archived' } : t));
+        toast({ title: "Team Archived", description: `Team "${teamToArchive.name}" has been archived.` });
+    };
+
+    const handleSelectTeam = (team: Team) => {
+        setSelectedTeam(team);
+        setIsSheetOpen(true);
+    };
+    
+    const openCreateForm = () => {
+        setEditingTeam(null);
+        setIsFormOpen(true);
+    };
+
+    const openEditForm = (team: Team) => {
+        setEditingTeam(team);
+        setIsSheetOpen(false);
+        setTimeout(() => setIsFormOpen(true), 150);
+    };
+
 
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-end">
-                <Button><PlusCircle className="mr-2 h-4 w-4" /> Create Team</Button>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input placeholder="Search teams..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                    </div>
+                     <Select value={statusFilter} onValueChange={(v: 'Active' | 'Archived') => setStatusFilter(v)}>
+                        <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Active">Active Teams</SelectItem>
+                            <SelectItem value="Archived">Archived Teams</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Create Team</Button>
             </div>
             <div className="rounded-md border bg-card">
                 <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Team Name</TableHead>
+                            <TableHead>Leader</TableHead>
                             <TableHead>Members</TableHead>
                             <TableHead><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {teams.map((team) => (
-                            <TableRow key={team.id}>
-                                <TableCell className="font-medium">{team.name}</TableCell>
-                                <TableCell>{usersInTeam(team.name)}</TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem>Edit</DropdownMenuItem>
-                                            <DropdownMenuItem>Manage members</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {filteredTeams.map((team) => {
+                            const leader = users.find(u => u.id === team.leaderId);
+                            return (
+                                <TableRow key={team.id} onClick={() => handleSelectTeam(team)} className="cursor-pointer">
+                                    <TableCell className="font-medium">{team.name}</TableCell>
+                                    <TableCell>{leader?.name || 'N/A'}</TableCell>
+                                    <TableCell>{team.memberIds.length}</TableCell>
+                                    <TableCell className="text-right">
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleSelectTeam(team)}}>View</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={(e) => {e.stopPropagation(); openEditForm(team)}}>Edit</DropdownMenuItem>
+                                                {team.status === 'Active' && <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleDeleteTeam(team.id)}}>Archive</DropdownMenuItem>}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })}
                     </TableBody>
                 </Table>
             </div>
+
+            {selectedTeam && (
+                <TeamDetailSheet 
+                    open={isSheetOpen}
+                    onOpenChange={setIsSheetOpen}
+                    team={selectedTeam}
+                    onEdit={() => openEditForm(selectedTeam)}
+                    onDelete={() => handleDeleteTeam(selectedTeam.id)}
+                />
+            )}
+
+            <TeamFormDialog 
+                key={editingTeam ? editingTeam.id : 'create'}
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                team={editingTeam}
+                onSave={(data, isEdit) => {
+                    if (isEdit && editingTeam) {
+                        handleUpdateTeam({ ...editingTeam, ...data });
+                    } else {
+                        handleCreateTeam(data as Omit<Team, 'id'>);
+                    }
+                }}
+            />
         </div>
+    );
+}
+
+function TeamDetailSheet({ open, onOpenChange, team, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team, onEdit: () => void, onDelete: () => void}) {
+    const { users, cases, tasks } = useData();
+    const leader = users.find(u => u.id === team.leaderId);
+    const members = users.filter(u => team.memberIds.includes(u.id));
+    const teamCases = cases.filter(c => users.find(u => u.name === c.assignedTo)?.team === team.name);
+    const teamTasks = tasks.filter(t => users.find(u => u.id === t.assignedTo)?.team === team.name);
+
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent className="w-full sm:max-w-2xl p-0">
+                <div className="flex flex-col h-full">
+                    <SheetHeader className="p-6 border-b">
+                         <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <SheetTitle className="font-headline text-2xl">{team.name}</SheetTitle>
+                                <SheetDescription>{team.description}</SheetDescription>
+                                <p className="text-sm text-muted-foreground">Leader: {leader?.name || 'N/A'}</p>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
+                                {team.status === 'Active' && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
+                                <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
+                            </div>
+                        </div>
+                    </SheetHeader>
+                    <div className="flex-1 overflow-y-auto p-6">
+                        <Tabs defaultValue="members">
+                            <TabsList>
+                                <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+                                <TabsTrigger value="cases">Cases ({teamCases.length})</TabsTrigger>
+                                <TabsTrigger value="tasks">Tasks ({teamTasks.length})</TabsTrigger>
+                            </TabsList>
+                            <TabsContent value="members" className="mt-4">
+                                <div className="space-y-2">
+                                    {members.map(member => (
+                                        <div key={member.id} className="flex items-center gap-3 p-2 rounded-md border">
+                                            <Avatar className="h-8 w-8"><AvatarImage src={member.avatar} /><AvatarFallback>{member.name.charAt(0)}</AvatarFallback></Avatar>
+                                            <div>
+                                                <p className="font-medium">{member.name} {member.id === leader?.id && <Badge variant="secondary" className="ml-2">Leader</Badge>}</p>
+                                                <p className="text-sm text-muted-foreground">{member.role}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </TabsContent>
+                             <TabsContent value="cases" className="mt-4">
+                                {teamCases.map(c => <div key={c.id} className="p-2 border rounded-md mb-2">{c.subject}</div>)}
+                                {teamCases.length === 0 && <p className="text-center text-muted-foreground py-4">No cases assigned to this team.</p>}
+                            </TabsContent>
+                             <TabsContent value="tasks" className="mt-4">
+                                {teamTasks.map(t => <div key={t.id} className="p-2 border rounded-md mb-2">{t.title}</div>)}
+                                {teamTasks.length === 0 && <p className="text-center text-muted-foreground py-4">No tasks assigned to this team.</p>}
+                            </TabsContent>
+                        </Tabs>
+                    </div>
+                </div>
+            </SheetContent>
+        </Sheet>
+    )
+}
+
+function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, onSave: (data: any, isEdit: boolean) => void }) {
+    const { users } = useData();
+    const isEditMode = !!team;
+    
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [leaderId, setLeaderId] = useState('');
+    const [memberIds, setMemberIds] = useState<string[]>([]);
+
+    const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
+    const leaderOptions = useMemo(() => users.filter(u => memberIds.includes(u.id)).map(u => ({value: u.id, label: u.name})), [users, memberIds]);
+
+    useEffect(() => {
+        if (team) {
+            setName(team.name);
+            setDescription(team.description);
+            setLeaderId(team.leaderId);
+            setMemberIds(team.memberIds);
+        } else {
+            setName('');
+            setDescription('');
+            setLeaderId('');
+            setMemberIds([]);
+        }
+    }, [team, open]);
+    
+    useEffect(() => {
+        // If the selected leader is no longer in the member list, reset it.
+        if (leaderId && !memberIds.includes(leaderId)) {
+            setLeaderId('');
+        }
+    }, [memberIds, leaderId]);
+
+    const handleSubmit = () => {
+        onSave({ name, description, leaderId, memberIds, status: team?.status || 'Active' }, isEditMode);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{isEditMode ? 'Edit Team' : 'Create New Team'}</DialogTitle>
+                    <DialogDescription>{isEditMode ? 'Update the details for this team.' : 'Fill in the details for the new team.'}</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="name">Team Name</Label>
+                        <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="description">Description</Label>
+                        <Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} />
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="members">Team Members</Label>
+                        <MultiSelect options={userOptions} selected={memberIds} onChange={setMemberIds} placeholder="Select team members..."/>
+                    </div>
+                     <div className="space-y-2">
+                        <Label htmlFor="leader">Team Leader</Label>
+                        <Select onValueChange={setLeaderId} value={leaderId} disabled={memberIds.length === 0}>
+                            <SelectTrigger><SelectValue placeholder="Select a team leader..." /></SelectTrigger>
+                            <SelectContent>{leaderOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}</SelectContent>
+                        </Select>
+                    </div>
+                    {isEditMode && team &&
+                        <div className="space-y-2">
+                           <Label htmlFor="status">Team Status</Label>
+                            <Select onValueChange={(v: 'Active' | 'Archived') => onSave({ ...team, status: v}, true)} value={team.status}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Active">Active</SelectItem>
+                                    <SelectItem value="Archived">Archived</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    }
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button type="submit" onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Create Team'}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }

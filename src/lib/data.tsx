@@ -162,9 +162,10 @@ export const tasks: Task[] = [
 ];
 
 export const teams: Team[] = [
-    { id: 'team-1', name: 'Support Tier 1', memberCount: 2 },
-    { id: 'team-2', name: 'Support Tier 2', memberCount: 1 },
-    { id: 'team-3', name: 'Management', memberCount: 1 },
+    { id: 'team-1', name: 'Support Tier 1', description: 'Handles frontline customer support and basic inquiries.', leaderId: 'user-2', memberIds: ['user-2', 'user-4'], status: 'Active' },
+    { id: 'team-2', name: 'Support Tier 2', description: 'Handles escalated technical issues and bug fixes.', leaderId: 'user-3', memberIds: ['user-3'], status: 'Active' },
+    { id: 'team-3', name: 'Management', description: 'Oversees operations and strategic decisions.', leaderId: 'user-1', memberIds: ['user-1'], status: 'Active' },
+    { id: 'team-4', name: 'Sales (Archived)', description: 'Old sales team.', leaderId: 'user-1', memberIds: [], status: 'Archived' },
 ];
 
 export const documents: Document[] = [
