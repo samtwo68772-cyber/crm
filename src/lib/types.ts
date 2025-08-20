@@ -8,6 +8,7 @@ export type User = {
   status: 'Active' | 'Inactive';
   team: string;
   avatar: string;
+  passwordHash?: string;
 };
 
 export type Case = {
@@ -133,6 +134,7 @@ export type Email = {
 };
 
 export type EmailSettingsType = {
+    id?: string;
     smtpHost: string;
     smtpPort: number;
     smtpUser: string;
@@ -164,6 +166,8 @@ export type NotificationChannel = {
 };
 
 export type NotificationPreferences = {
+    id?: string;
+    userId?: string;
     cases: {
         newAssignment: NotificationChannel;
         statusChange: NotificationChannel;
@@ -182,6 +186,7 @@ export type NotificationPreferences = {
 };
 
 export type GeneralSettingsType = {
+    id?: string;
     systemName: string;
     companyName: string;
     logoUrl: string;
@@ -196,3 +201,8 @@ export type Workflow = {
   condition: 'priority-high' | 'status-resolved' | 'task-overdue' | 'status-is-new-for-24h' | 'case-in-progress-for-3-days';
   action: 'assign-team-t2' | 'send-email-customer' | 'create-followup-task' | 'change-priority-high' | 'assign-to-manager' | 'send-escalation-email';
 };
+
+export type SessionPayload = {
+    userId: string;
+    expires: Date;
+}

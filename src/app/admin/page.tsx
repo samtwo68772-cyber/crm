@@ -3,15 +3,14 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
 import { useRouter } from 'next/navigation';
-import type { User, Team, Case, Task } from '@/lib/types';
+import type { User, Team } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X, ArrowLeft, ArrowRight } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -22,52 +21,18 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetCl
 import { Textarea } from '@/components/ui/textarea';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-
+import { createUser, updateUser, createTeam, updateTeam, archiveTeam } from './actions';
+import { useIsClient } from '@/hooks/use-is-client';
 
 function getStatusVariant(status: User['status']) {
     return status === 'Active' ? 'success' : 'secondary';
 }
 
-function getRoleVariant(role: User['role']) {
-    return role === 'admin' ? 'default' : 'outline';
+function getRoleVariant(UserRole: User['role']) {
+    return UserRole === 'admin' ? 'default' : 'outline';
 }
 
-
-export default function AdminPage() {
-    const { user } = useAuth();
-    const router = useRouter();
-
-    useEffect(() => {
-        if (user && user.role !== 'admin') {
-            router.push('/');
-        }
-    }, [user, router]);
-    
-    if (!user || user.role !== 'admin') {
-        return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
-    }
-
-    return (
-        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-            <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>
-            <Tabs defaultValue="users">
-                <TabsList>
-                    <TabsTrigger value="users">User Management</TabsTrigger>
-                    <TabsTrigger value="teams">Team Management</TabsTrigger>
-                </TabsList>
-                <TabsContent value="users">
-                    <UserManagement />
-                </TabsContent>
-                <TabsContent value="teams">
-                    <TeamManagement />
-                </TabsContent>
-            </Tabs>
-        </div>
-    );
-}
-
-function UserManagement() {
-    const { users, setUsers, teams } = useData();
+function UserManagement({ users, teams, onUpdate }: { users: User[], teams: Team[], onUpdate: () => void }) {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -95,22 +60,27 @@ function UserManagement() {
 
     const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
 
-    const handleAddUser = (newUserData: Omit<User, 'id' | 'avatar'>) => {
-        const newUser: User = {
-            id: `user-${Date.now()}`,
-            avatar: `https://placehold.co/40x40.png`,
-            ...newUserData
-        };
-        setUsers([newUser, ...users]);
-        setIsFormOpen(false);
-        toast({ title: "User Created", description: `User "${newUser.name}" has been added.` });
+    const handleAddUser = async (newUserData: Omit<User, 'id' | 'avatar'> & { password?: string }) => {
+        try {
+            await createUser(newUserData);
+            setIsFormOpen(false);
+            onUpdate();
+            toast({ title: "User Created", description: `User "${newUserData.name}" has been added.` });
+        } catch(e) {
+            toast({ variant: 'destructive', title: "Error creating user", description: (e as Error).message });
+        }
     };
 
-    const handleUpdateUser = (updatedUser: User) => {
-        setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
-        setEditingUser(null);
-        setIsFormOpen(false);
-        toast({ title: "User Updated", description: `User "${updatedUser.name}" has been updated.` });
+    const handleUpdateUser = async (userId: string, data: Partial<User>) => {
+        try {
+            await updateUser(userId, data);
+            setEditingUser(null);
+            setIsFormOpen(false);
+            onUpdate();
+            toast({ title: "User Updated", description: `User "${data.name}" has been updated.` });
+        } catch(e) {
+            toast({ variant: 'destructive', title: "Error updating user", description: (e as Error).message });
+        }
     };
     
     const openCreateForm = () => {
@@ -189,7 +159,7 @@ function UserManagement() {
                                 <TableCell>
                                     <div className="flex items-center gap-3">
                                         <Avatar className="h-8 w-8">
-                                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={user.name} />
+                                            <AvatarImage src={`https://placehold.co/40x40.png?text=${user.name.charAt(0)}`} data-ai-hint="person avatar" alt={user.name} />
                                             <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
                                         <span className="font-medium">{user.name}</span>
@@ -204,7 +174,6 @@ function UserManagement() {
                                         <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem onClick={() => openEditForm(user)}>Edit User</DropdownMenuItem>
-                                            <DropdownMenuItem>Reset Password</DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
                                 </TableCell>
@@ -227,7 +196,7 @@ function UserManagement() {
                 user={editingUser}
                 onSave={(data, isEdit) => {
                     if (isEdit && editingUser) {
-                        handleUpdateUser({ ...editingUser, ...data });
+                        handleUpdateUser(editingUser.id, data);
                     } else {
                         handleAddUser(data as Omit<User, 'id' | 'avatar'>);
                     }
@@ -245,6 +214,9 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
     const [role, setRole] = useState<User['role']>('staff');
     const [status, setStatus] = useState<User['status']>('Active');
     const [team, setTeam] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+
 
     useEffect(() => {
         if(user) {
@@ -253,13 +225,22 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
             setRole(user.role);
             setStatus(user.status);
             setTeam(user.team);
+            setPassword('');
         } else {
-            setName(''); setEmail(''); setRole('staff'); setStatus('Active'); setTeam('');
+            setName(''); setEmail(''); setRole('staff'); setStatus('Active'); setTeam(''); setPassword('');
         }
     }, [user, open]);
 
     const handleSubmit = () => {
-        onSave({ name, email, role, status, team }, isEditMode);
+        const userData: Partial<User> & { password?: string } = { name, email, role, status, team };
+        if (password && !isEditMode) {
+            userData.password = password;
+        } else if (password) {
+            // Note: In a real app, password changes for existing users would have a separate flow.
+            // This is simplified for the prototype.
+            userData.password = password;
+        }
+        onSave(userData, isEditMode);
     };
 
     return (
@@ -272,6 +253,24 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Name</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" /></div>
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" /></div>
+                    {!isEditMode && (
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="password"  className="text-right">Password</Label>
+                            <div className="col-span-3 relative">
+                                <Input id="password" type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                >
+                                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+                                </Button>
+                            </div>
+                        </div>
+                    )}
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="role" className="text-right">Role</Label>
                         <Select onValueChange={(v: User['role']) => setRole(v)} value={role}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="staff">Staff</SelectItem></SelectContent></Select>
@@ -294,8 +293,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
     );
 }
 
-function TeamManagement() {
-    const { teams, setTeams, users, cases, tasks } = useData();
+function TeamManagement({ teams: initialTeams, users, onUpdate }: { teams: Team[], users: User[], onUpdate: () => void }) {
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'Active' | 'Archived'>('Active');
@@ -305,31 +303,45 @@ function TeamManagement() {
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
     const filteredTeams = useMemo(() => {
-        return teams.filter(team =>
+        return initialTeams.filter(team =>
             team.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
             team.status === statusFilter
         );
-    }, [teams, searchQuery, statusFilter]);
+    }, [initialTeams, searchQuery, statusFilter]);
 
-    const handleCreateTeam = (newTeamData: Omit<Team, 'id'>) => {
-        const newTeam = { id: `team-${Date.now()}`, ...newTeamData };
-        setTeams([...teams, newTeam]);
-        setIsFormOpen(false);
-        toast({ title: "Team Created", description: `Team "${newTeam.name}" created.` });
+    const handleCreateTeam = async (newTeamData: Omit<Team, 'id'>) => {
+        try {
+            await createTeam(newTeamData);
+            setIsFormOpen(false);
+            onUpdate();
+            toast({ title: "Team Created", description: `Team "${newTeamData.name}" created.` });
+        } catch(e) {
+            toast({ variant: 'destructive', title: "Error creating team", description: (e as Error).message });
+        }
     };
 
-    const handleUpdateTeam = (updatedTeam: Team) => {
-        setTeams(teams.map(t => t.id === updatedTeam.id ? updatedTeam : t));
-        setEditingTeam(null);
-        setIsFormOpen(false);
-        toast({ title: "Team Updated", description: `Team "${updatedTeam.name}" updated.` });
+    const handleUpdateTeam = async (teamId: string, data: Partial<Team>) => {
+        try {
+            await updateTeam(teamId, data);
+            setEditingTeam(null);
+            setIsFormOpen(false);
+            onUpdate();
+            toast({ title: "Team Updated", description: `Team "${data.name}" updated.` });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Error updating team", description: (e as Error).message });
+        }
     };
 
-    const handleDeleteTeam = (teamId: string) => {
-        const teamToArchive = teams.find(t => t.id === teamId);
-        if (!teamToArchive) return;
-        setTeams(teams.map(t => t.id === teamId ? { ...t, status: 'Archived' } : t));
-        toast({ title: "Team Archived", description: `Team "${teamToArchive.name}" has been archived.` });
+    const handleArchiveTeam = async (teamId: string) => {
+         try {
+            const teamToArchive = initialTeams.find(t => t.id === teamId);
+            if (!teamToArchive) return;
+            await archiveTeam(teamId);
+            onUpdate();
+            toast({ title: "Team Archived", description: `Team "${teamToArchive.name}" has been archived.` });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Error archiving team", description: (e as Error).message });
+        }
     };
 
     const handleSelectTeam = (team: Team) => {
@@ -391,7 +403,7 @@ function TeamManagement() {
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleSelectTeam(team)}}>View</DropdownMenuItem>
                                                 <DropdownMenuItem onClick={(e) => {e.stopPropagation(); openEditForm(team)}}>Edit</DropdownMenuItem>
-                                                {team.status === 'Active' && <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleDeleteTeam(team.id)}}>Archive</DropdownMenuItem>}
+                                                {team.status === 'Active' && <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleArchiveTeam(team.id)}}>Archive</DropdownMenuItem>}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -408,7 +420,8 @@ function TeamManagement() {
                     onOpenChange={setIsSheetOpen}
                     team={selectedTeam}
                     onEdit={() => openEditForm(selectedTeam)}
-                    onDelete={() => handleDeleteTeam(selectedTeam.id)}
+                    onDelete={() => handleArchiveTeam(selectedTeam.id)}
+                    users={users}
                 />
             )}
 
@@ -419,22 +432,25 @@ function TeamManagement() {
                 team={editingTeam}
                 onSave={(data, isEdit) => {
                     if (isEdit && editingTeam) {
-                        handleUpdateTeam({ ...editingTeam, ...data });
+                        handleUpdateTeam(editingTeam.id, data );
                     } else {
                         handleCreateTeam(data as Omit<Team, 'id'>);
                     }
                 }}
+                users={users}
             />
         </div>
     );
 }
 
-function TeamDetailSheet({ open, onOpenChange, team, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team, onEdit: () => void, onDelete: () => void}) {
-    const { users, cases, tasks } = useData();
+function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team, users: User[], onEdit: () => void, onDelete: () => void}) {
     const leader = users.find(u => u.id === team.leaderId);
     const members = users.filter(u => team.memberIds.includes(u.id));
-    const teamCases = cases.filter(c => users.find(u => u.name === c.assignedTo)?.team === team.name);
-    const teamTasks = tasks.filter(t => users.find(u => u.id === t.assignedTo)?.team === team.name);
+    
+    // In a real app, cases and tasks would be fetched based on the team.
+    // For now, this is a placeholder.
+    const teamCases: any[] = [];
+    const teamTasks: any[] = [];
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -490,14 +506,14 @@ function TeamDetailSheet({ open, onOpenChange, team, onEdit, onDelete }: { open:
     )
 }
 
-function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, onSave: (data: any, isEdit: boolean) => void }) {
-    const { users } = useData();
+function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, users: User[], onSave: (data: any, isEdit: boolean) => void }) {
     const isEditMode = !!team;
     
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [leaderId, setLeaderId] = useState('');
     const [memberIds, setMemberIds] = useState<string[]>([]);
+    const [status, setStatus] = useState<Team['status']>('Active');
 
     const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
     const leaderOptions = useMemo(() => users.filter(u => memberIds.includes(u.id)).map(u => ({value: u.id, label: u.name})), [users, memberIds]);
@@ -508,11 +524,13 @@ function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, o
             setDescription(team.description);
             setLeaderId(team.leaderId);
             setMemberIds(team.memberIds);
+            setStatus(team.status);
         } else {
             setName('');
             setDescription('');
             setLeaderId('');
             setMemberIds([]);
+            setStatus('Active');
         }
     }, [team, open]);
     
@@ -524,7 +542,7 @@ function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, o
     }, [memberIds, leaderId]);
 
     const handleSubmit = () => {
-        onSave({ name, description, leaderId, memberIds, status: team?.status || 'Active' }, isEditMode);
+        onSave({ name, description, leaderId, memberIds, status }, isEditMode);
     };
 
     return (
@@ -557,7 +575,7 @@ function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, o
                     {isEditMode && team &&
                         <div className="space-y-2">
                            <Label htmlFor="status">Team Status</Label>
-                            <Select onValueChange={(v: 'Active' | 'Archived') => onSave({ ...team, status: v}, true)} value={team.status}>
+                            <Select onValueChange={(v: 'Active' | 'Archived') => setStatus(v)} value={status}>
                                 <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Active">Active</SelectItem>
@@ -575,4 +593,52 @@ function TeamFormDialog({ open, onOpenChange, team, onSave }: { open: boolean, o
         </Dialog>
     );
 }
+
+export default function AdminPageLoader() {
+    const { user } = useAuth();
+    const router = useRouter();
+    const isClient = useIsClient();
+    const [users, setUsers] = useState<User[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
+
+    const fetchData = async () => {
+        const [usersData, teamsData] = await Promise.all([
+            import('./actions').then(actions => actions.getUsers()),
+            import('./actions').then(actions => actions.getTeams())
+        ]);
+        setUsers(usersData);
+        setTeams(teamsData);
+    };
+
+    useEffect(() => {
+        if (!isClient || !user) return;
+
+        if (user.role !== 'admin') {
+            router.push('/');
+        } else {
+            fetchData();
+        }
+    }, [isClient, user, router]);
+
+    if (!isClient || !user || user.role !== 'admin') {
+        return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
+    }
     
+    return (
+        <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+            <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>
+            <Tabs defaultValue="users">
+                <TabsList>
+                    <TabsTrigger value="users">User Management</TabsTrigger>
+                    <TabsTrigger value="teams">Team Management</TabsTrigger>
+                </TabsList>
+                <TabsContent value="users" className="mt-6">
+                    <UserManagement users={users} teams={teams} onUpdate={fetchData} />
+                </TabsContent>
+                <TabsContent value="teams" className="mt-6">
+                    <TeamManagement teams={teams} users={users} onUpdate={fetchData} />
+                </TabsContent>
+            </Tabs>
+        </div>
+    );
+}

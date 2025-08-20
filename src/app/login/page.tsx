@@ -8,11 +8,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Logo } from '@/components/icons';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
   const { user, login } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -20,6 +28,23 @@ export default function LoginPage() {
     }
   }, [user, router]);
   
+  const handleLogin = async (role: 'admin' | 'staff') => {
+      setIsLoading(true);
+      if (!email || !password) {
+          toast({ variant: 'destructive', title: "Login Failed", description: "Please enter both email and password."});
+          setIsLoading(false);
+          return;
+      }
+      try {
+        await login(email, password, role);
+        router.push('/');
+      } catch (error) {
+        toast({ variant: 'destructive', title: "Login Failed", description: (error as Error).message });
+      } finally {
+        setIsLoading(false);
+      }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-sm">
@@ -33,16 +58,31 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="m@example.com" required />
+            <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 relative">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required />
+            <Input id="password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
+             <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-7 h-7 w-7"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={isLoading}
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
+              </Button>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => login('staff')}>Login as Staff</Button>
-          <Button variant="outline" className="w-full" onClick={() => login('admin')}>Login as Admin</Button>
+          <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => handleLogin('staff')} disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Login as Staff'}
+          </Button>
+          <Button variant="outline" className="w-full" onClick={() => handleLogin('admin')} disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Login as Admin'}
+          </Button>
         </CardFooter>
       </Card>
     </div>
