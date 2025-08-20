@@ -14,15 +14,21 @@ export async function getDocuments() {
   });
 }
 
-export async function createDocument(data: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt'>, userId: string) {
+export async function createDocument(data: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt' | 'caseId' | 'accountId'> & {linkedToId?: string; linkedToType?: 'Case' | 'Account'}, userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
+  
+  const { linkedToId, linkedToType, ...docData } = data;
+
   const newDocument = await prisma.document.create({
     data: {
-        ...data,
+        ...docData,
         uploadedBy: user?.name || 'System',
         uploadedAt: new Date().toISOString(),
+        ...(linkedToId && linkedToType === 'Case' && { case: { connect: { id: linkedToId } } }),
+        ...(linkedToId && linkedToType === 'Account' && { account: { connect: { id: linkedToId } } }),
     },
   });
+
   revalidatePath('/documents');
   
   // Example notification, could be refined
