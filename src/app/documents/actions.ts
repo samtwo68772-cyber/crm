@@ -19,14 +19,22 @@ export async function createDocument(data: Omit<Document, 'id' | 'uploadedBy' | 
   
   const { linkedToId, linkedToType, ...docData } = data;
 
+  const createData: any = {
+      ...docData,
+      uploadedBy: user?.name || 'System',
+      uploadedAt: new Date().toISOString(),
+  };
+
+  if (linkedToId && linkedToType) {
+      if (linkedToType === 'Case') {
+          createData.case = { connect: { id: linkedToId }};
+      } else if (linkedToType === 'Account') {
+          createData.account = { connect: { id: linkedToId }};
+      }
+  }
+
   const newDocument = await prisma.document.create({
-    data: {
-        ...docData,
-        uploadedBy: user?.name || 'System',
-        uploadedAt: new Date().toISOString(),
-        ...(linkedToId && linkedToType === 'Case' && { case: { connect: { id: linkedToId } } }),
-        ...(linkedToId && linkedToType === 'Account' && { account: { connect: { id: linkedToId } } }),
-    },
+    data: createData,
   });
 
   revalidatePath('/documents');
