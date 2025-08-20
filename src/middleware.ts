@@ -11,7 +11,7 @@ export default async function middleware(req: NextRequest) {
   const isProtectedRoute = protectedRoutes.includes(path);
 
   // 1. Try to get the session from the cookie
-  const cookie = cookies().get('session')?.value;
+  const cookie = (await cookies()).get('session')?.value;
   const session = cookie ? await decrypt(cookie) : null;
 
   // 2. Redirect to /login if not authenticated and trying to access a protected route

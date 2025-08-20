@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  engineType = "library"
 }
 
 datasource db {
@@ -15,214 +16,207 @@ model User {
   name                    String
   email                   String                    @unique
   passwordHash            String
-  role                    String                    @default("staff") // "admin" or "staff"
-  status                  String                    @default("Active") // "Active" or "Inactive"
-  avatar                  String?
-  teamId                  String?
-  team                    Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  ledTeam                 Team?                     @relation("TeamLeader")
-  assignedCases           Case[]
-  assignedTasks           Task[]
-  meetingsAsParticipant   Meeting[]
-  notifications           Notification[]
-  auditLogs               AuditLog[]
-  documentsUploaded       Document[]
+  role                    String
+  status                  String
+  team                    String
+  avatar                  String
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
   notificationPreferences NotificationPreferences?
 }
 
-model Team {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
-  status      String   @default("Active") // "Active" or "Archived"
-  leaderId    String   @unique
-  leader      User     @relation("TeamLeader", fields: [leaderId], references: [id])
-  members     User[]
+model NotificationPreferences {
+  id      String @id @default(cuid())
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String @unique
+  cases   Json
+  tasks   Json
+  meetings Json
 }
 
+model GeneralSettings {
+    id          String @id @default(cuid())
+    systemName  String
+    companyName String
+    logoUrl     String
+    timeZone    String
+    language    String
+}
+
+model EmailSettings {
+    id              String @id @default(cuid())
+    smtpHost        String
+    smtpPort        Int
+    smtpUser        String
+    smtpPass        String
+    smtpEncryption  String
+    imapHost        String
+    imapPort        Int
+    imapUser        String
+    imapPass        String
+    imapEncryption  String
+    configured      Boolean @default(false)
+}
+
+model GlobalNotificationPreferences {
+    id        String @id @default(cuid())
+    cases     Json
+    tasks     Json
+    meetings  Json
+}
+
+model Workflow {
+    id          String @id @default(cuid())
+    name        String
+    trigger     String
+    condition   String
+    action      String
+}
+
+model AuditLog {
+    id          String @id @default(cuid())
+    userId      String
+    action      String
+    details     String
+    timestamp   DateTime @default(now())
+}
+
+
 model Account {
-  id               String    @id @default(cuid())
-  name             String    @unique
-  industry         String?
-  owner            String?
-  createdAt        DateTime  @default(now())
-  address          String?
-  phone            String?
-  email            String?   @unique
-  website          String?
+  id        String   @id @default(cuid())
+  name      String   @unique
+  industry  String
+  owner     String
+  createdAt DateTime @default(now())
+  address   String?
+  phone     String?
+  email     String?
+  website   String?
   primaryContactId String?
-  contacts         Contact[]
-  documents        Document[]
+  contacts  Contact[]
+  documents Document[]
 }
 
 model Contact {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  email     String   @unique
+  email     String    @unique
   phone     String?
+  company   String
+  accountId String?
   role      String?
   notes     String?
   avatar    String?
-  accountId String?
-  company   String?
-  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  account   Account?  @relation(fields: [accountId], references: [id])
   cases     Case[]
   tasks     Task[]
   meetings  Meeting[]
 }
 
 model Case {
-  id                 String   @id @default(cuid())
+  id                 String          @id @default(cuid())
   subject            String
-  priority           String   @default("Medium") // "High", "Medium", "Low"
-  type               String   @default("General Question")
-  status             String   @default("New")
-  createdAt          DateTime @default(now())
-  resolvedAt         DateTime?
-  description        String?
-  satisfactionRating Int?
-  communications     Json? // Array of Communication objects
-  assignedToId       String?
-  assignedTo         User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  customer           String
+  email              String
+  priority           String
+  type               String
+  status             String
+  assignedTo         String
+  createdAt          String
+  resolvedAt         String?
+  description        String
+  communications     Communication[]
   contactId          String?
-  contact            Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contact            Contact?        @relation(fields: [contactId], references: [id])
+  satisfactionRating Int?
   tasks              Task[]
   documents          Document[]
-  meetings           Meeting[]
+}
+
+model Communication {
+  id         String @id @default(cuid())
+  type       String
+  content    String
+  author     String
+  authorRole String
+  timestamp  String
+  caseId     String?
+  case       Case?  @relation(fields: [caseId], references: [id])
 }
 
 model Task {
   id          String   @id @default(cuid())
   title       String
   description String?
-  status      String   @default("To Do") // "To Do", "In Progress", "Done", "Canceled"
-  priority    String   @default("Medium")
-  dueDate     DateTime?
-  assignedToId String?
-  assignedTo  User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
-  caseId      String?
-  case        Case?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  status      String
+  dueDate     String
+  priority    String
+  linkedCase  String?
+  assignedTo  String?
   contactId   String?
-  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  documents   Document[]
+  case        Case?    @relation(fields: [linkedCase], references: [id])
+  contact     Contact? @relation(fields: [contactId], references: [id])
 }
 
-model Meeting {
-  id           String    @id @default(cuid())
-  title        String
-  description  String?
-  date         DateTime
-  status       String    @default("Upcoming") // "Upcoming", "Completed", "Canceled"
-  notes        Json?
-  attachments  Json?
-  participants User[]
-  caseId       String?
-  case         Case?     @relation(fields: [caseId], references: [id], onDelete: SetNull)
-  contactId    String?
-  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  documents    Document[]
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  leaderId    String
+  memberIds   String[]
+  status      String
 }
 
 model Document {
-  id           String   @id @default(cuid())
+  id           String  @id @default(cuid())
   name         String
   type         String
   size         String
+  uploadedAt   String
+  uploadedBy   String
   category     String
   description  String?
+  linkedToType String
+  linkedToId   String
   previewUrl   String?
-  uploadedAt   DateTime @default(now())
-  uploadedById String
-  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
-  accountId    String?
-  account      Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  caseId       String?
-  case         Case?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
-  taskId       String?
-  task         Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  meetingId    String?
-  meeting      Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+  account      Account? @relation(fields: [linkedToId], references: [id])
+  case         Case?    @relation(fields: [linkedToId], references: [id])
+}
+
+model Meeting {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  date         String
+  status       String
+  participants String[]
+  linkedRecord String?
+  notes        Json?
+  attachments  Json?
+  contactId    String?
+  contact      Contact? @relation(fields: [contactId], references: [id])
 }
 
 model Notification {
   id          String   @id @default(cuid())
-  type        String // "case", "task", "email", "meeting"
+  type        String
   title       String
   description String
-  read        Boolean  @default(false)
-  timestamp   DateTime @default(now())
-  link        String
+  timestamp   String
+  read        Boolean
   userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  action    String
-  details   String
-  timestamp DateTime @default(now())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  link        String
 }
 
 model Email {
-  id           String   @id @default(cuid())
-  from         Json // { name: string, email: string }
-  to           Json // { name: string, email: string }
+  id           String  @id @default(cuid())
+  from         Json
+  to           Json
   subject      String
   body         String
-  date         DateTime @default(now())
-  type         String // "inbox", "sent"
-  read         Boolean  @default(false)
-  attachments  Json?
+  date         String
+  type         String
+  read         Boolean
   linkedCaseId String?
-}
-
-model Workflow {
-  id        String @id @default(cuid())
-  name      String
-  trigger   String
-  condition String
-  action    String
-}
-
-// Global settings, there should only be one row of each
-model GeneralSettings {
-  id          String  @id @default(cuid())
-  systemName  String
-  companyName String?
-  logoUrl     String?
-  timeZone    String
-  language    String
-}
-
-model EmailSettings {
-  id             String  @id @default(cuid())
-  configured     Boolean @default(false)
-  smtpHost       String?
-  smtpPort       Int?
-  smtpUser       String?
-  smtpPass       String?
-  smtpEncryption String?
-  imapHost       String?
-  imapPort       Int?
-  imapUser       String?
-  imapPass       String?
-  imapEncryption String?
-}
-
-model NotificationPreferences {
-  id       String @id @default(cuid())
-  userId   String @unique
-  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  cases    Json
-  tasks    Json
-  meetings Json
-}
-
-model GlobalNotificationPreferences {
-  id       String @id @default(cuid())
-  cases    Json
-  tasks    Json
-  meetings Json
+  attachments  Json?
 }
