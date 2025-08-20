@@ -2,7 +2,6 @@
 "use client";
 
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,11 +20,18 @@ import {
     PlusCircle,
     ChevronDown,
 } from 'lucide-react';
-import type { Case, Task, Meeting, Email, AuditLog } from '@/lib/types';
+import type { Case, Task, Meeting, Email, AuditLog, User, Account, Document } from '@/lib/types';
 import { format, parseISO, formatDistanceToNow, subDays, isAfter } from 'date-fns';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getCases } from './cases/actions';
+import { getTasks } from './tasks/actions';
+import { getEmails } from './emails/actions';
+import { getMeetings } from './meetings/actions';
+import { getContacts, getAccounts } from './accounts/actions';
+import { getUsers } from './admin/actions';
+import { getDocuments } from './documents/actions';
 
 
 function getStatusVariant(status: Case['status']) {
@@ -57,17 +63,16 @@ function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string,
     );
 }
 
-function RecentCases() {
+function RecentCases({ initialCases, allUsers }: { initialCases: Case[], allUsers: User[] }) {
     const router = useRouter();
-    const { cases, users } = useData();
     const [isOpen, setIsOpen] = useState(false);
 
     const recentCases = useMemo(() => {
         const twoWeeksAgo = subDays(new Date(), 14);
-        return cases
+        return initialCases
             .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [cases]);
+    }, [initialCases]);
 
     return (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -95,7 +100,7 @@ function RecentCases() {
                                         <div className="flex-1">
                                             <p className="font-semibold text-sm">{caseItem.subject}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                {caseItem.id} &bull; Assigned to {users.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
+                                                {caseItem.id} &bull; Assigned to {allUsers.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
                                             </p>
                                         </div>
                                         <div className="text-right">
@@ -118,8 +123,8 @@ function RecentCases() {
     );
 }
 
-function RecentActivity() {
-    const { users, cases, tasks, meetings, auditLogs } = useData();
+function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[], tasks: Task[], meetings: Meeting[], auditLogs: AuditLog[] }, allUsers: User[] }) {
+    const { cases, tasks, meetings, auditLogs } = initialData;
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
 
@@ -133,7 +138,7 @@ function RecentActivity() {
                 type: 'case',
                 description: `New case created: "${c.subject}"`,
                 timestamp: c.createdAt,
-                user: users.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
+                user: allUsers.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
             }));
 
         const taskActivities = tasks
@@ -143,7 +148,7 @@ function RecentActivity() {
                 type: 'task',
                 description: `${t.status === 'Done' ? 'Task completed' : 'New task'}: "${t.title}"`,
                 timestamp: t.dueDate, 
-                user: users.find(u => u.id === t.assignedTo)
+                user: allUsers.find(u => u.id === t.assignedTo)
             }));
 
         const meetingActivities = meetings
@@ -153,7 +158,7 @@ function RecentActivity() {
                 type: 'meeting',
                 description: `${m.status === 'Upcoming' ? 'Meeting scheduled' : 'Meeting'}: "${m.title}"`,
                 timestamp: m.date,
-                user: users.find(u => m.participants.includes(u.id))
+                user: allUsers.find(u => m.participants.includes(u.id))
             }));
         
         const auditActivities = (auditLogs || [])
@@ -163,14 +168,14 @@ function RecentActivity() {
                 type: 'audit',
                 description: log.details,
                 timestamp: log.timestamp,
-                user: users.find(u => u.id === log.userId)
+                user: allUsers.find(u => u.id === log.userId)
             }));
 
 
         return [...caseActivities, ...taskActivities, ...meetingActivities, ...auditActivities]
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    }, [cases, tasks, meetings, users, auditLogs]);
+    }, [cases, tasks, meetings, allUsers, auditLogs]);
     
 
     const getActivityDot = (type: string) => {
@@ -230,7 +235,43 @@ function RecentActivity() {
 export default function DashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const { cases, tasks, emails, meetings, contacts, accounts, users, documents } = useData();
+    const [cases, setCases] = useState<Case[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [emails, setEmails] = useState<Email[]>([]);
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [documents, setDocuments] = useState<Document[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        async function loadData() {
+            setIsLoading(true);
+            try {
+                const [
+                    casesData, tasksData, emailsData, meetingsData, 
+                    contactsData, accountsData, usersData, documentsData
+                ] = await Promise.all([
+                    getCases(), getTasks(), getEmails(), getMeetings(),
+                    getContacts(), getAccounts(), getUsers(), getDocuments()
+                ]);
+                setCases(casesData);
+                setTasks(tasksData);
+                setEmails(emailsData);
+                setMeetings(meetingsData);
+                setContacts(contactsData);
+                setAccounts(accountsData);
+                setUsers(usersData);
+                setDocuments(documentsData);
+            } catch (error) {
+                console.error("Failed to load dashboard data:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+        loadData();
+    }, []);
 
     const stats = useMemo(() => ({
         activeCases: cases.filter(c => ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)).length,
@@ -244,6 +285,15 @@ export default function DashboardPage() {
     }), [cases, tasks, emails, meetings, contacts, accounts, users, documents]);
 
     if (!user) return null;
+    
+    // In a real app, you'd have a proper loading skeleton component
+    if (isLoading) {
+        return (
+             <div className="flex h-screen w-full items-center justify-center">
+                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+            </div>
+        )
+    }
 
     return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -270,10 +320,10 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3">
-                    <RecentCases />
+                    <RecentCases initialCases={cases} allUsers={users} />
                 </div>
                 <div className="lg:col-span-2">
-                    <RecentActivity />
+                    <RecentActivity initialData={{cases, tasks, meetings, auditLogs: []}} allUsers={users} />
                 </div>
             </div>
         </div>

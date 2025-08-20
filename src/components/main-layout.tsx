@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -26,6 +25,8 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/lib/types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { getNotifications, markAllAsRead, markAsRead } from '@/app/notifications/actions';
+import { getGeneralSettings } from '@/app/settings/actions';
 
 const navItemsAdmin = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -62,23 +63,26 @@ const getNotificationIcon = (type: Notification['type']) => {
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
     const { user, logout } = useAuth();
-    const { notifications, setNotifications, generalSettings } = useData();
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-    const userNotifications = useMemo(() => {
-        if (!user) return [];
-        return notifications
-            .filter(n => user.role === 'admin' || !n.userId || n.userId === user.id)
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }, [notifications, user]);
-    
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [generalSettings, setGeneralSettings] = useState({ systemName: 'MinT CRM', logoUrl: '' });
+
+
+     useEffect(() => {
+        if (user) {
+            getNotifications(user.id).then(setNotifications);
+            getGeneralSettings().then(setGeneralSettings);
+        }
+    }, [user]);
+
     const unreadNotifications = useMemo(() => {
-        return userNotifications.filter(n => !n.read);
-    }, [userNotifications]);
+        return notifications.filter(n => !n.read);
+    }, [notifications]);
 
     const unreadCount = useMemo(() => {
         return unreadNotifications.length;
@@ -96,15 +100,20 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
     }
 
-    const handleNotificationClick = (notification: Notification) => {
-        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+    const handleNotificationClick = async (notification: Notification) => {
+        if (!notification.read) {
+            await markAsRead(notification.id);
+            setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+        }
         router.push(notification.link);
     };
 
-    const handleMarkAllAsRead = () => {
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    const handleMarkAllAsRead = async () => {
+         if (user) {
+            await markAllAsRead(user.id);
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        }
     };
-
 
     if (!user) {
         return (

@@ -5,7 +5,6 @@ import type { Metadata } from 'next';
 import { usePathname } from 'next/navigation';
 import './globals.css';
 import { AuthProvider } from '@/context/auth-context';
-import { DataProvider } from '@/context/data-context';
 import MainLayout from '@/components/main-layout';
 import { Toaster } from "@/components/ui/toaster"
 import { Inter, Space_Grotesk } from 'next/font/google'
@@ -29,10 +28,8 @@ export default function RootLayout({
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
         <AuthProvider>
-          <DataProvider>
             {isLoginPage ? children : <MainLayout>{children}</MainLayout>}
             <Toaster />
-          </DataProvider>
         </AuthProvider>
       </body>
     </html>
