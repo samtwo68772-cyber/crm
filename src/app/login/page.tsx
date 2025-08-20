@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Logo } from '@/components/icons';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPage() {
@@ -21,6 +21,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -30,20 +31,32 @@ export default function LoginPage() {
   
   const handleLogin = async () => {
       setIsLoading(true);
+      setError(null);
+
       if (!email || !password) {
-          toast({ variant: 'destructive', title: "Login Failed", description: "Please enter both email and password."});
+          setError("Please enter both email and password.");
           setIsLoading(false);
           return;
       }
+
       try {
         await login(email, password);
         router.push('/');
-      } catch (error) {
-        toast({ variant: 'destructive', title: "Login Failed", description: (error as Error).message });
+      } catch (err) {
+        if (err instanceof Error && err.message.includes('Invalid')) {
+            setError(err.message);
+        } else {
+            toast({ variant: 'destructive', title: "An unexpected error occurred", description: (err as Error).message });
+        }
       } finally {
         setIsLoading(false);
       }
   };
+
+  const handleInputChange = (setter: React.Dispatch<React.SetStateAction<string>>, value: string) => {
+      setError(null);
+      setter(value);
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
@@ -58,11 +71,11 @@ export default function LoginPage() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} disabled={isLoading} />
+            <Input id="email" type="email" placeholder="m@example.com" required value={email} onChange={(e) => handleInputChange(setEmail, e.target.value)} disabled={isLoading} />
           </div>
           <div className="space-y-2 relative">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => setPassword(e.target.value)} disabled={isLoading} />
+            <Input id="password" type={showPassword ? 'text' : 'password'} required value={password} onChange={(e) => handleInputChange(setPassword, e.target.value)} disabled={isLoading} />
              <Button
                 type="button"
                 variant="ghost"
@@ -75,6 +88,12 @@ export default function LoginPage() {
                 <span className="sr-only">{showPassword ? 'Hide password' : 'Show password'}</span>
               </Button>
           </div>
+           {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-3 rounded-md">
+                <AlertCircle className="h-4 w-4" />
+                <span>{error}</span>
+            </div>
+           )}
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
