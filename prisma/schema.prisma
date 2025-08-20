@@ -1,0 +1,228 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                      String                    @id @default(cuid())
+  name                    String
+  email                   String                    @unique
+  passwordHash            String
+  role                    String                    @default("staff") // "admin" or "staff"
+  status                  String                    @default("Active") // "Active" or "Inactive"
+  avatar                  String?
+  teamId                  String?
+  team                    Team?                     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  ledTeam                 Team?                     @relation("TeamLeader")
+  assignedCases           Case[]
+  assignedTasks           Task[]
+  meetingsAsParticipant   Meeting[]
+  notifications           Notification[]
+  auditLogs               AuditLog[]
+  documentsUploaded       Document[]
+  notificationPreferences NotificationPreferences?
+}
+
+model Team {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  status      String   @default("Active") // "Active" or "Archived"
+  leaderId    String   @unique
+  leader      User     @relation("TeamLeader", fields: [leaderId], references: [id])
+  members     User[]
+}
+
+model Account {
+  id               String    @id @default(cuid())
+  name             String    @unique
+  industry         String?
+  owner            String?
+  createdAt        DateTime  @default(now())
+  address          String?
+  phone            String?
+  email            String?   @unique
+  website          String?
+  primaryContactId String?
+  contacts         Contact[]
+  documents        Document[]
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  role      String?
+  notes     String?
+  avatar    String?
+  accountId String?
+  company   String?
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  cases     Case[]
+  tasks     Task[]
+  meetings  Meeting[]
+}
+
+model Case {
+  id                 String   @id @default(cuid())
+  subject            String
+  priority           String   @default("Medium") // "High", "Medium", "Low"
+  type               String   @default("General Question")
+  status             String   @default("New")
+  createdAt          DateTime @default(now())
+  resolvedAt         DateTime?
+  description        String?
+  satisfactionRating Int?
+  communications     Json? // Array of Communication objects
+  assignedToId       String?
+  assignedTo         User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  contactId          String?
+  contact            Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  tasks              Task[]
+  documents          Document[]
+  meetings           Meeting[]
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String   @default("To Do") // "To Do", "In Progress", "Done", "Canceled"
+  priority    String   @default("Medium")
+  dueDate     DateTime?
+  assignedToId String?
+  assignedTo  User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+  caseId      String?
+  case        Case?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  documents   Document[]
+}
+
+model Meeting {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?
+  date         DateTime
+  status       String    @default("Upcoming") // "Upcoming", "Completed", "Canceled"
+  notes        Json?
+  attachments  Json?
+  participants User[]
+  caseId       String?
+  case         Case?     @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  contactId    String?
+  contact      Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  documents    Document[]
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  name         String
+  type         String
+  size         String
+  category     String
+  description  String?
+  previewUrl   String?
+  uploadedAt   DateTime @default(now())
+  uploadedById String
+  uploadedBy   User     @relation(fields: [uploadedById], references: [id])
+  accountId    String?
+  account      Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  caseId       String?
+  case         Case?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  taskId       String?
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  meetingId    String?
+  meeting      Meeting? @relation(fields: [meetingId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String // "case", "task", "email", "meeting"
+  title       String
+  description String
+  read        Boolean  @default(false)
+  timestamp   DateTime @default(now())
+  link        String
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  details   String
+  timestamp DateTime @default(now())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Email {
+  id           String   @id @default(cuid())
+  from         Json // { name: string, email: string }
+  to           Json // { name: string, email: string }
+  subject      String
+  body         String
+  date         DateTime @default(now())
+  type         String // "inbox", "sent"
+  read         Boolean  @default(false)
+  attachments  Json?
+  linkedCaseId String?
+}
+
+model Workflow {
+  id        String @id @default(cuid())
+  name      String
+  trigger   String
+  condition String
+  action    String
+}
+
+// Global settings, there should only be one row of each
+model GeneralSettings {
+  id          String  @id @default(cuid())
+  systemName  String
+  companyName String?
+  logoUrl     String?
+  timeZone    String
+  language    String
+}
+
+model EmailSettings {
+  id             String  @id @default(cuid())
+  configured     Boolean @default(false)
+  smtpHost       String?
+  smtpPort       Int?
+  smtpUser       String?
+  smtpPass       String?
+  smtpEncryption String?
+  imapHost       String?
+  imapPort       Int?
+  imapUser       String?
+  imapPass       String?
+  imapEncryption String?
+}
+
+model NotificationPreferences {
+  id       String @id @default(cuid())
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cases    Json
+  tasks    Json
+  meetings Json
+}
+
+model GlobalNotificationPreferences {
+  id       String @id @default(cuid())
+  cases    Json
+  tasks    Json
+  meetings Json
+}
