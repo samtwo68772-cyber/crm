@@ -8,7 +8,7 @@ import { login as loginAction, logout as logoutAction, getSession, getUserById }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string, role: 'admin' | 'staff') => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -46,8 +46,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkSession();
   }, [pathname, router]);
 
-  const login = async (email: string, password: string, role: 'admin' | 'staff') => {
-    const loggedInUser = await loginAction(email, password, role);
+  const login = async (email: string, password: string) => {
+    const loggedInUser = await loginAction(email, password);
     setUser(loggedInUser);
   };
 

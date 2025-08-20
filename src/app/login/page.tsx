@@ -28,7 +28,7 @@ export default function LoginPage() {
     }
   }, [user, router]);
   
-  const handleLogin = async (role: 'admin' | 'staff') => {
+  const handleLogin = async () => {
       setIsLoading(true);
       if (!email || !password) {
           toast({ variant: 'destructive', title: "Login Failed", description: "Please enter both email and password."});
@@ -36,7 +36,7 @@ export default function LoginPage() {
           return;
       }
       try {
-        await login(email, password, role);
+        await login(email, password);
         router.push('/');
       } catch (error) {
         toast({ variant: 'destructive', title: "Login Failed", description: (error as Error).message });
@@ -77,11 +77,8 @@ export default function LoginPage() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
-          <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => handleLogin('staff')} disabled={isLoading}>
-            {isLoading ? 'Logging in...' : 'Login as Staff'}
-          </Button>
-          <Button variant="outline" className="w-full" onClick={() => handleLogin('admin')} disabled={isLoading}>
-            {isLoading ? 'Logging in...' : 'Login as Admin'}
+          <Button className="w-full" onClick={handleLogin} disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Login'}
           </Button>
         </CardFooter>
       </Card>

@@ -10,17 +10,17 @@ import type { User } from '@/lib/types';
 import { encrypt, decrypt } from '@/lib/session';
 
 
-export async function login(email: string, password: string, role: 'admin' | 'staff') {
+export async function login(email: string, password: string) {
   // This is a simplified login for the prototype.
   // In a real app, you would:
   // 1. Find the user by email in the database.
   // 2. Use a library like `bcrypt` to compare the provided password with the stored hash.
   const user = await prisma.user.findFirst({
-    where: { email, role },
+    where: { email },
   });
 
   if (!user || user.passwordHash !== password) { // Replace with bcrypt.compare in production
-    throw new Error('Invalid email, password, or role.');
+    throw new Error('Invalid email or password.');
   }
 
   // Create the session
@@ -29,7 +29,9 @@ export async function login(email: string, password: string, role: 'admin' | 'st
 
   // Save the session in a cookie
   cookies().set('session', session, { expires, httpOnly: true })
-  return user;
+  
+  const { passwordHash, ...userWithoutPassword } = user;
+  return userWithoutPassword as User;
 }
 
 export async function logout() {
