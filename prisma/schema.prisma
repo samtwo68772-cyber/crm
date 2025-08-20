@@ -176,11 +176,11 @@ model Document {
   uploadedBy   String
   category     String
   description  String?
-  linkedToType String
-  linkedToId   String
   previewUrl   String?
-  account      Account? @relation(fields: [linkedToId], references: [id])
-  case         Case?    @relation(fields: [linkedToId], references: [id])
+  accountId    String?
+  caseId       String?
+  account      Account? @relation(fields: [accountId], references: [id])
+  case         Case?    @relation(fields: [caseId], references: [id])
 }
 
 model Meeting {

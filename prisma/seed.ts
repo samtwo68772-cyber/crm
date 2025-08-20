@@ -71,11 +71,11 @@ async function main() {
 
   // Seed Accounts
   for (const account of accounts) {
-    const { primaryContactId, ...rest } = account;
+    const { primaryContactId, createdAt, ...rest } = account;
     await prisma.account.upsert({
       where: { id: account.id },
-      update: rest,
-      create: rest,
+      update: { ...rest, createdAt: new Date(createdAt) },
+      create: { ...rest, createdAt: new Date(createdAt) },
     });
   }
   console.log('Accounts seeded.');

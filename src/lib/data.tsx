@@ -169,12 +169,12 @@ export const teams: Team[] = [
 ];
 
 export const documents: Document[] = [
-    { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', linkedToId: 'case-101', linkedToType: 'Case' },
-    { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', linkedToId: 'acc-2', linkedToType: 'Account' },
-    { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', linkedToId: 'case-104', linkedToType: 'Case' },
-    { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', linkedToId: 'case-101', linkedToType: 'Case', previewUrl: 'https://placehold.co/600x400.png' },
-    { id: 'doc-5', name: 'Q2 Review Notes.docx', type: 'Document', size: '15 KB', uploadedAt: '2024-05-21', uploadedBy: 'Alex Johnson', category: 'Meeting Notes', description: 'Internal notes from the Q2 review meeting.', linkedToId: 'meet-1', linkedToType: 'Meeting' },
-    { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', linkedToId: 'acc-2', linkedToType: 'Account' }
+  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101' },
+  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2' },
+  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104' },
+  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png' },
+  // doc-5 (Meeting) omitted for now, as schema does not support meetingId
+  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2' }
 ];
 
 export const meetings: Meeting[] = [

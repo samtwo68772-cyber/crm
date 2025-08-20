@@ -86,17 +86,17 @@ export type Account = {
 };
 
 export type Document = {
-    id: string;
-    name: string;
-    type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image' | 'Meeting';
-    size: string;
-    uploadedAt: string;
-    uploadedBy: string;
-    category: 'Case File' | 'Contract' | 'Report' | 'Meeting Notes' | 'Other';
-    description?: string;
-    linkedToType: 'Case' | 'Task' | 'Account' | 'Contact' | 'Meeting';
-    linkedToId: string;
-    previewUrl?: string;
+  id: string;
+  name: string;
+  type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image' | 'Meeting';
+  size: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  category: 'Case File' | 'Contract' | 'Report' | 'Meeting Notes' | 'Other';
+  description?: string;
+  accountId?: string;
+  caseId?: string;
+  previewUrl?: string;
 };
 
 export type Meeting = {
