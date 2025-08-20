@@ -2,7 +2,9 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useData } from '@/context/data-context';
+import { getTasks, createTask, updateTask, deleteTask } from './actions';
+import { getUsers } from '../admin/actions';
+import { getCases } from '../cases/actions';
 import type { Task, User, Case } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -47,7 +49,11 @@ function getStatusIcon(status: Task['status']) {
 
 
 export default function TasksPage() {
-  const { tasks, setTasks, users: mockUsers, cases, setCases } = useData();
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
@@ -59,6 +65,28 @@ export default function TasksPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const isAdmin = user?.role === 'admin';
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+        const [tasksData, usersData, casesData] = await Promise.all([
+            getTasks(),
+            getUsers(),
+            getCases()
+        ]);
+        setTasks(tasksData);
+        setUsers(usersData);
+        setCases(casesData);
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch tasks data.' });
+    } finally {
+        setIsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   useEffect(() => {
     const status = searchParams.get('status') as TaskStatusFilter;
@@ -74,51 +102,46 @@ export default function TasksPage() {
     return tasks.filter(task => task.assignedTo === user?.id);
   }, [tasks, user, isAdmin]);
   
-  const handleDeleteTask = (taskId: string) => {
-    setTasks(tasks.filter(task => task.id !== taskId));
-    toast({
-        title: "Task Deleted",
-        description: "The task has been successfully deleted.",
-    });
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+        await deleteTask(taskId);
+        await fetchData();
+        toast({
+            title: "Task Deleted",
+            description: "The task has been successfully deleted.",
+        });
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete task.' });
+    }
   };
 
-  const handleUpdateTask = (updatedTask: Task, oldStatus?: Task['status']) => {
-    setTasks(tasks.map(task => task.id === updatedTask.id ? updatedTask : task));
-    setEditingTask(null);
-    toast({
-        title: "Task Updated",
-        description: `Task "${updatedTask.title}" has been updated.`,
-    });
-    
-    // Reopen case if task is reopened
-    if (
-        updatedTask.linkedCase && 
-        (oldStatus === 'Done' || oldStatus === 'Canceled') &&
-        (updatedTask.status === 'To Do' || updatedTask.status === 'In Progress')
-    ) {
-        const parentCase = cases.find(c => c.id === updatedTask.linkedCase);
-        if (parentCase && (parentCase.status === 'Resolved' || parentCase.status === 'Completed' || parentCase.status === 'Closed')) {
-            setCases(cases.map(c => c.id === parentCase.id ? { ...c, status: 'In Progress' } : c));
-            toast({
-                title: "Case Reopened",
-                description: `Case "${parentCase.subject}" has been reopened because a task was reactivated.`,
-            });
-        }
+  const handleUpdateTask = async (updatedTaskData: Partial<Task> & {id: string}, oldStatus?: Task['status']) => {
+    try {
+        const { id, ...data } = updatedTaskData;
+        await updateTask(id, data);
+        await fetchData();
+        setEditingTask(null);
+        toast({
+            title: "Task Updated",
+            description: `Task "${updatedTaskData.title}" has been updated.`,
+        });
+    } catch (e) {
+         toast({ variant: 'destructive', title: 'Error', description: 'Failed to update task.' });
     }
   };
   
-  const handleCreateTask = (newTaskData: Omit<Task, 'id' | 'status'>) => {
-    const newTask: Task = {
-        id: `task-${Date.now()}`,
-        status: 'To Do',
-        ...newTaskData,
-    };
-    setTasks([newTask, ...tasks]);
-    setCreateDialogOpen(false);
-    toast({
-        title: "Task Created",
-        description: `Task "${newTask.title}" has been successfully created.`,
-    });
+  const handleCreateTask = async (newTaskData: Omit<Task, 'id' | 'status'>) => {
+    try {
+        await createTask(newTaskData);
+        await fetchData();
+        setCreateDialogOpen(false);
+        toast({
+            title: "Task Created",
+            description: `Task "${newTaskData.title}" has been successfully created.`,
+        });
+    } catch (e) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to create task.' });
+    }
   };
   
   const filteredTasks = useMemo(() => {
@@ -141,6 +164,8 @@ export default function TasksPage() {
   }, [userTasks]);
 
   const statusGroups: Task['status'][] = ['To Do', 'In Progress', 'Done', 'Canceled'];
+  
+  if (isLoading) return <div>Loading tasks...</div>;
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -232,7 +257,7 @@ export default function TasksPage() {
                  {tasksInGroup.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {tasksInGroup.map(task => (
-                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} />
+                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} users={users} cases={cases} />
                         ))}
                     </div>
                  ) : (
@@ -260,20 +285,21 @@ export default function TasksPage() {
               handleCreateTask(taskData);
             }
           }}
+          users={users}
+          cases={cases}
        />
     </div>
   );
 }
 
-function TaskItem({ task, onDelete, onEdit, onUpdate }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Task, oldStatus?: Task['status']) => void; }) {
+function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Partial<Task> & {id: string}, oldStatus?: Task['status']) => void; users: User[], cases: Case[] }) {
     const { user } = useAuth();
-    const { users: mockUsers, cases: mockCases } = useData();
-    const assignedUser = mockUsers.find(u => u.id === task.assignedTo);
-    const linkedCase = mockCases.find(c => c.id === task.linkedCase);
+    const assignedUser = users.find(u => u.id === task.assignedTo);
+    const linkedCase = cases.find(c => c.id === task.linkedCase);
     const isAdmin = user?.role === 'admin';
 
     const handleStatusChange = (newStatus: Task['status']) => {
-        onUpdate({ ...task, status: newStatus }, task.status);
+        onUpdate({ id: task.id, status: newStatus }, task.status);
     };
 
     return (
@@ -332,10 +358,11 @@ interface TaskDialogProps {
   onOpenChange: (open: boolean) => void;
   task: Task | null;
   onSave: (data: any, isEdit: boolean) => void;
+  users: User[];
+  cases: Case[];
 }
 
-function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
-    const { users: mockUsers, cases: mockCases } = useData();
+function TaskDialog({ open, onOpenChange, task, onSave, users, cases }: TaskDialogProps) {
     const isEditMode = task !== null;
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -345,8 +372,8 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
     const [assignedTo, setAssignedTo] = useState<string | undefined>();
     const [linkedCase, setLinkedCase] = useState<string | undefined>();
     
-    const staffOptions = useMemo(() => mockUsers.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), [mockUsers]);
-    const caseOptions = useMemo(() => mockCases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id, disabled: ['Resolved', 'Closed', 'Completed'].includes(c.status) })), [mockCases]);
+    const staffOptions = useMemo(() => users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), [users]);
+    const caseOptions = useMemo(() => cases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id, disabled: ['Resolved', 'Closed', 'Completed'].includes(c.status) })), [cases]);
 
     useEffect(() => {
         if (isEditMode && task) {
@@ -374,7 +401,6 @@ function TaskDialog({ open, onOpenChange, task, onSave }: TaskDialogProps) {
 
     const handleSubmit = () => {
         if (!title) {
-            // Basic validation
             alert("Title is required.");
             return;
         }

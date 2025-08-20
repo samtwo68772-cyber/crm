@@ -1,9 +1,9 @@
 
 "use client";
 
-import React, { useMemo, useState } from 'react';
-import { useData } from '@/context/data-context';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
+import { getNotifications, markAsRead } from './actions';
 import type { Notification } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -26,9 +26,27 @@ const getNotificationIcon = (type: Notification['type']) => {
 
 export default function NotificationsPage() {
     const { user } = useAuth();
-    const { notifications, setNotifications } = useData();
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
+
+    const fetchData = async () => {
+        if (!user) return;
+        setIsLoading(true);
+        try {
+            const notifs = await getNotifications(user.id);
+            setNotifications(notifs);
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        fetchData();
+    }, [user]);
 
     const userNotifications = useMemo(() => {
         if (!user) return [];
@@ -44,16 +62,20 @@ export default function NotificationsPage() {
         return userNotifications;
     }, [userNotifications, filter]);
 
-    const handleNotificationClick = (notification: Notification) => {
+    const handleNotificationClick = async (notification: Notification) => {
         if (!notification.read) {
-            setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+            await markAsRead(notification.id);
+            fetchData();
         }
         router.push(notification.link);
     };
 
-    const handleMarkAllAsRead = () => {
+    const handleMarkAllAsRead = async () => {
+        // This should be a server action in a real app
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
     };
+
+    if(isLoading) return <div>Loading notifications...</div>;
 
     return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">

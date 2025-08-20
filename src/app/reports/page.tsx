@@ -1,9 +1,8 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
 import type { Case, Task, Meeting, User, Team, AuditLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -25,6 +24,12 @@ import * as XLSX from 'xlsx';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { getCases } from '../cases/actions';
+import { getTasks } from '../tasks/actions';
+import { getUsers } from '../admin/actions';
+import { getMeetings } from '../meetings/actions';
+import { getTeams } from '../admin/actions';
+import { getAuditLogs } from '../settings/actions';
 
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -96,7 +101,15 @@ type SortConfig = {
 
 
 export default function ReportsPage() {
-    const { cases: mockCases, tasks: mockTasks, users: mockUsers, meetings: mockMeetings, teams: mockTeams, auditLogs } = useData();
+    const [cases, setCases] = useState<Case[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [meetings, setMeetings] = useState<Meeting[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
+    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
+
     const router = useRouter();
     const isMobile = useIsMobile();
     const [reportType, setReportType] = useState('overview');
@@ -106,6 +119,34 @@ export default function ReportsPage() {
     const [caseCategoryFilter, setCaseCategoryFilter] = useState('all');
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [casesData, tasksData, usersData, meetingsData, teamsData, logsData] = await Promise.all([
+                getCases(),
+                getTasks(),
+                getUsers(),
+                getMeetings(),
+                getTeams(),
+                getAuditLogs()
+            ]);
+            setCases(casesData);
+            setTasks(tasksData);
+            setUsers(usersData);
+            setMeetings(meetingsData);
+            setTeams(teamsData);
+            setAuditLogs(logsData);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load report data.' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
+
 
     const filteredData = useMemo(() => {
         const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
@@ -113,13 +154,13 @@ export default function ReportsPage() {
         
         let userIdsInScope: string[] = [];
         if (teamFilter !== 'all') {
-            userIdsInScope = mockUsers.filter(u => u.team === teamFilter).map(u => u.id);
+            userIdsInScope = users.filter(u => u.team === teamFilter).map(u => u.id);
         } else if (userFilter !== 'all') {
             userIdsInScope = [userFilter];
         }
 
-        const cases = mockCases.filter(c => {
-            const assignedUser = mockUsers.find(u => u.name === c.assignedTo);
+        const filteredCases = cases.filter(c => {
+            const assignedUser = users.find(u => u.name === c.assignedTo);
             const userMatch = userFilter === 'all' || (assignedUser && assignedUser.id === userFilter);
             const teamMatch = teamFilter === 'all' || (assignedUser && assignedUser.team === teamFilter);
 
@@ -128,31 +169,31 @@ export default function ReportsPage() {
             (userFilter === 'all' ? teamMatch : userMatch)
         });
 
-        const tasks = mockTasks.filter(t => {
+        const filteredTasks = tasks.filter(t => {
              const userMatch = userFilter === 'all' || t.assignedTo === userFilter;
-             const teamMatch = teamFilter === 'all' || mockUsers.find(u => u.id === t.assignedTo)?.team === teamFilter;
+             const teamMatch = teamFilter === 'all' || users.find(u => u.id === t.assignedTo)?.team === teamFilter;
              return isWithinInterval(new Date(t.dueDate), { start: fromDate, end: toDate }) &&
              (userFilter === 'all' ? teamMatch : userMatch)
         });
 
-        const meetings = mockMeetings.filter(m => 
+        const filteredMeetings = meetings.filter(m => 
             isWithinInterval(new Date(m.date), { start: fromDate, end: toDate }) &&
             (userFilter === 'all' || m.participants.includes(userFilter)) &&
-            (teamFilter === 'all' || m.participants.some(pId => mockUsers.find(u => u.id === pId)?.team === teamFilter))
+            (teamFilter === 'all' || m.participants.some(pId => users.find(u => u.id === pId)?.team === teamFilter))
         );
         
-        const logs = auditLogs.filter(log => {
+        const filteredLogs = auditLogs.filter(log => {
              const userMatch = userFilter === 'all' || log.userId === userFilter;
-             const teamMatch = teamFilter === 'all' || mockUsers.find(u => u.id === log.userId)?.team === teamFilter;
+             const teamMatch = teamFilter === 'all' || users.find(u => u.id === log.userId)?.team === teamFilter;
              return isWithinInterval(new Date(log.timestamp), { start: fromDate, end: toDate }) &&
              (userFilter === 'all' ? teamMatch : userMatch)
         });
 
-        return { cases, tasks, meetings, logs };
-    }, [dateRange, userFilter, teamFilter, caseCategoryFilter, mockCases, mockTasks, mockMeetings, mockUsers, auditLogs]);
+        return { cases: filteredCases, tasks: filteredTasks, meetings: filteredMeetings, logs: filteredLogs };
+    }, [dateRange, userFilter, teamFilter, caseCategoryFilter, cases, tasks, meetings, users, auditLogs]);
 
     const kpiData = useMemo(() => {
-        const resolvedCases = mockCases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
+        const resolvedCases = cases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
         const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
         const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(1) : 'N/A';
         const trendData = [{value: 5}, {value: 7}, {value: 6}, {value: 8}, {value: 7}];
@@ -165,24 +206,24 @@ export default function ReportsPage() {
             tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' as const, data: trendData, positiveChange: true },
             meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' as const, data: negTrendData, positiveChange: false },
         }
-    }, [filteredData, mockCases]);
+    }, [filteredData, cases]);
     
     const teamPerformanceData = useMemo(() => {
-        let teamsToDisplay = mockTeams;
+        let teamsToDisplay = teams;
         if (userFilter !== 'all') {
-            const userTeam = mockUsers.find(u => u.id === userFilter)?.team;
-            teamsToDisplay = mockTeams.filter(t => t.name === userTeam);
+            const userTeam = users.find(u => u.id === userFilter)?.team;
+            teamsToDisplay = teams.filter(t => t.name === userTeam);
         } else if (teamFilter !== 'all') {
-             teamsToDisplay = mockTeams.filter(t => t.name === teamFilter);
+             teamsToDisplay = teams.filter(t => t.name === teamFilter);
         }
 
         return teamsToDisplay.map(team => {
-            const teamMembers = mockUsers.filter(u => u.team === team.name);
+            const teamMembers = users.filter(u => u.team === team.name);
             const memberIds = teamMembers.map(u => u.id);
             const memberNames = teamMembers.map(u => u.name);
 
-            const casesHandled = mockCases.filter(c => memberNames.includes(c.assignedTo));
-            const tasksCompleted = mockTasks.filter(t => memberIds.includes(t.assignedTo || '') && t.status === 'Done');
+            const casesHandled = cases.filter(c => memberNames.includes(c.assignedTo));
+            const tasksCompleted = tasks.filter(t => memberIds.includes(t.assignedTo || '') && t.status === 'Done');
 
             const resolvedCases = casesHandled.filter(c => c.resolvedAt);
             const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
@@ -200,11 +241,11 @@ export default function ReportsPage() {
                 satisfactionScore: satisfactionScore.toFixed(1),
             };
         });
-    }, [mockCases, mockTasks, mockUsers, mockTeams, userFilter, teamFilter]);
+    }, [cases, tasks, users, teams, userFilter, teamFilter]);
 
 
     const individualPerformanceData = useMemo(() => {
-       let usersToList = mockUsers.filter(u => u.role === 'staff');
+       let usersToList = users.filter(u => u.role === 'staff');
 
        if (userFilter !== 'all') {
            usersToList = usersToList.filter(u => u.id === userFilter);
@@ -258,7 +299,7 @@ export default function ReportsPage() {
             });
         }
         return data;
-    }, [filteredData, mockUsers, sortConfig, userFilter, teamFilter]);
+    }, [filteredData, users, sortConfig, userFilter, teamFilter]);
 
     const requestSort = (key: string) => {
         let direction: 'ascending' | 'descending' = 'ascending';
@@ -278,10 +319,10 @@ export default function ReportsPage() {
     };
     
     const caseCategories = useMemo(() => {
-        const allCasesInRange = mockCases.filter(c => {
+        const allCasesInRange = cases.filter(c => {
              const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
              const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
-             const assignedUser = mockUsers.find(u => u.name === c.assignedTo);
+             const assignedUser = users.find(u => u.name === c.assignedTo);
              const userMatch = userFilter === 'all' || (assignedUser && assignedUser.id === userFilter);
              const teamMatch = teamFilter === 'all' || (assignedUser && assignedUser.team === teamFilter);
              return isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate }) && userMatch && teamMatch;
@@ -300,7 +341,7 @@ export default function ReportsPage() {
             count: value,
             percentage: (value / allCasesInRange.length * 100)
         })).sort((a,b) => b.count - a.count);
-    }, [mockCases, dateRange, userFilter, teamFilter, mockUsers]);
+    }, [cases, dateRange, userFilter, teamFilter, users]);
 
 
     const casesByStatusData = useMemo(() => {
@@ -325,7 +366,7 @@ export default function ReportsPage() {
             const dateRangeStr = dateRange?.from ? `${format(dateRange.from, 'PPP')} - ${dateRange.to ? format(dateRange.to, 'PPP') : ''}` : 'All time';
             doc.text(`Date Range: ${dateRangeStr}`, 14, 30);
             doc.text(`Team: ${teamFilter === 'all' ? 'All Teams' : teamFilter}`, 14, 36);
-            doc.text(`User: ${userFilter === 'all' ? 'All Users' : mockUsers.find(u => u.id === userFilter)?.name}`, 14, 42);
+            doc.text(`User: ${userFilter === 'all' ? 'All Users' : users.find(u => u.id === userFilter)?.name}`, 14, 42);
 
             let startY = 50;
 
@@ -363,7 +404,7 @@ export default function ReportsPage() {
                     head: [['Timestamp', 'User', 'Action', 'Details']],
                     body: filteredData.logs.map(log => [
                         new Date(log.timestamp).toLocaleString(),
-                        mockUsers.find(u => u.id === log.userId)?.name || 'System',
+                        users.find(u => u.id === log.userId)?.name || 'System',
                         log.action,
                         log.details,
                     ]),
@@ -387,7 +428,7 @@ export default function ReportsPage() {
                  if (filteredData.logs.length === 0) { alert("No data available for export."); return; }
                  const logData = filteredData.logs.map(log => ({
                      Timestamp: new Date(log.timestamp).toLocaleString(),
-                     User: mockUsers.find(u => u.id === log.userId)?.name || 'System',
+                     User: users.find(u => u.id === log.userId)?.name || 'System',
                      Action: log.action,
                      Details: log.details,
                  }));
@@ -557,6 +598,8 @@ export default function ReportsPage() {
             </Table>
         )
     }
+    
+    if (isLoading) return <div>Loading reports...</div>
 
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
@@ -573,7 +616,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Teams</SelectItem>
-                        {mockTeams.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
+                        {teams.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                  <Select value={userFilter} onValueChange={setUserFilter}>
@@ -582,7 +625,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Users</SelectItem>
-                        {mockUsers.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                        {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                  <Button variant="outline" onClick={() => { setUserFilter('all'); setTeamFilter('all'); }}>Clear Filters</Button>

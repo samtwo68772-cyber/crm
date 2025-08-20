@@ -4,7 +4,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { users as mockUsers, teams as mockTeams, auditLogs as mockAuditLogs } from '@/lib/data.tsx';
 import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType, NotificationChannel, Workflow } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,6 +26,8 @@ import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
+import { getGeneralSettings, updateGeneralSettings, getEmailSettings, updateEmailSettings, getGlobalNotificationPreferences, updateGlobalNotificationPreferences, getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, getAuditLogs } from './actions';
+import { getUsers, getTeams } from '../admin/actions';
 
 type SecuritySettingsType = {
     passwordMinLength: number;
@@ -63,12 +63,51 @@ type ApiLog = typeof initialApiLogs[0];
 
 export default function SettingsPage() {
     const { user } = useAuth();
-    const { emailSettings, setEmailSettings, notificationPreferences, setNotificationPreferences, generalSettings, setGeneralSettings, workflows, setWorkflows } = useData();
     const { toast } = useToast();
+    const [generalSettings, setGeneralSettings] = useState<GeneralSettingsType | null>(null);
+    const [emailSettings, setEmailSettings] = useState<EmailSettingsType | null>(null);
+    const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
+    const [workflows, setWorkflows] = useState<Workflow[]>([]);
+    const [auditLogs, setAuditLogs] = useState<AuditLogType[]>([]);
+    const [users, setUsers] = useState<User[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [securitySettings, setSecuritySettings] = useState<SecuritySettingsType>(initialSecuritySettings);
     const isAdmin = user?.role === 'admin';
     const searchParams = useSearchParams()
     const defaultTab = searchParams.get('tab') || "general";
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [
+                general, email, notifications,
+                wf, logs, u, t
+            ] = await Promise.all([
+                getGeneralSettings(), getEmailSettings(), getGlobalNotificationPreferences(),
+                getWorkflows(), getAuditLogs(), getUsers(), getTeams()
+            ]);
+            setGeneralSettings(general);
+            setEmailSettings(email);
+            setNotificationPreferences(notifications);
+            setWorkflows(wf);
+            setAuditLogs(logs);
+            setUsers(u);
+            setTeams(t);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load settings.' });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    
+    useEffect(() => {
+        if (isAdmin) {
+            fetchData();
+        }
+    }, [isAdmin]);
+
     
     if (!isAdmin) {
         return (
@@ -77,6 +116,10 @@ export default function SettingsPage() {
                 <p className="text-muted-foreground">You do not have permission to view or edit system settings.</p>
             </div>
         )
+    }
+
+    if (isLoading || !generalSettings || !emailSettings || !notificationPreferences) {
+        return <div>Loading settings...</div>;
     }
 
     return (
@@ -100,31 +143,31 @@ export default function SettingsPage() {
                 </div>
                 
                 <TabsContent value="general" className="mt-6">
-                    <GeneralSettings initialSettings={generalSettings} onSave={setGeneralSettings} />
+                    <GeneralSettings initialSettings={generalSettings} onSave={fetchData} />
                 </TabsContent>
                 <TabsContent value="security" className="mt-6">
                     <SecuritySettings initialSettings={securitySettings} onSave={setSecuritySettings} />
                 </TabsContent>
                 <TabsContent value="email" className="mt-6">
-                    <EmailSettings initialSettings={emailSettings} onSave={setEmailSettings} />
+                    <EmailSettings initialSettings={emailSettings} onSave={fetchData} />
                 </TabsContent>
                 <TabsContent value="alerts" className="mt-6">
                     <AlertsSettings
                         preferences={notificationPreferences}
-                        onSave={setNotificationPreferences}
+                        onSave={fetchData}
                     />
                 </TabsContent>
                 <TabsContent value="api" className="mt-6"><ApiSettings /></TabsContent>
                 <TabsContent value="workflows" className="mt-6">
-                    <WorkflowsSettings workflows={workflows} setWorkflows={setWorkflows} />
+                    <WorkflowsSettings workflows={workflows} setWorkflows={setWorkflows} onSave={fetchData} />
                 </TabsContent>
-                <TabsContent value="audit" className="mt-6"><AuditLog /></TabsContent>
+                <TabsContent value="audit" className="mt-6"><AuditLog logs={auditLogs} users={users} /></TabsContent>
             </Tabs>
         </div>
     );
 }
 
-function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSettings: GeneralSettingsType, onSave: (data: GeneralSettingsType) => void }) {
+function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSettings: GeneralSettingsType, onSave: () => void }) {
     const [settings, setSettings] = useState<GeneralSettingsType>(initialSettings);
     const [logoPreview, setLogoPreview] = useState<string | null>(initialSettings.logoUrl);
     const { toast } = useToast();
@@ -136,12 +179,13 @@ function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSetti
         setLogoPreview(initialSettings.logoUrl);
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         const settingsToSave = { ...settings };
         if (logoPreview && logoPreview !== initialSettings.logoUrl) {
             settingsToSave.logoUrl = logoPreview;
         }
-        onSaveProp(settingsToSave);
+        await updateGeneralSettings(settingsToSave);
+        onSaveProp();
         toast({
             title: 'Settings Saved',
             description: 'Your changes have been saved successfully.',
@@ -302,7 +346,7 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
     );
 }
 
-function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSettingsType; onSave: (data: EmailSettingsType) => void; }) {
+function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSettingsType; onSave: () => void; }) {
     const [isDialogOpen, setDialogOpen] = useState(false);
     
     return (
@@ -344,7 +388,7 @@ function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSett
     );
 }
 
-function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType, onSave: (data: EmailSettingsType) => void }) {
+function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType, onSave: () => void }) {
     const [localSettings, setLocalSettings] = useState<EmailSettingsType>(settings);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const { toast } = useToast();
@@ -376,8 +420,9 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
         }, 1500);
     };
 
-    const handleSubmit = () => {
-        onSave({ ...localSettings, configured: true });
+    const handleSubmit = async () => {
+        await updateEmailSettings({ ...localSettings, configured: true });
+        onSave();
         toast({ title: 'Email Settings Saved', description: 'Your email configuration has been updated.' });
         onOpenChange(false);
     };
@@ -470,7 +515,7 @@ const notificationConfig = {
     },
 };
 
-function AlertsSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: (data: NotificationPreferences) => void; }) {
+function AlertsSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: () => void; }) {
     const [currentPreferences, setCurrentPreferences] = useState(preferences);
     const { toast } = useToast();
 
@@ -489,12 +534,10 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
             const eventPrefs = newPrefs[category][event] as NotificationChannel;
             (eventPrefs[channel] as boolean) = value;
 
-            // If mandatory is checked, inApp and email must also be checked.
             if (channel === 'mandatory' && value) {
                 eventPrefs.inApp = true;
                 eventPrefs.email = true;
             }
-             // If inApp or email is unchecked, mandatory must be unchecked.
             if ((channel === 'inApp' || channel === 'email') && !value) {
                 eventPrefs.mandatory = false;
             }
@@ -503,8 +546,9 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
         });
     };
 
-    const handleSave = () => {
-        onSave(currentPreferences);
+    const handleSave = async () => {
+        await updateGlobalNotificationPreferences(currentPreferences);
+        onSave();
         toast({ title: 'Preferences Saved', description: 'Global notification preferences have been updated.' });
     };
 
@@ -726,27 +770,29 @@ function ApiSettings() {
     );
 }
 
-function WorkflowsSettings({ workflows, setWorkflows }: { workflows: Workflow[], setWorkflows: React.Dispatch<React.SetStateAction<Workflow[]>>}) {
+function WorkflowsSettings({ workflows, setWorkflows, onSave }: { workflows: Workflow[], setWorkflows: React.Dispatch<React.SetStateAction<Workflow[]>>, onSave: () => void }) {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
     const { toast } = useToast();
 
-    const handleAddWorkflow = (newWorkflow: Omit<Workflow, 'id'>) => {
-        const workflow = { ...newWorkflow, id: `wf-${Date.now()}` };
-        setWorkflows([...workflows, workflow]);
+    const handleAddWorkflow = async (newWorkflow: Omit<Workflow, 'id'>) => {
+        await createWorkflow(newWorkflow);
+        onSave();
         setIsFormOpen(false);
-        toast({ title: 'Workflow Created', description: `Workflow "${workflow.name}" has been created.` });
+        toast({ title: 'Workflow Created', description: `Workflow "${newWorkflow.name}" has been created.` });
     };
     
-    const handleUpdateWorkflow = (updatedWorkflow: Workflow) => {
-        setWorkflows(workflows.map(wf => wf.id === updatedWorkflow.id ? updatedWorkflow : wf));
+    const handleUpdateWorkflow = async (updatedWorkflow: Workflow) => {
+        await updateWorkflow(updatedWorkflow.id, updatedWorkflow);
+        onSave();
         setEditingWorkflow(null);
         setIsFormOpen(false);
         toast({ title: 'Workflow Updated', description: `Workflow "${updatedWorkflow.name}" has been updated.` });
     };
 
-    const handleDeleteWorkflow = (workflowId: string) => {
-        setWorkflows(workflows.filter(wf => wf.id !== workflowId));
+    const handleDeleteWorkflow = async (workflowId: string) => {
+        await deleteWorkflow(workflowId);
+        onSave();
         toast({ title: 'Workflow Deleted', description: 'The workflow has been deleted.' });
     };
 
@@ -938,8 +984,7 @@ function WorkflowFormDialog({ open, onOpenChange, workflow, onSave }: { open: bo
     )
 }
 
-function AuditLog() {
-    const [logs] = useState<AuditLogType[]>(mockAuditLogs);
+function AuditLog({ logs, users }: { logs: AuditLogType[], users: User[]}) {
     const [searchQuery, setSearchQuery] = useState('');
     const [userFilter, setUserFilter] = useState('all');
     const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -954,9 +999,9 @@ function AuditLog() {
     }, [logs, searchQuery, userFilter, dateRange]);
 
     const userOptions = useMemo(() => {
-        const uniqueUsers = [...new Map(logs.map(log => [log.userId, mockUsers.find(u => u.id === log.userId)])).values()];
+        const uniqueUsers = [...new Map(logs.map(log => [log.userId, users.find(u => u.id === log.userId)])).values()];
         return uniqueUsers.filter(Boolean) as User[];
-    }, [logs]);
+    }, [logs, users]);
 
     const clearFilters = () => {
         setSearchQuery('');
@@ -1007,7 +1052,7 @@ function AuditLog() {
                         <TableBody>
                             {filteredLogs.map(log => (
                                 <TableRow key={log.id}>
-                                    <TableCell>{mockUsers.find(u => u.id === log.userId)?.name || 'System'}</TableCell>
+                                    <TableCell>{users.find(u => u.id === log.userId)?.name || 'System'}</TableCell>
                                     <TableCell><Badge variant="secondary">{log.action}</Badge></TableCell>
                                     <TableCell>{log.details}</TableCell>
                                     <TableCell>{new Date(log.timestamp).toLocaleString()}</TableCell>
@@ -1025,4 +1070,3 @@ function AuditLog() {
         </Card>
     )
 }
-

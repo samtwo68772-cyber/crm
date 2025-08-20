@@ -1,9 +1,11 @@
 
 "use client";
 
-import React, { useState, useMemo } from 'react';
-import { useData } from '@/context/data-context';
-import type { Document } from '@/lib/types';
+import React, { useState, useMemo, useEffect } from 'react';
+import { getDocuments, createDocument, updateDocument, deleteDocument } from './actions';
+import { getCases } from '../cases/actions';
+import { getAccounts } from '../accounts/actions';
+import type { Document, Case, Account } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,7 +32,11 @@ const fileTypeIcons: { [key in Document['type']]: React.ReactNode } = {
 
 
 export default function DocumentsPage() {
-  const { documents, setDocuments, cases, accounts } = useData();
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
@@ -40,6 +46,28 @@ export default function DocumentsPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [docs, caseData, accountData] = await Promise.all([
+        getDocuments(),
+        getCases(),
+        getAccounts()
+      ]);
+      setDocuments(docs);
+      setCases(caseData);
+      setAccounts(accountData);
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch documents data.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const getLinkedItemName = (doc: Document) => {
     switch (doc.linkedToType) {
@@ -59,33 +87,43 @@ export default function DocumentsPage() {
     });
   }, [documents, searchQuery, categoryFilter]);
 
-  const handleUploadDocument = (newDocData: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt'>) => {
-    const newDoc: Document = {
-      id: `doc-${Date.now()}`,
-      uploadedAt: new Date().toISOString().split('T')[0],
-      uploadedBy: user?.name || 'System',
-      ...newDocData,
-    };
-    setDocuments([newDoc, ...documents]);
-    setUploadOpen(false);
-    toast({ title: 'Document Uploaded', description: `"${newDoc.name}" has been uploaded.` });
+  const handleUploadDocument = async (newDocData: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt'>) => {
+    if (!user) return;
+    try {
+      await createDocument(newDocData, user.id);
+      fetchData();
+      setUploadOpen(false);
+      toast({ title: 'Document Uploaded', description: `"${newDocData.name}" has been uploaded.` });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+    }
   };
   
-  const handleUpdateDocument = (updatedDoc: Document) => {
-    setDocuments(documents.map(d => d.id === updatedDoc.id ? updatedDoc : d));
-    setEditingDocument(null);
-    toast({ title: 'Document Updated', description: `"${updatedDoc.name}" has been updated.` });
+  const handleUpdateDocument = async (updatedDocData: Partial<Document> & { id: string }) => {
+    try {
+      const { id, ...data } = updatedDocData;
+      await updateDocument(id, data);
+      fetchData();
+      setEditingDocument(null);
+      setExpandedDocId(id);
+      toast({ title: 'Document Updated', description: `"${updatedDocData.name}" has been updated.` });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+    }
   };
   
-  const handleDeleteDocument = (docId: string) => {
-    setDocuments(documents.filter(d => d.id !== docId));
-    setExpandedDocId(null);
-    toast({ title: 'Document Deleted', description: 'The document has been deleted.' });
+  const handleDeleteDocument = async (docId: string) => {
+    try {
+      await deleteDocument(docId);
+      fetchData();
+      setExpandedDocId(null);
+      toast({ title: 'Document Deleted', description: 'The document has been deleted.' });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
+    }
   };
   
   const handleDownload = (doc: Document) => {
-    // In a real app, this would be a link to a download URL.
-    // Here, we simulate the download with a dummy file.
     let mimeType = '';
     switch (doc.type) {
         case 'PDF': mimeType = 'application/pdf'; break;
@@ -95,7 +133,6 @@ export default function DocumentsPage() {
         default: mimeType = 'text/plain';
     }
 
-    // For image with previewUrl, we can try to fetch it
     if (doc.type === 'Image' && doc.previewUrl) {
         fetch(doc.previewUrl)
             .then(res => res.blob())
@@ -133,6 +170,8 @@ export default function DocumentsPage() {
     setSearchQuery('');
     setCategoryFilter('all');
   }
+
+  if (isLoading) return <div>Loading documents...</div>
 
   return (
     <div className="flex-1 space-y-6 pt-6">
@@ -242,13 +281,14 @@ export default function DocumentsPage() {
               handleUploadDocument(data);
             }
           }}
+          cases={cases}
+          accounts={accounts}
        />
     </div>
   );
 }
 
-function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, document: Document | null, onSave: (data: any, isEdit: boolean) => void }) {
-    const { cases: mockCases, accounts: mockAccounts } = useData();
+function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, accounts }: { open: boolean, onOpenChange: (open: boolean) => void, document: Document | null, onSave: (data: any, isEdit: boolean) => void, cases: Case[], accounts: Account[] }) {
     const isEditMode = !!document;
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
@@ -259,10 +299,10 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave }: { open: 
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
     const linkedOptions = useMemo(() => {
-        if (linkedToType === 'Case') return mockCases.map(c => ({ value: c.id, label: c.subject }));
-        if (linkedToType === 'Account') return mockAccounts.map(a => ({ value: a.id, label: a.name }));
+        if (linkedToType === 'Case') return cases.map(c => ({ value: c.id, label: c.subject }));
+        if (linkedToType === 'Account') return accounts.map(a => ({ value: a.id, label: a.name }));
         return [];
-    }, [linkedToType, mockCases, mockAccounts]);
+    }, [linkedToType, cases, accounts]);
     
     React.useEffect(() => {
         if(document) {

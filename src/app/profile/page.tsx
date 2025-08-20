@@ -1,8 +1,10 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
+import { getUserProfile, updateUserProfile, updateUserPassword, updateUserPreferences } from './actions';
+import { getTeams } from '../admin/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +17,7 @@ import { User, Shield, Bell, Upload, Lock, Users as UsersIcon } from 'lucide-rea
 import type { User as UserType, NotificationPreferences, Team } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { getGlobalNotificationPreferences } from '../settings/actions';
 
 const notificationConfig = {
     cases: {
@@ -44,35 +47,73 @@ const notificationConfig = {
 };
 
 export default function ProfilePage() {
-    const { user } = useAuth();
-    const { users, setUsers, notificationPreferences, setNotificationPreferences } = useData();
+    const { user: authUser, login } = useAuth();
     const { toast } = useToast();
     
-    const currentUser = users.find(u => u.id === user?.id);
-    
-    const [userNotificationPrefs, setUserNotificationPrefs] = useState<NotificationPreferences>(notificationPreferences);
+    const [user, setUser] = useState<UserType | null>(null);
+    const [userNotificationPrefs, setUserNotificationPrefs] = useState<NotificationPreferences | null>(null);
+    const [globalNotificationPrefs, setGlobalNotificationPrefs] = useState<NotificationPreferences | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const handleProfileUpdate = (updatedData: Partial<UserType>) => {
-        if (!currentUser) return;
-        const updatedUser = { ...currentUser, ...updatedData };
-        setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
-        toast({ title: "Profile Updated", description: "Your profile information has been saved." });
+    const fetchData = async () => {
+        if (!authUser) return;
+        setIsLoading(true);
+        try {
+            const [profile, globalPrefs] = await Promise.all([
+                getUserProfile(authUser.id),
+                getGlobalNotificationPreferences()
+            ]);
+            setUser(profile as UserType);
+            setUserNotificationPrefs(profile?.notificationPreferences as NotificationPreferences);
+            setGlobalNotificationPrefs(globalPrefs);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load profile data.'})
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        fetchData();
+    }, [authUser]);
+
+    const handleProfileUpdate = async (updatedData: Partial<UserType>) => {
+        if (!user) return;
+        try {
+            await updateUserProfile(user.id, updatedData);
+            await fetchData();
+            toast({ title: "Profile Updated", description: "Your profile information has been saved." });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update profile.'})
+        }
     };
 
-    const handlePasswordChange = (newPassword: string) => {
-        if (!newPassword) {
+    const handlePasswordChange = async (newPassword: string) => {
+        if (!newPassword || !user) {
             toast({ variant: 'destructive', title: "Error", description: "Password cannot be empty." });
             return;
         }
-        toast({ title: "Password Changed", description: "Your password has been successfully updated." });
+        try {
+            await updateUserPassword(user.id, newPassword);
+            await login(user.email, newPassword);
+            toast({ title: "Password Changed", description: "Your password has been successfully updated." });
+        } catch (e) {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.'})
+        }
     };
 
-    const handleNotificationsSave = (newPreferences: NotificationPreferences) => {
-        setUserNotificationPrefs(newPreferences);
-        toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
+    const handleNotificationsSave = async (newPreferences: NotificationPreferences) => {
+        if (!user) return;
+        try {
+            await updateUserPreferences(user.id, newPreferences);
+            await fetchData();
+            toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save preferences.'})
+        }
     };
 
-    if (!currentUser) {
+    if (isLoading || !user) {
         return <div>Loading...</div>;
     }
 
@@ -84,24 +125,26 @@ export default function ProfilePage() {
             </div>
 
             <Tabs defaultValue="profile" className="w-full">
-                 <TabsList className={cn("grid w-full", currentUser.team ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-3", "h-auto")}>
+                 <TabsList className={cn("grid w-full", user.team ? "grid-cols-2 md:grid-cols-4" : "grid-cols-1 md:grid-cols-3", "h-auto")}>
                     <TabsTrigger value="profile"><User className="mr-2 h-4 w-4" />Profile</TabsTrigger>
                     <TabsTrigger value="security"><Shield className="mr-2 h-4 w-4" />Security</TabsTrigger>
                     <TabsTrigger value="notifications"><Bell className="mr-2 h-4 w-4" />Notifications</TabsTrigger>
-                    {currentUser.team && <TabsTrigger value="team"><UsersIcon className="mr-2 h-4 w-4" />My Team</TabsTrigger>}
+                    {user.team && <TabsTrigger value="team"><UsersIcon className="mr-2 h-4 w-4" />My Team</TabsTrigger>}
                 </TabsList>
                 <TabsContent value="profile" className="mt-6">
-                    <ProfileSettings user={currentUser} onSave={handleProfileUpdate} />
+                    <ProfileSettings user={user} onSave={handleProfileUpdate} />
                 </TabsContent>
                 <TabsContent value="security" className="mt-6">
                     <SecuritySettings onSave={handlePasswordChange} />
                 </TabsContent>
                 <TabsContent value="notifications" className="mt-6">
-                    <NotificationsSettings 
-                        globalPreferences={notificationPreferences}
-                        userPreferences={userNotificationPrefs} 
-                        onSave={handleNotificationsSave} 
-                    />
+                    {globalNotificationPrefs && userNotificationPrefs && (
+                        <NotificationsSettings 
+                            globalPreferences={globalNotificationPrefs}
+                            userPreferences={userNotificationPrefs} 
+                            onSave={handleNotificationsSave} 
+                        />
+                    )}
                 </TabsContent>
                 <TabsContent value="team" className="mt-6">
                     <MyTeamView />
@@ -113,8 +156,16 @@ export default function ProfilePage() {
 
 function MyTeamView() {
     const { user: authUser } = useAuth();
-    const { users, teams } = useData();
+    const [users, setUsers] = useState<UserType[]>([]);
+    const [teams, setTeams] = useState<Team[]>([]);
     
+    useEffect(() => {
+        Promise.all([getUsers(), getTeams()]).then(([u, t]) => {
+            setUsers(u as UserType[]);
+            setTeams(t);
+        })
+    }, []);
+
     const myTeam = teams.find(t => t.name === authUser?.team);
     
     if (!myTeam) {

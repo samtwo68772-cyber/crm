@@ -2,7 +2,9 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useData } from '@/context/data-context';
+import { getMeetings, createMeeting, updateMeeting, deleteMeeting } from './actions';
+import { getCases } from '../cases/actions';
+import { getUsers } from '../admin/actions';
 import type { Meeting, Case, User } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -148,7 +150,11 @@ function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[
 
 
 export default function MeetingsPage() {
-  const { meetings, setMeetings, cases, users } = useData();
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -157,40 +163,62 @@ export default function MeetingsPage() {
   const [activeTab, setActiveTab] = useState('calendar');
   const searchParams = useSearchParams();
   const isMobile = useIsMobile();
+  
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const isAdmin = user?.role === 'admin';
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const [meetingsData, casesData, usersData] = await Promise.all([
+        getMeetings(),
+        getCases(),
+        getUsers()
+      ]);
+      setMeetings(meetingsData);
+      setCases(casesData);
+      setUsers(usersData);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch meetings data.' });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (searchParams.get('filter') === 'upcoming') {
         setActiveTab('upcoming');
     }
   }, [searchParams]);
-  
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isAdmin = user?.role === 'admin';
 
-  const handleUpdateMeeting = (updatedMeeting: Meeting) => {
-    setMeetings(meetings.map(m => m.id === updatedMeeting.id ? updatedMeeting : m));
+  const handleUpdateMeeting = async (updatedMeetingData: Partial<Meeting> & { id: string }) => {
+    const { id, ...data } = updatedMeetingData;
+    await updateMeeting(id, data);
+    await fetchData();
     setEditDialogOpen(false);
-    setSelectedMeeting(updatedMeeting);
-    toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeeting.title}" has been updated.` });
+    setSelectedMeeting(prev => prev ? { ...prev, ...data } as Meeting : null);
+    toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeetingData.title}" has been updated.` });
   };
   
-   const handleDeleteMeeting = (meetingId: string) => {
-    setMeetings(meetings.filter(m => m.id !== meetingId));
+   const handleDeleteMeeting = async (meetingId: string) => {
+    await deleteMeeting(meetingId);
+    await fetchData();
     setEditDialogOpen(false);
     setIsSheetOpen(false);
     setSelectedMeeting(null);
     toast({ title: 'Meeting Canceled', description: `The meeting has been canceled.` });
   };
 
-  const handleCreateMeeting = (newMeetingData: Omit<Meeting, 'id'>) => {
-    const newMeeting: Meeting = {
-      id: `meet-${Date.now()}`,
-      ...newMeetingData
-    };
-    setMeetings([newMeeting, ...meetings]);
+  const handleCreateMeeting = async (newMeetingData: Omit<Meeting, 'id'>) => {
+    await createMeeting(newMeetingData);
+    await fetchData();
     setCreateDialogOpen(false);
-    toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeeting.title}" has been scheduled.` });
+    toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeetingData.title}" has been scheduled.` });
   };
 
   const userMeetings = useMemo(() => {
@@ -211,6 +239,7 @@ export default function MeetingsPage() {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
+  if (isLoading) return <div>Loading meetings...</div>
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -297,6 +326,8 @@ export default function MeetingsPage() {
                 onOpenChange={setIsSheetOpen} 
                 meeting={selectedMeeting} 
                 onEdit={() => { setIsSheetOpen(false); setTimeout(() => setEditDialogOpen(true), 150); }} 
+                cases={cases}
+                users={users}
             />
             <EditMeetingDialog 
                 open={isEditDialogOpen} 
@@ -320,9 +351,8 @@ export default function MeetingsPage() {
   );
 }
 
-function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void }) {
+function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void, cases: Case[], users: User[] }) {
     const { user } = useAuth();
-    const { cases, users } = useData();
     const isAdmin = user?.role === 'admin';
     const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
 
@@ -362,7 +392,7 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit }: { open: boo
 }
 
 
-function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Meeting) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
+function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Partial<Meeting> & {id: string}) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
   
   const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);

@@ -4,8 +4,12 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { useData } from '@/context/data-context';
-import type { Email, Contact, Case, Account } from '@/lib/types';
+import { getEmails, processIncomingEmails, markEmailAsRead, createCaseFromEmail } from './actions';
+import { getContacts, createContact } from '../accounts/actions';
+import { getAccounts } from '../accounts/actions';
+import { getCases, createCase } from '../cases/actions';
+import { getEmailSettings } from '../settings/actions';
+import type { Email, Contact, Case, Account, EmailSettingsType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,7 +54,11 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 
 function EmailClientView() {
-    const { emails, setEmails, cases, setCases, contacts, setContacts, accounts } = useData();
+    const [emails, setEmails] = useState<Email[]>([]);
+    const [contacts, setContacts] = useState<Contact[]>([]);
+    const [accounts, setAccounts] = useState<Account[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
@@ -60,10 +68,31 @@ function EmailClientView() {
     const [isConfirmCreateContactOpen, setConfirmCreateContactOpen] = useState(false);
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
-    const [processedEmailIds, setProcessedEmailIds] = useState(new Set<string>());
     const searchParams = useSearchParams();
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
+
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [emailsData, contactsData, accountsData] = await Promise.all([
+                getEmails(),
+                getContacts(),
+                getAccounts()
+            ]);
+            setEmails(emailsData);
+            setContacts(contactsData);
+            setAccounts(accountsData);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch email data.'})
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        fetchData();
+    }, []);
 
     useEffect(() => {
         if (searchParams.get('filter') === 'unread') {
@@ -72,99 +101,21 @@ function EmailClientView() {
         }
     }, [searchParams]);
 
-    const processIncomingEmails = () => {
+    const handleProcessEmails = async () => {
         setIsProcessing(true);
-        let processedCount = 0;
-        let casesCreated = 0;
-        let contactsCreated = 0;
-    
-        // Important: Filter only emails that have NOT been processed yet.
-        const emailsToProcess = emails.filter(e => e.type === 'inbox' && !processedEmailIds.has(e.id) && !e.linkedCaseId);
-    
-        if (emailsToProcess.length === 0) {
+        try {
+            await processIncomingEmails();
+            await fetchData();
+            toast({
+                title: "Email Processing Complete",
+                description: `Processed incoming emails. New cases may have been created.`,
+            });
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to process emails.'})
+        } finally {
             setIsProcessing(false);
-            return;
         }
-
-        let currentCases = [...cases];
-        let currentContacts = [...contacts];
-        let currentEmails = [...emails];
-        let newProcessedIds = new Set(processedEmailIds);
-        
-        emailsToProcess.forEach(email => {
-            processedCount++;
-            let contact = currentContacts.find(c => c.email === email.from.email);
-
-            if (!contact) {
-                const newContact: Contact = {
-                    id: `contact-${Date.now()}-${Math.random()}`,
-                    name: email.from.name,
-                    email: email.from.email,
-                    phone: '',
-                    company: 'Unknown',
-                    accountId: '',
-                    role: 'Unknown',
-                    avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
-                };
-                currentContacts.push(newContact);
-                contact = newContact;
-                contactsCreated++;
-            }
-            
-            const caseNumbers = currentCases.map(c => parseInt(c.id.split('-')[1], 10));
-            const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
-            
-            const newCase: Case = {
-                id: `case-${newCaseNumber}`,
-                subject: email.subject,
-                customer: contact.name,
-                email: contact.email,
-                priority: 'Medium',
-                type: 'General Question',
-                status: 'New',
-                assignedTo: 'Unassigned',
-                createdAt: new Date().toISOString().split('T')[0],
-                description: email.body,
-                communications: [{
-                    id: `comm-${Date.now()}`,
-                    type: 'Email',
-                    content: `Original email from ${email.from.name}:\n\n${email.body}`,
-                    author: email.from.name,
-                    authorRole: 'staff',
-                    timestamp: new Date(email.date).toLocaleString(),
-                }],
-                contactId: contact.id
-            };
-            currentCases.push(newCase);
-            casesCreated++;
-    
-            currentEmails = currentEmails.map(e => e.id === email.id ? { ...e, linkedCaseId: newCase.id } : e);
-            newProcessedIds.add(email.id);
-        });
-    
-        // Batch state updates
-        setTimeout(() => {
-            setContacts(currentContacts);
-            setCases(currentCases);
-            setEmails(currentEmails);
-            setProcessedEmailIds(newProcessedIds);
-
-            if (processedCount > 0) {
-                 toast({
-                    title: "Email Processing Complete",
-                    description: `Processed ${processedCount} emails. Created ${casesCreated} cases and ${contactsCreated} new contacts.`,
-                });
-            }
-           
-            setIsProcessing(false);
-        }, 500);
     };
-    
-    useEffect(() => {
-        // Initial processing on load
-        processIncomingEmails();
-    }, []); // Removed interval to prevent re-processing
-
 
     const filteredEmails = useMemo(() => {
         let sortedEmails = emails
@@ -188,85 +139,51 @@ function EmailClientView() {
     }, [emails, mailbox, searchQuery, showUnread]);
     
 
-    const handleSelectEmail = (email: Email) => {
+    const handleSelectEmail = async (email: Email) => {
         setSelectedEmail(email);
         setIsSheetOpen(true);
         if (!email.read) {
+            await markEmailAsRead(email.id);
             setEmails(emails.map(e => e.id === email.id ? { ...e, read: true } : e));
         }
     };
     
-    const createCaseForContact = (contact: Contact, email: Email) => {
-         const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
-         const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
-        
-         const newCase: Case = {
-            id: `case-${newCaseNumber}`,
-            subject: email.subject,
-            customer: contact.name,
-            email: contact.email,
-            priority: 'Medium',
-            type: 'General Question',
-            status: 'New',
-            assignedTo: 'Unassigned',
-            createdAt: new Date().toISOString().split('T')[0],
-            description: email.body,
-            communications: [{
-                id: `comm-${Date.now()}`,
-                type: 'Email',
-                content: `Original email received from ${email.from.name}:\n\n${email.body}`,
-                author: email.from.name,
-                authorRole: 'staff',
-                timestamp: new Date(email.date).toLocaleString(),
-            }],
-            contactId: contact.id
-        };
-        
-        setCases(prev => [newCase, ...prev]);
-        setEmails(prev => prev.map(e => e.id === email.id ? {...e, linkedCaseId: newCase.id} : e));
-        setSelectedEmail(prev => prev ? {...prev, linkedCaseId: newCase.id} : null);
-        
-        toast({
-            title: "Case Created",
-            description: `New case "${newCase.subject}" has been created and linked to this email.`,
-        });
-
-        return newCase;
-    }
-    
-    const handleCreateCaseFromEmail = (email: Email) => {
-        const relatedContact = contacts.find(c => c.email === email.from.email);
-        
-        if (relatedContact) {
-            createCaseForContact(relatedContact, email);
-        } else {
-            setEmailForNewContact(email);
-            setConfirmCreateContactOpen(true);
+    const handleCreateCaseFromEmail = async (email: Email) => {
+        try {
+            const newCase = await createCaseFromEmail(email.id);
+            await fetchData();
+            setSelectedEmail(prev => prev ? {...prev, linkedCaseId: newCase.id} : null);
+            toast({
+                title: "Case Created",
+                description: `New case "${newCase.subject}" has been created and linked to this email.`,
+            });
+        } catch (e) {
+            if ((e as Error).message.includes('Contact not found')) {
+                setEmailForNewContact(email);
+                setConfirmCreateContactOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error', description: 'Failed to create case from email.'})
+            }
         }
     };
     
-    const handleAddContactAndCreateCase = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
-        const newContact: Contact = {
-          id: `contact-${Date.now()}-${Math.random()}`,
-          avatar: '/avatars/placeholder.png',
-          ...newContactData
-        };
-        setContacts(prev => [newContact, ...prev]);
-        setContactCreateOpen(false);
-        
-        toast({ title: "Contact Created", description: `Contact "${newContact.name}" has been successfully created. Now creating case.` });
+    const handleAddContactAndCreateCase = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
+        try {
+            await createContact(newContactData);
+            setContactCreateOpen(false);
+            
+            toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created. Now creating case.` });
 
-        if(emailForNewContact) {
-            createCaseForContact(newContact, emailForNewContact);
-        }
-        setEmailForNewContact(null);
-    };
-
-    const handleProcessEmailsManual = () => {
-        if (!isProcessing) {
-             processIncomingEmails();
+            if(emailForNewContact) {
+                await handleCreateCaseFromEmail(emailForNewContact);
+            }
+            setEmailForNewContact(null);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to create contact.'})
         }
     };
+
+    if (isLoading) return <div>Loading emails...</div>
 
     const DesktopView = () => (
         <div className="flex-1 overflow-y-auto">
@@ -347,7 +264,7 @@ function EmailClientView() {
                         </Button>
                     </div>
                     <Button 
-                        onClick={handleProcessEmailsManual} 
+                        onClick={handleProcessEmails} 
                         disabled={isProcessing}
                         variant="outline"
                         size="sm"
@@ -392,6 +309,7 @@ function EmailClientView() {
                 initialName={emailForNewContact?.from.name}
                 onSave={handleAddContactAndCreateCase}
                 onCancel={() => setEmailForNewContact(null)}
+                accounts={accounts}
             />
         </div>
     );
@@ -469,8 +387,7 @@ function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: b
     );
 }
 
-function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave, onCancel }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void, onCancel: () => void }) {
-    const { accounts } = useData();
+function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave, onCancel, accounts }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void, onCancel: () => void, accounts: Account[] }) {
     const [name, setName] = useState(initialName || '');
     const [email, setEmail] = useState(initialEmail || '');
     const [phone, setPhone] = useState('');
@@ -488,7 +405,7 @@ function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSa
 
     const handleSubmit = () => {
         const selectedAccount = accounts.find(acc => acc.name === company);
-        onSave({ name, email, phone, company, accountId: selectedAccount?.id || '', role, notes });
+        onSave({ name, email, phone, company, accountId: selectedAccount?.id || null, role, notes });
     };
     
     const handleOpenChange = (isOpen: boolean) => {
@@ -547,7 +464,15 @@ function NotConfiguredView() {
 
 
 export default function EmailsPage() {
-    const { emailSettings } = useData();
+    const [emailSettings, setEmailSettings] = useState<EmailSettingsType | null>(null);
+
+    useEffect(() => {
+        getEmailSettings().then(setEmailSettings);
+    }, [])
+
+    if (!emailSettings) {
+        return <div>Loading settings...</div>
+    }
 
     return (
         <div className="flex-1 p-0 flex flex-col h-[calc(100vh_-_5rem)]">
