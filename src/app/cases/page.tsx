@@ -3,8 +3,11 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { DateRange } from "react-day-picker"
-import { useData } from '@/context/data-context';
-import type { Case, User, Communication, Task, Notification } from '@/lib/types';
+import { getCases, createCase, updateCase, addCommunicationToCase } from './actions';
+import { getTasks, updateTask as updateTaskAction } from '../tasks/actions';
+import { getUsers } from '../admin/actions';
+import { getWorkflows } from '../settings/actions';
+import type { Case, User, Communication, Task, Notification, Workflow, Team } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -50,7 +53,12 @@ function getStatusVariant(status: Case['status']) {
 
 
 export default function CasesPage() {
-  const { cases, setCases, users: mockUsers, tasks, setTasks, setNotifications, workflows } = useData();
+  const [cases, setCases] = useState<Case[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [selectedCase, setSelectedCase] = useState<Case | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const { user } = useAuth();
@@ -68,6 +76,31 @@ export default function CasesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
+  const fetchData = async () => {
+      setIsLoading(true);
+      try {
+          const [casesData, usersData, tasksData, workflowsData] = await Promise.all([
+              getCases(),
+              getUsers(),
+              getTasks(),
+              getWorkflows()
+          ]);
+          setCases(casesData);
+          setUsers(usersData);
+          setTasks(tasksData);
+          setWorkflows(workflowsData);
+      } catch (error) {
+          toast({ variant: "destructive", title: "Error", description: "Failed to fetch page data." });
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+
   useEffect(() => {
     const status = searchParams.get('status');
     if (status === 'active') {
@@ -75,39 +108,28 @@ export default function CasesPage() {
     }
   }, [searchParams]);
 
-  const handleCreateCase = (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
-    const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
-    const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
-    
-    let newCase: Case = {
-      id: `case-${newCaseNumber}`,
-      createdAt: new Date().toISOString().split('T')[0],
-      communications: [],
-      ...newCaseData
-    };
-    
-    setCases(prevCases => [newCase, ...prevCases]);
-    setCreateDialogOpen(false);
-    toast({
-        title: "Case Created",
-        description: `New case "${newCase.subject}" has been created.`,
-    });
+  const handleCreateCase = async (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
+    try {
+        await createCase(newCaseData);
+        await fetchData();
+        setCreateDialogOpen(false);
+        toast({ title: "Case Created", description: `New case "${newCaseData.subject}" has been created.` });
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error creating case", description: (e as Error).message });
+    }
   };
   
-  const handleAssignCase = (caseId: string, userId: string) => {
-    const assignedUser = mockUsers.find(u => u.id === userId);
-    if (!assignedUser) return;
-    setCases(cases.map(c => c.id === caseId ? { ...c, assignedTo: assignedUser.name } : c));
-  };
-  
-  const handleUpdateCase = (updatedCase: Case) => {
-    setCases(cases.map(c => c.id === updatedCase.id ? updatedCase : c));
-    setSelectedCase(updatedCase);
-    if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
-       toast({
-        title: `Case ${updatedCase.status}`,
-        description: `Case "${updatedCase.subject}" has been marked as ${updatedCase.status.toLowerCase()}.`,
-      })
+  const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
+    try {
+        const { id, ...data } = updatedCaseData;
+        await updateCase(id, data);
+        await fetchData();
+        setSelectedCase(prev => prev ? { ...prev, ...data } as Case : null);
+        if (data.status === 'Completed' || data.status === 'Closed' || data.status === 'Declined' || data.status === 'Resolved') {
+           toast({ title: `Case ${data.status}`, description: `Case "${updatedCaseData.subject}" has been marked as ${data.status.toLowerCase()}.` });
+        }
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error updating case", description: (e as Error).message });
     }
   };
   
@@ -124,12 +146,13 @@ export default function CasesPage() {
             c.status === statusFilter;
         const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
         const matchesType = typeFilter === 'all' || c.type === typeFilter;
-        const matchesAssignedTo = assignedToFilter === 'all' || c.assignedTo === c.assignedTo || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
+        const assignedUser = users.find(u => u.name === c.assignedTo);
+        const matchesAssignedTo = assignedToFilter === 'all' || (assignedUser && assignedUser.id === assignedToFilter) || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
         const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
         return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
     });
-  }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange]);
+  }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users]);
   
   const paginatedCases = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -166,6 +189,10 @@ export default function CasesPage() {
         </div>
     </div>
   );
+
+  if (isLoading) {
+      return <div>Loading...</div>;
+  }
 
 
   const MainContent = () => (
@@ -215,7 +242,7 @@ export default function CasesPage() {
                 <SelectContent>
                     <SelectItem value="all">All Users</SelectItem>
                     <SelectItem value="Unassigned">Unassigned</SelectItem>
-                    {mockUsers.map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
+                    {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                 </SelectContent>
             </Select>
           )}
@@ -250,7 +277,7 @@ export default function CasesPage() {
             ))}
           </TableBody>
         </Table>
-        {totalPages > 1 && <PaginationControls />}
+        {totalPages > 1 && <div className='p-4 border-t'><PaginationControls /></div>}
       </div>
        <div className="md:hidden space-y-4">
         {paginatedCases.map((caseItem) => (
@@ -285,18 +312,20 @@ export default function CasesPage() {
                     caseItem={selectedCase} 
                     onUpdateCase={handleUpdateCase} 
                     onBack={() => setSelectedCase(null)}
+                    users={users}
+                    tasks={tasks}
+                    onTasksUpdate={fetchData}
                 />
             </SheetContent>
         </Sheet>
       )}
 
-      <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} />
+      <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} users={users} cases={cases} workflows={workflows}/>
     </div>
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, onUpdateCase: (caseItem: Case) => void, onBack: () => void }) {
-  const { users: mockUsers, tasks, setTasks } = useData();
+function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks, onTasksUpdate }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onBack: () => void, users: User[], tasks: Task[], onTasksUpdate: () => void }) {
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
   const [communications, setCommunications] = useState(caseItem.communications || []);
@@ -314,16 +343,17 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
   const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
   const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
 
-  const handleAddCommunication = (type: 'Finding' | 'Note' | 'Email' | 'Resolution', content: string) => {
+  const handleAddCommunication = async (type: 'Finding' | 'Note' | 'Email' | 'Resolution', content: string) => {
     if (content.trim()) {
-      const newComm: Communication = {
-        id: `comm-${Date.now()}`, type, content, author: user?.name || 'System', authorRole: user?.role || 'staff', timestamp: new Date().toLocaleString(),
-      };
-      const updatedComms = [...communications, newComm];
-      setCommunications(updatedComms);
-      onUpdateCase({ ...caseItem, communications: updatedComms });
-      if(type === 'Finding') setFinding('');
-      if(type === 'Note') setNote('');
+      const newComm: Omit<Communication, 'id'> = { type, content, author: user?.name || 'System', authorRole: user?.role || 'staff', timestamp: new Date().toLocaleString() };
+      try {
+        await addCommunicationToCase(caseItem.id, newComm);
+        setCommunications(prev => [...prev, { ...newComm, id: `comm-${Date.now()}` }]);
+        if (type === 'Finding') setFinding('');
+        if (type === 'Note') setNote('');
+      } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to add communication." });
+      }
     }
   };
   
@@ -340,7 +370,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
     setResolveDialogOpen(true);
   };
   
-  const handleConfirmResolve = () => {
+  const handleConfirmResolve = async () => {
       if (!resolutionNote.trim()) {
           toast({ variant: 'destructive', title: 'Resolution note is required.' });
           return;
@@ -349,38 +379,24 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
       const resolutionTimestamp = new Date();
       const resolutionContent = `Case resolved with note: "${resolutionNote}"`;
 
-      // Log resolution note
-      handleAddCommunication('Resolution', resolutionContent);
+      await handleAddCommunication('Resolution', resolutionContent);
       
-      // Update the case
-      onUpdateCase({ 
-        ...caseItem, 
+      await onUpdateCase({ 
+        id: caseItem.id,
         status: 'Resolved',
         resolvedAt: resolutionTimestamp.toISOString().split('T')[0],
       });
       
-      // Cancel open tasks
-      const updatedTasks = tasks.map(t => {
-          if (t.linkedCase === caseItem.id && (t.status === 'To Do' || t.status === 'In Progress')) {
-              return { ...t, status: 'Canceled' as Task['status'] };
-          }
-          return t;
-      });
-      setTasks(updatedTasks);
-      
-      // Add a single communication about task closure
+      const taskUpdatePromises = openTasks.map(task => 
+          updateTaskAction(task.id, { status: 'Canceled' })
+      );
+
+      await Promise.all(taskUpdatePromises);
+
       if (openTasks.length > 0) {
         const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
-        const newComm: Communication = {
-            id: `comm-${Date.now() + 1}`,
-            type: 'Note',
-            content: taskNote,
-            author: 'System',
-            authorRole: 'admin',
-            timestamp: resolutionTimestamp.toLocaleString(),
-        };
-        setCommunications(prev => [...prev, newComm]);
-        onUpdateCase({ ...caseItem, communications: [...communications, newComm] });
+        await handleAddCommunication('Note', taskNote);
+        onTasksUpdate();
       }
 
       setResolutionNote('');
@@ -388,14 +404,16 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
   };
   
   const handleStatusChange = (newStatus: Case['status']) => {
-    if (newStatus === 'Resolved' || newStatus === 'Completed') {
+    if ((newStatus === 'Resolved' || newStatus === 'Completed') && !isAdmin) {
         handleAttemptResolve();
     } else {
-        onUpdateCase({ ...caseItem, status: newStatus });
+        onUpdateCase({ id: caseItem.id, status: newStatus });
     }
   };
 
-  const handleAssigneeChange = (newAssignee: string) => onUpdateCase({ ...caseItem, assignedTo: newAssignee });
+  const handleAssigneeChange = (newAssigneeName: string) => {
+      onUpdateCase({ id: caseItem.id, assignedTo: newAssigneeName });
+  };
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) setAttachments(prev => [...prev, ...Array.from(event.target.files as FileList)]);
@@ -405,7 +423,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
     if(replyMessage.trim()){ handleAddCommunication('Email', replyMessage); setReplyMessage(''); }
   };
   
-  const staffStatusOptions: Case['status'][] = ['In Progress', 'Resolved', 'Investigated', 'Completed'];
+  const staffStatusOptions: Case['status'][] = ['In Progress', 'Investigated', 'Completed'];
   const adminStatusOptions: Case['status'][] = ['New', 'Under Review', 'In Progress', 'Investigated', 'Resolved', 'Completed', 'Declined', 'Closed'];
 
   return (
@@ -453,22 +471,25 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div><Label className="text-muted-foreground">Status</Label></div>
                         {isAdmin ? 
-                            (<Select onValueChange={(value: Case['status']) => handleStatusChange(value)} defaultValue={caseItem.status}>
+                            (<Select onValueChange={(value: Case['status']) => handleStatusChange(value)} value={caseItem.status}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>{adminStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                             </Select>) : 
-                            (<Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>)
+                            (<Select onValueChange={(value: Case['status']) => handleStatusChange(value)} value={caseItem.status}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>{staffStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                            </Select>)
                         }
                         <div><Label className="text-muted-foreground">Priority</Label></div>
                         <Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge>
 
                         <div><Label className="text-muted-foreground">Assigned To</Label></div>
                         {isAdmin ? 
-                            (<Select onValueChange={handleAssigneeChange} defaultValue={caseItem.assignedTo}>
+                            (<Select onValueChange={handleAssigneeChange} value={caseItem.assignedTo}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Unassigned">Unassigned</SelectItem>
-                                    {mockUsers.filter(u => u.role === 'staff').map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
+                                    {users.filter(u => u.role === 'staff').map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
                                 </SelectContent>
                             </Select>) : 
                             (<div>{caseItem.assignedTo}</div>)
@@ -496,12 +517,6 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
                         <Button className="w-full" variant="outline" onClick={() => handleStatusChange('Under Review')}><Undo className="mr-2 h-4 w-4" /> Reopen Case</Button>
                     )}
                   </div>
-                )}
-
-                 {user?.role === 'staff' && (
-                    <Button className="w-full" onClick={() => handleStatusChange('Completed')} disabled={!staffStatusOptions.includes(caseItem.status)}>
-                        <CheckCircle className="mr-2 h-4 w-4" /> Mark Case as Completed
-                    </Button>
                 )}
             </div>
             <div className="col-span-2 overflow-y-auto p-4 md:p-6">
@@ -651,8 +666,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack }: { caseItem: Case, o
   );
 }
 
-function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void }) {
-  const { workflows, teams, users, setCases, setTasks, setNotifications } = useData();
+function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflows }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], cases: Case[], workflows: Workflow[] }) {
   const [subject, setSubject] = useState('');
   const [customer, setCustomer] = useState('');
   const [email, setEmail] = useState('');
@@ -663,7 +677,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
   const { toast } = useToast();
 
   const handleSubmit = () => {
-    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> & { id?: string } = { 
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> = { 
         subject, 
         customer, 
         email, 
@@ -674,7 +688,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
         description: description,
     };
     
-    // Process workflows
+    // This is a simplified workflow simulation that should be handled on the backend in a real app
     workflows.forEach(workflow => {
         let conditionMet = false;
         if (workflow.trigger === 'case-created') {
@@ -686,53 +700,14 @@ function CreateCaseDialog({ open, onOpenChange, onCreate }: { open: boolean, onO
         if (conditionMet) {
             // Team Assignment Action
             if (workflow.action === 'assign-team-t2') {
-                const tier2Team = teams.find(t => t.name === 'Support Tier 2');
+                const tier2Team = users.find(u => u.team === 'Support Tier 2');
                 if (tier2Team) {
-                    const teamMembers = users.filter(u => u.team === tier2Team.name);
-                    if (teamMembers.length > 0) {
-                        caseData.assignedTo = teamMembers[0].name;
-                         toast({
-                            title: "Workflow Triggered",
-                            description: `Case automatically assigned to ${teamMembers[0].name} in Tier 2 Support.`,
-                        });
-                    }
+                    caseData.assignedTo = tier2Team.name;
+                     toast({
+                        title: "Workflow Triggered",
+                        description: `Case automatically assigned to ${tier2Team.name} in Tier 2 Support.`,
+                    });
                 }
-            }
-            // Create Task Action
-            if (workflow.action === 'create-followup-task') {
-                const caseNumbers = cases.map(c => parseInt(c.id.split('-')[1], 10));
-                const newCaseNumber = Math.max(0, ...caseNumbers) + 1;
-                const tempCaseId = `case-${newCaseNumber}`;
-
-                const assignedUser = users.find(u => u.name === caseData.assignedTo);
-                const newTask: Task = {
-                    id: `task-${Date.now()}`,
-                    title: `Follow up on high-priority case: "${caseData.subject}"`,
-                    status: 'To Do',
-                    dueDate: format(addDays(new Date(), 1), 'yyyy-MM-dd'),
-                    priority: 'High',
-                    linkedCase: tempCaseId, // Link to the case being created
-                    assignedTo: assignedUser?.id || undefined,
-                };
-                setTasks(prev => [...prev, newTask]);
-
-                if (assignedUser) {
-                    const newNotification: Notification = {
-                        id: `notif-${Date.now()}`,
-                        type: 'task',
-                        title: 'New Task Assigned by Workflow',
-                        description: `A new task "${newTask.title}" was automatically assigned to you.`,
-                        timestamp: new Date().toISOString(),
-                        read: false,
-                        userId: assignedUser.id,
-                        link: `/tasks?id=${newTask.id}`,
-                    };
-                    setNotifications(prev => [newNotification, ...prev]);
-                }
-                 toast({
-                    title: "Workflow Triggered",
-                    description: `A follow-up task has been automatically created.`,
-                });
             }
         }
     });

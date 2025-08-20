@@ -1,9 +1,11 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { useData } from '@/context/data-context';
+import { getAccounts, getContacts, createAccount, updateAccount, deleteAccount, createContact, updateContact, deleteContact } from './actions';
+import { getCases } from '../cases/actions';
+import { getTasks } from '../tasks/actions';
+import { getMeetings } from '../meetings/actions';
 import type { Account, Contact, Case, Task, Meeting } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -63,7 +65,12 @@ export default function CustomersPage() {
 
 
 function AccountsView() {
-  const { accounts, setAccounts, contacts: mockContacts, cases: mockCases, tasks: mockTasks, meetings: mockMeetings } = useData();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [cases, setCases] = useState<Case[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -73,37 +80,74 @@ function AccountsView() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
+  const fetchData = async () => {
+      setIsLoading(true);
+      try {
+          const [accountsData, contactsData, casesData, tasksData, meetingsData] = await Promise.all([
+              getAccounts(),
+              getContacts(),
+              getCases(),
+              getTasks(),
+              getMeetings()
+          ]);
+          setAccounts(accountsData);
+          setContacts(contactsData);
+          setCases(casesData);
+          setTasks(tasksData);
+          setMeetings(meetingsData);
+      } catch (error) {
+          toast({ variant: "destructive", title: "Error", description: "Failed to fetch data." });
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
   const filteredAccounts = useMemo(() => {
     return accounts.filter(account =>
       account.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      account.industry.toLowerCase().includes(searchQuery.toLowerCase())
+      (account.industry && account.industry.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   }, [accounts, searchQuery]);
 
-  const handleAddAccount = (newAccountData: Omit<Account, 'id' | 'createdAt'>) => {
-    const newAccount: Account = {
-      id: `acc-${Date.now()}`,
-      createdAt: new Date().toISOString().split('T')[0],
-      ...newAccountData
-    };
-    setAccounts([newAccount, ...accounts]);
-    setIsFormOpen(false);
-    toast({ title: "Account Created", description: `Account "${newAccount.name}" has been successfully created.` });
+  const handleAddAccount = async (newAccountData: Omit<Account, 'id' | 'createdAt' | 'owner' | 'primaryContactId'>) => {
+    try {
+        await createAccount(newAccountData);
+        fetchData();
+        setIsFormOpen(false);
+        toast({ title: "Account Created", description: `Account "${newAccountData.name}" has been successfully created.` });
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+    }
   };
   
-  const handleUpdateAccount = (updatedAccount: Account) => {
-    setAccounts(accounts.map(acc => acc.id === updatedAccount.id ? updatedAccount : acc));
-    setEditingAccount(null);
-    setIsFormOpen(false);
-    setSelectedAccount(updatedAccount); // Keep sheet updated
-    toast({ title: "Account Updated", description: `Account "${updatedAccount.name}" has been updated.` });
+  const handleUpdateAccount = async (updatedAccountData: Partial<Account> & { id: string }) => {
+    try {
+        const { id, ...data } = updatedAccountData;
+        await updateAccount(id, data as any);
+        fetchData();
+        setEditingAccount(null);
+        setIsFormOpen(false);
+        setSelectedAccount(prev => prev ? { ...prev, ...data } : null);
+        toast({ title: "Account Updated", description: `Account "${updatedAccountData.name}" has been updated.` });
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+    }
   };
   
-  const handleDeleteAccount = (accountId: string) => {
-    setAccounts(accounts.filter(acc => acc.id !== accountId));
-    setSelectedAccount(null);
-    setIsSheetOpen(false);
-    toast({ title: "Account Deleted", description: `The account has been deleted.` });
+  const handleDeleteAccount = async (accountId: string) => {
+    try {
+        await deleteAccount(accountId);
+        fetchData();
+        setSelectedAccount(null);
+        setIsSheetOpen(false);
+        toast({ title: "Account Deleted", description: `The account has been deleted.` });
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+    }
   };
 
   const openCreateForm = () => {
@@ -118,12 +162,16 @@ function AccountsView() {
   };
 
   const getAccountStats = (accountId: string) => {
-    const relatedContacts = mockContacts.filter(c => c.accountId === accountId);
+    const relatedContacts = contacts.filter(c => c.accountId === accountId);
     const relatedContactIds = relatedContacts.map(c => c.id);
-    const relatedCases = mockCases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)).length;
-    const relatedTasks = mockTasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)).length;
+    const relatedCases = cases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)).length;
+    const relatedTasks = tasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)).length;
     return { contacts: relatedContacts.length, cases: relatedCases, tasks: relatedTasks };
   };
+
+  if (isLoading) {
+      return <div>Loading...</div>;
+  }
 
   return (
     <div className="space-y-4 pt-2 bg-muted/50 rounded-lg p-4">
@@ -173,6 +221,10 @@ function AccountsView() {
             account={selectedAccount}
             onEdit={() => openEditForm(selectedAccount)}
             onDelete={() => handleDeleteAccount(selectedAccount.id)}
+            contacts={contacts}
+            cases={cases}
+            tasks={tasks}
+            meetings={meetings}
         />
       )}
       
@@ -193,17 +245,16 @@ function AccountsView() {
   );
 }
 
-function AccountDetailSheet({ open, onOpenChange, account, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, account: Account, onEdit: () => void, onDelete: () => void }) {
+function AccountDetailSheet({ open, onOpenChange, account, onEdit, onDelete, contacts, cases, tasks, meetings }: { open: boolean, onOpenChange: (open: boolean) => void, account: Account, onEdit: () => void, onDelete: () => void, contacts: Contact[], cases: Case[], tasks: Task[], meetings: Meeting[] }) {
     const { user } = useAuth();
-    const { contacts: mockContacts, cases: mockCases, tasks: mockTasks, meetings: mockMeetings } = useData();
     const isAdmin = user?.role === 'admin';
     
-    const relatedContacts = useMemo(() => mockContacts.filter(c => c.accountId === account.id), [account.id, mockContacts]);
+    const relatedContacts = useMemo(() => contacts.filter(c => c.accountId === account.id), [account.id, contacts]);
     const relatedContactIds = useMemo(() => relatedContacts.map(c => c.id), [relatedContacts]);
 
-    const relatedCases = useMemo(() => mockCases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)), [relatedContactIds, mockCases]);
-    const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)), [relatedContactIds, mockTasks]);
-    const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId && relatedContactIds.includes(m.contactId)), [relatedContactIds, mockMeetings]);
+    const relatedCases = useMemo(() => cases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)), [relatedContactIds, cases]);
+    const relatedTasks = useMemo(() => tasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)), [relatedContactIds, tasks]);
+    const relatedMeetings = useMemo(() => meetings.filter(m => m.contactId && relatedContactIds.includes(m.contactId)), [relatedContactIds, meetings]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -337,7 +388,10 @@ function AccountFormDialog({ open, onOpenChange, account, onSave }: { open: bool
 }
 
 function ContactsView() {
-  const { contacts, setContacts, accounts } = useData();
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -348,10 +402,26 @@ function ContactsView() {
   const isMobile = useIsMobile();
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
-
-  const { user } = useAuth();
   const { toast } = useToast();
+  const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+        const [contactsData, accountsData] = await Promise.all([getContacts(), getAccounts()]);
+        setContacts(contactsData);
+        setAccounts(accountsData);
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to fetch contacts data." });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const companies = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.company).filter(Boolean)))], [contacts]);
   const roles = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.role).filter(Boolean)))], [contacts]);
@@ -373,27 +443,38 @@ function ContactsView() {
   
   const totalPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
   
-  const handleAddContact = (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
-    const newContact: Contact = {
-      id: `contact-${Date.now()}-${Math.random()}`,
-      avatar: '/avatars/placeholder.png',
-      ...newContactData
-    };
-    setContacts([newContact, ...contacts]);
-    setIsFormOpen(false);
-    toast({ title: "Contact Created", description: `Contact "${newContact.name}" has been successfully created.` });
+  const handleAddContact = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
+    try {
+        await createContact(newContactData);
+        fetchData();
+        setIsFormOpen(false);
+        toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created.` });
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+    }
   };
   
-  const handleUpdateContact = (updatedContact: Contact) => {
-    setContacts(contacts.map(c => c.id === updatedContact.id ? updatedContact : c));
-    setEditingContact(null);
-    setIsFormOpen(false);
-    toast({ title: "Contact Updated", description: `Contact "${updatedContact.name}" has been updated.` });
+  const handleUpdateContact = async (updatedContactData: Partial<Contact> & { id: string }) => {
+    try {
+        const { id, ...data } = updatedContactData;
+        await updateContact(id, data as any);
+        fetchData();
+        setEditingContact(null);
+        setIsFormOpen(false);
+        toast({ title: "Contact Updated", description: `Contact "${updatedContactData.name}" has been updated.` });
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+    }
   };
   
-  const handleDeleteContact = (contactId: string) => {
-    setContacts(contacts.filter(c => c.id !== contactId));
-    toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
+  const handleDeleteContact = async (contactId: string) => {
+    try {
+        await deleteContact(contactId);
+        fetchData();
+        toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
+    } catch (e) {
+        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+    }
   };
   
   const openCreateForm = () => {
@@ -445,6 +526,8 @@ function ContactsView() {
         </div>
     </div>
   );
+  
+  if(isLoading) return <div>Loading...</div>;
 
   return (
     <div className="space-y-6 pt-2">
@@ -577,6 +660,7 @@ function ContactsView() {
         open={isFormOpen}
         onOpenChange={setIsFormOpen}
         contact={editingContact}
+        accounts={accounts}
         onSave={(data, isEdit) => {
             if (isEdit && editingContact) {
                 handleUpdateContact({ ...editingContact, ...data });
@@ -592,11 +676,24 @@ function ContactsView() {
 
 function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact, onEdit: () => void, onDelete: () => void }) {
     const { user } = useAuth();
-    const { cases: mockCases, tasks: mockTasks, meetings: mockMeetings } = useData();
     const isAdmin = user?.role === 'admin';
-    const relatedCases = useMemo(() => mockCases.filter(c => c.contactId === contact.id), [contact.id, mockCases]);
-    const relatedTasks = useMemo(() => mockTasks.filter(t => t.contactId === contact.id), [contact.id, mockTasks]);
-    const relatedMeetings = useMemo(() => mockMeetings.filter(m => m.contactId === contact.id), [contact.id, mockMeetings]);
+    const [relatedItems, setRelatedItems] = useState<{cases: Case[], tasks: Task[], meetings: Meeting[]}>({cases: [], tasks: [], meetings: []});
+
+    useEffect(() => {
+        if(contact) {
+            Promise.all([
+                getCases(),
+                getTasks(),
+                getMeetings()
+            ]).then(([casesData, tasksData, meetingsData]) => {
+                setRelatedItems({
+                    cases: casesData.filter(c => c.contactId === contact.id),
+                    tasks: tasksData.filter(t => t.contactId === contact.id),
+                    meetings: meetingsData.filter(m => m.contactId === contact.id)
+                });
+            });
+        }
+    }, [contact]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -635,9 +732,9 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
                                 </div>
                         </TabsContent>
                         <TabsContent value="related" className="mt-4 space-y-6">
-                            <RelatedItemsList title="Cases" icon={Briefcase} items={relatedCases} />
-                            <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedTasks} />
-                            <RelatedItemsList title="Meetings" icon={Calendar} items={relatedMeetings} />
+                            <RelatedItemsList title="Cases" icon={Briefcase} items={relatedItems.cases} />
+                            <RelatedItemsList title="Tasks" icon={ListTodo} items={relatedItems.tasks} />
+                            <RelatedItemsList title="Meetings" icon={Calendar} items={relatedItems.meetings} />
                         </TabsContent>
                     </Tabs>
                 </div>
@@ -652,8 +749,7 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
     )
 }
 
-function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact | null, onSave: (data: any, isEdit: boolean) => void }) {
-    const { accounts: mockAccounts } = useData();
+function ContactFormDialog({ open, onOpenChange, contact, accounts, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact | null, accounts: Account[], onSave: (data: any, isEdit: boolean) => void }) {
     const isEditMode = !!contact;
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -676,8 +772,8 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
     }, [contact, open]);
 
     const handleSubmit = () => {
-        const selectedAccount = mockAccounts.find(acc => acc.name === company);
-        onSave({ name, email, phone, company, accountId: selectedAccount?.id || '', role, notes }, isEditMode);
+        const selectedAccount = accounts.find(acc => acc.name === company);
+        onSave({ name, email, phone, company, accountId: selectedAccount?.id || null, role, notes }, isEditMode);
     };
 
     return (
@@ -695,7 +791,7 @@ function ContactFormDialog({ open, onOpenChange, contact, onSave }: { open: bool
                         <Label htmlFor="company" className="text-right">Company</Label>
                         <Select onValueChange={setCompany} value={company}>
                             <SelectTrigger className="col-span-3"><SelectValue placeholder="Select a company" /></SelectTrigger>
-                            <SelectContent>{mockAccounts.map(acc => <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>)}</SelectContent>
+                            <SelectContent>{accounts.map(acc => <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>)}</SelectContent>
                         </Select>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="role" className="text-right">Role</Label><Input id="role" value={role} onChange={(e) => setRole(e.target.value)} className="col-span-3" /></div>
@@ -742,11 +838,3 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
         </div>
     )
 }
-
-    
-
-    
-
-
-
-    
