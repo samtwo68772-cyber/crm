@@ -17,7 +17,7 @@ export async function updateUserProfile(userId: string, data: Partial<Pick<User,
         where: { id: userId },
         data,
     });
-    revalidatePath('/profile');
+    // revalidatePath('/profile');
     return updatedUser;
 }
 
@@ -29,7 +29,7 @@ export async function updateUserPassword(userId: string, newPasswordHash: string
         where: { id: userId },
         data: { passwordHash: newPasswordHash }
     });
-    revalidatePath('/profile');
+    // revalidatePath('/profile');
 }
 
 export async function updateUserPreferences(userId: string, preferences: NotificationPreferences) {
@@ -41,6 +41,6 @@ export async function updateUserPreferences(userId: string, preferences: Notific
             ...preferences,
         },
     });
-    revalidatePath('/profile');
+    // revalidatePath('/profile');
     return updatedPreferences;
 }

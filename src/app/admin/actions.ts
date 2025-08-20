@@ -50,7 +50,7 @@ export async function createUser(data: Omit<User, 'id' | 'avatar' > & { password
             avatar: `https://placehold.co/40x40.png?text=${data.name.charAt(0)}`
         },
     });
-    revalidatePath('/admin');
+    // revalidatePath('/admin');
     const { passwordHash: _, ...userWithoutPassword } = newUser;
     return userWithoutPassword;
 }
@@ -61,7 +61,7 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
         where: { id },
         data,
     });
-    revalidatePath('/admin');
+    // revalidatePath('/admin');
     const { passwordHash: _, ...userWithoutPassword } = updatedUser;
     return userWithoutPassword;
 }
@@ -71,7 +71,7 @@ export async function createTeam(data: Omit<Team, 'id'>) {
     const newTeam = await prisma.team.create({
         data
     });
-    revalidatePath('/admin');
+    // revalidatePath('/admin');
     return newTeam;
 }
 
@@ -81,15 +81,16 @@ export async function updateTeam(id: string, data: Partial<Omit<Team, 'id'>>) {
         where: { id },
         data
     });
-    revalidatePath('/admin');
+    // revalidatePath('/admin');
     return updatedTeam;
 }
 
 export async function archiveTeam(id: string) {
     await checkAdmin();
-    await prisma.team.update({
+    const updatedTeam = await prisma.team.update({
         where: { id },
         data: { status: 'Archived' }
     });
-    revalidatePath('/admin');
+    // revalidatePath('/admin');
+    return updatedTeam;
 }

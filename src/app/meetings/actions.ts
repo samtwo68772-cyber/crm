@@ -18,7 +18,7 @@ export async function createMeeting(data: Omit<Meeting, 'id'>) {
   const newMeeting = await prisma.meeting.create({
     data,
   });
-  revalidatePath('/meetings');
+  // revalidatePath('/meetings');
 
   for (const userId of newMeeting.participants) {
       await createNotification({
@@ -38,13 +38,14 @@ export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id'
     where: { id },
     data,
   });
-  revalidatePath('/meetings');
+  // revalidatePath('/meetings');
   return updatedMeeting;
 }
 
 export async function deleteMeeting(id: string) {
-  await prisma.meeting.delete({
+  const deleted = await prisma.meeting.delete({
     where: { id },
   });
-  revalidatePath('/meetings');
+  // revalidatePath('/meetings');
+  return deleted;
 }

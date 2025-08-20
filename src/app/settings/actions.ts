@@ -29,7 +29,7 @@ export async function updateGeneralSettings(data: GeneralSettingsType) {
         where: { id: settings.id },
         data,
     });
-    revalidatePath('/settings');
+    // revalidatePath('/settings');
     return updatedSettings;
 }
 
@@ -54,7 +54,7 @@ export async function updateEmailSettings(data: EmailSettingsType) {
         where: { id: settings.id },
         data,
     });
-    revalidatePath('/settings');
+    // revalidatePath('/settings');
     return updatedSettings;
 }
 
@@ -95,7 +95,7 @@ export async function updateGlobalNotificationPreferences(data: NotificationPref
             meetings: data.meetings,
         },
     });
-    revalidatePath('/settings');
+    // revalidatePath('/settings');
     return updatedPrefs;
 }
 
@@ -107,7 +107,7 @@ export async function getWorkflows() {
 
 export async function createWorkflow(data: Omit<Workflow, 'id'>) {
     const newWorkflow = await prisma.workflow.create({ data });
-    revalidatePath('/settings');
+    // revalidatePath('/settings');
     return newWorkflow;
 }
 
@@ -116,13 +116,14 @@ export async function updateWorkflow(id: string, data: Partial<Omit<Workflow, 'i
         where: { id },
         data,
     });
-    revalidatePath('/settings');
+    // revalidatePath('/settings');
     return updatedWorkflow;
 }
 
 export async function deleteWorkflow(id: string) {
-    await prisma.workflow.delete({ where: { id } });
-    revalidatePath('/settings');
+    const deleted = await prisma.workflow.delete({ where: { id } });
+    // revalidatePath('/settings');
+    return deleted;
 }
 
 // Audit Logs

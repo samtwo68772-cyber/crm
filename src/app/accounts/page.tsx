@@ -80,29 +80,28 @@ function AccountsView() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const fetchData = async () => {
-      setIsLoading(true);
-      try {
-          const [accountsData, contactsData, casesData, tasksData, meetingsData] = await Promise.all([
-              getAccounts(),
-              getContacts(),
-              getCases(),
-              getTasks(),
-              getMeetings()
-          ]);
-          setAccounts(accountsData);
-          setContacts(contactsData);
-          setCases(casesData);
-          setTasks(tasksData);
-          setMeetings(meetingsData);
-      } catch (error) {
-          toast({ variant: "destructive", title: "Error", description: "Failed to fetch data." });
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [accountsData, contactsData, casesData, tasksData, meetingsData] = await Promise.all([
+                getAccounts(),
+                getContacts(),
+                getCases(),
+                getTasks(),
+                getMeetings()
+            ]);
+            setAccounts(accountsData);
+            setContacts(contactsData);
+            setCases(casesData);
+            setTasks(tasksData);
+            setMeetings(meetingsData);
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Failed to fetch data." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
     fetchData();
   }, []);
 
@@ -115,8 +114,8 @@ function AccountsView() {
 
   const handleAddAccount = async (newAccountData: Omit<Account, 'id' | 'createdAt' | 'owner' | 'primaryContactId'>) => {
     try {
-        await createAccount(newAccountData);
-        fetchData();
+        const newAccount = await createAccount(newAccountData);
+        setAccounts(prev => [newAccount, ...prev]);
         setIsFormOpen(false);
         toast({ title: "Account Created", description: `Account "${newAccountData.name}" has been successfully created.` });
     } catch (e) {
@@ -127,11 +126,11 @@ function AccountsView() {
   const handleUpdateAccount = async (updatedAccountData: Partial<Account> & { id: string }) => {
     try {
         const { id, ...data } = updatedAccountData;
-        await updateAccount(id, data as any);
-        fetchData();
+        const updatedAccount = await updateAccount(id, data as any);
+        setAccounts(prev => prev.map(acc => acc.id === id ? updatedAccount : acc));
         setEditingAccount(null);
         setIsFormOpen(false);
-        setSelectedAccount(prev => prev ? { ...prev, ...data } : null);
+        setSelectedAccount(updatedAccount);
         toast({ title: "Account Updated", description: `Account "${updatedAccountData.name}" has been updated.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
@@ -141,7 +140,7 @@ function AccountsView() {
   const handleDeleteAccount = async (accountId: string) => {
     try {
         await deleteAccount(accountId);
-        fetchData();
+        setAccounts(prev => prev.filter(acc => acc.id !== accountId));
         setSelectedAccount(null);
         setIsSheetOpen(false);
         toast({ title: "Account Deleted", description: `The account has been deleted.` });
@@ -406,20 +405,19 @@ function ContactsView() {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-        const [contactsData, accountsData] = await Promise.all([getContacts(), getAccounts()]);
-        setContacts(contactsData);
-        setAccounts(accountsData);
-    } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to fetch contacts data." });
-    } finally {
-        setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [contactsData, accountsData] = await Promise.all([getContacts(), getAccounts()]);
+            setContacts(contactsData);
+            setAccounts(accountsData);
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Failed to fetch contacts data." });
+        } finally {
+            setIsLoading(false);
+        }
+    };
     fetchData();
   }, []);
 
@@ -445,8 +443,8 @@ function ContactsView() {
   
   const handleAddContact = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
     try {
-        await createContact(newContactData);
-        fetchData();
+        const newContact = await createContact(newContactData);
+        setContacts(prev => [newContact, ...prev]);
         setIsFormOpen(false);
         toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created.` });
     } catch (e) {
@@ -457,8 +455,8 @@ function ContactsView() {
   const handleUpdateContact = async (updatedContactData: Partial<Contact> & { id: string }) => {
     try {
         const { id, ...data } = updatedContactData;
-        await updateContact(id, data as any);
-        fetchData();
+        const updatedContact = await updateContact(id, data as any);
+        setContacts(prev => prev.map(c => c.id === id ? updatedContact : c));
         setEditingContact(null);
         setIsFormOpen(false);
         toast({ title: "Contact Updated", description: `Contact "${updatedContactData.name}" has been updated.` });
@@ -470,7 +468,7 @@ function ContactsView() {
   const handleDeleteContact = async (contactId: string) => {
     try {
         await deleteContact(contactId);
-        fetchData();
+        setContacts(prev => prev.filter(c => c.id !== contactId));
         toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });

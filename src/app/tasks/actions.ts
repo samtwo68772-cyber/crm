@@ -32,7 +32,7 @@ export async function createTask(data: Omit<Task, 'id' | 'status'>) {
       })
   }
 
-  revalidatePath('/tasks');
+  // revalidatePath('/tasks');
   return newTask;
 }
 
@@ -52,14 +52,15 @@ export async function updateTask(id: string, data: Partial<Omit<Task, 'id'>>) {
       })
   }
 
-  revalidatePath('/tasks');
-  revalidatePath('/cases'); // In case a task status change affects a case
+  // revalidatePath('/tasks');
+  // revalidatePath('/cases'); // In case a task status change affects a case
   return updatedTask;
 }
 
 export async function deleteTask(id: string) {
-  await prisma.task.delete({
+  const deleted = await prisma.task.delete({
     where: { id },
   });
-  revalidatePath('/tasks');
+  // revalidatePath('/tasks');
+  return deleted;
 }

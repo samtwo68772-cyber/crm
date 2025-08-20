@@ -168,25 +168,24 @@ export default function MeetingsPage() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const [meetingsData, casesData, usersData] = await Promise.all([
-        getMeetings(),
-        getCases(),
-        getUsers()
-      ]);
-      setMeetings(meetingsData);
-      setCases(casesData);
-      setUsers(usersData);
-    } catch (e) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch meetings data.' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          const [meetingsData, casesData, usersData] = await Promise.all([
+            getMeetings(),
+            getCases(),
+            getUsers()
+          ]);
+          setMeetings(meetingsData);
+          setCases(casesData);
+          setUsers(usersData);
+        } catch (e) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch meetings data.' });
+        } finally {
+          setIsLoading(false);
+        }
+    };
     fetchData();
   }, []);
 
@@ -198,27 +197,49 @@ export default function MeetingsPage() {
 
   const handleUpdateMeeting = async (updatedMeetingData: Partial<Meeting> & { id: string }) => {
     const { id, ...data } = updatedMeetingData;
-    await updateMeeting(id, data);
-    await fetchData();
+    const optimisticUpdate = { ...meetings.find(m => m.id === id), ...data } as Meeting;
+    setMeetings(prev => prev.map(m => m.id === id ? optimisticUpdate : m));
     setEditDialogOpen(false);
-    setSelectedMeeting(prev => prev ? { ...prev, ...data } as Meeting : null);
-    toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeetingData.title}" has been updated.` });
+    setSelectedMeeting(optimisticUpdate);
+
+    try {
+        const updatedMeeting = await updateMeeting(id, data);
+        setMeetings(prev => prev.map(m => m.id === id ? updatedMeeting : m));
+        setSelectedMeeting(updatedMeeting);
+        toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeetingData.title}" has been updated.` });
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to update meeting." });
+        setMeetings(prev => prev.map(m => m.id === id ? meetings.find(m => m.id === id)! : m)); // Revert
+    }
   };
   
    const handleDeleteMeeting = async (meetingId: string) => {
-    await deleteMeeting(meetingId);
-    await fetchData();
+    const meetingToDelete = meetings.find(m => m.id === meetingId);
+    if(!meetingToDelete) return;
+
+    setMeetings(prev => prev.filter(m => m.id !== meetingId));
     setEditDialogOpen(false);
     setIsSheetOpen(false);
     setSelectedMeeting(null);
-    toast({ title: 'Meeting Canceled', description: `The meeting has been canceled.` });
+
+    try {
+        await deleteMeeting(meetingId);
+        toast({ title: 'Meeting Canceled', description: `The meeting has been canceled.` });
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to delete meeting." });
+        setMeetings(prev => [...prev, meetingToDelete]); // Revert
+    }
   };
 
   const handleCreateMeeting = async (newMeetingData: Omit<Meeting, 'id'>) => {
-    await createMeeting(newMeetingData);
-    await fetchData();
     setCreateDialogOpen(false);
-    toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeetingData.title}" has been scheduled.` });
+    try {
+        const newMeeting = await createMeeting(newMeetingData);
+        setMeetings(prev => [newMeeting, ...prev]);
+        toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeetingData.title}" has been scheduled.` });
+    } catch(e) {
+        toast({ variant: "destructive", title: "Error", description: "Failed to create meeting." });
+    }
   };
 
   const userMeetings = useMemo(() => {

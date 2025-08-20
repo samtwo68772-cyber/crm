@@ -37,7 +37,7 @@ export async function createDocument(data: Omit<Document, 'id' | 'uploadedBy' | 
     data: createData,
   });
 
-  revalidatePath('/documents');
+  // revalidatePath('/documents');
   
   // Example notification, could be refined
   await createNotification({
@@ -55,13 +55,14 @@ export async function updateDocument(id: string, data: Partial<Omit<Document, 'i
     where: { id },
     data,
   });
-  revalidatePath('/documents');
+  // revalidatePath('/documents');
   return updatedDocument;
 }
 
 export async function deleteDocument(id: string) {
-  await prisma.document.delete({
+  const deleted = await prisma.document.delete({
     where: { id },
   });
-  revalidatePath('/documents');
+  // revalidatePath('/documents');
+  return deleted;
 }

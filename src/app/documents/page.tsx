@@ -47,25 +47,24 @@ export default function DocumentsPage() {
   const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const [docs, caseData, accountData] = await Promise.all([
-        getDocuments(),
-        getCases(),
-        getAccounts()
-      ]);
-      setDocuments(docs);
-      setCases(caseData);
-      setAccounts(accountData);
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch documents data.' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+          const [docs, caseData, accountData] = await Promise.all([
+            getDocuments(),
+            getCases(),
+            getAccounts()
+          ]);
+          setDocuments(docs);
+          setCases(caseData);
+          setAccounts(accountData);
+        } catch (error) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch documents data.' });
+        } finally {
+          setIsLoading(false);
+        }
+    };
     fetchData();
   }, []);
 
@@ -90,8 +89,8 @@ export default function DocumentsPage() {
   const handleUploadDocument = async (newDocData: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt'>) => {
     if (!user) return;
     try {
-      await createDocument(newDocData, user.id);
-      fetchData();
+      const newDoc = await createDocument(newDocData, user.id);
+      setDocuments(prev => [newDoc, ...prev]);
       setUploadOpen(false);
       toast({ title: 'Document Uploaded', description: `"${newDocData.name}" has been uploaded.` });
     } catch (error) {
@@ -102,8 +101,8 @@ export default function DocumentsPage() {
   const handleUpdateDocument = async (updatedDocData: Partial<Document> & { id: string }) => {
     try {
       const { id, ...data } = updatedDocData;
-      await updateDocument(id, data);
-      fetchData();
+      const updatedDoc = await updateDocument(id, data);
+      setDocuments(prev => prev.map(d => d.id === id ? updatedDoc : d));
       setEditingDocument(null);
       setExpandedDocId(id);
       toast({ title: 'Document Updated', description: `"${updatedDocData.name}" has been updated.` });
@@ -115,7 +114,7 @@ export default function DocumentsPage() {
   const handleDeleteDocument = async (docId: string) => {
     try {
       await deleteDocument(docId);
-      fetchData();
+      setDocuments(prev => prev.filter(d => d.id !== docId));
       setExpandedDocId(null);
       toast({ title: 'Document Deleted', description: 'The document has been deleted.' });
     } catch (error) {

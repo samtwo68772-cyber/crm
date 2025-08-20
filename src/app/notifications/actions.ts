@@ -45,11 +45,12 @@ export async function createNotification(data: Omit<Notification, 'id' | 'read' 
 }
 
 export async function markAsRead(notificationId: string) {
-    await prisma.notification.update({
+    const updated = await prisma.notification.update({
         where: { id: notificationId },
         data: { read: true },
     });
-    revalidatePath('/notifications');
+    // revalidatePath('/notifications');
+    return updated;
 }
 
 export async function markAllAsRead(userId: string) {
@@ -71,5 +72,5 @@ export async function markAllAsRead(userId: string) {
             data: { read: true },
         });
     }
-    revalidatePath('/notifications');
+    // revalidatePath('/notifications');
 }

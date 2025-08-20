@@ -27,7 +27,7 @@ export async function createAccount(data: { name: string; industry: string; addr
         owner: "Admin" // Placeholder for owner
     },
   });
-  revalidatePath('/accounts');
+  // revalidatePath('/accounts');
   return newAccount;
 }
 
@@ -36,7 +36,7 @@ export async function updateAccount(id: string, data: { name: string; industry: 
     where: { id },
     data,
   });
-  revalidatePath('/accounts');
+  // revalidatePath('/accounts');
   return updatedAccount;
 }
 
@@ -44,7 +44,8 @@ export async function deleteAccount(id: string) {
   await prisma.account.delete({
     where: { id },
   });
-  revalidatePath('/accounts');
+  // revalidatePath('/accounts');
+  return { id };
 }
 
 
@@ -62,7 +63,7 @@ export async function createContact(data: { name: string; email: string; phone: 
             avatar: `https://placehold.co/40x40.png?text=${data.name.charAt(0)}`,
         },
     });
-    revalidatePath('/accounts');
+    // revalidatePath('/accounts');
     return newContact;
 }
 
@@ -80,7 +81,7 @@ export async function updateContact(id: string, data: { name: string; email: str
             accountId: account?.id,
         },
     });
-    revalidatePath('/accounts');
+    // revalidatePath('/accounts');
     return updatedContact;
 }
 
@@ -88,5 +89,6 @@ export async function deleteContact(id: string) {
     await prisma.contact.delete({
         where: { id },
     });
-    revalidatePath('/accounts');
+    // revalidatePath('/accounts');
+    return { id };
 }

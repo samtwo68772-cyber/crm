@@ -66,25 +66,24 @@ export default function TasksPage() {
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const isAdmin = user?.role === 'admin';
 
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-        const [tasksData, usersData, casesData] = await Promise.all([
-            getTasks(),
-            getUsers(),
-            getCases()
-        ]);
-        setTasks(tasksData);
-        setUsers(usersData);
-        setCases(casesData);
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch tasks data.' });
-    } finally {
-        setIsLoading(false);
-    }
-  }
-
   useEffect(() => {
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const [tasksData, usersData, casesData] = await Promise.all([
+                getTasks(),
+                getUsers(),
+                getCases()
+            ]);
+            setTasks(tasksData);
+            setUsers(usersData);
+            setCases(casesData);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch tasks data.' });
+        } finally {
+            setIsLoading(false);
+        }
+    }
     fetchData();
   }, []);
 
@@ -103,38 +102,44 @@ export default function TasksPage() {
   }, [tasks, user, isAdmin]);
   
   const handleDeleteTask = async (taskId: string) => {
+    const originalTasks = tasks;
+    setTasks(prev => prev.filter(t => t.id !== taskId));
     try {
         await deleteTask(taskId);
-        await fetchData();
         toast({
             title: "Task Deleted",
             description: "The task has been successfully deleted.",
         });
     } catch (e) {
+        setTasks(originalTasks);
         toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete task.' });
     }
   };
 
   const handleUpdateTask = async (updatedTaskData: Partial<Task> & {id: string}, oldStatus?: Task['status']) => {
+    const originalTasks = tasks;
+    const optimisticUpdate = { ...tasks.find(t => t.id === updatedTaskData.id), ...updatedTaskData } as Task;
+    setTasks(prev => prev.map(t => t.id === updatedTaskData.id ? optimisticUpdate : t));
+    setEditingTask(null);
+
     try {
-        const { id, ...data } = updatedTaskData;
-        await updateTask(id, data);
-        await fetchData();
-        setEditingTask(null);
+        const updatedTask = await updateTask(updatedTaskData.id, updatedTaskData);
+        setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t)); // Ensure consistent state
         toast({
             title: "Task Updated",
             description: `Task "${updatedTaskData.title}" has been updated.`,
         });
     } catch (e) {
-         toast({ variant: 'destructive', title: 'Error', description: 'Failed to update task.' });
+        setTasks(originalTasks);
+        toast({ variant: 'destructive', title: 'Error', description: 'Failed to update task.' });
     }
   };
   
   const handleCreateTask = async (newTaskData: Omit<Task, 'id' | 'status'>) => {
+    setCreateDialogOpen(false);
     try {
-        await createTask(newTaskData);
-        await fetchData();
-        setCreateDialogOpen(false);
+        const newTask = await createTask(newTaskData);
+        setTasks(prev => [newTask, ...prev]);
         toast({
             title: "Task Created",
             description: `Task "${newTaskData.title}" has been successfully created.`,

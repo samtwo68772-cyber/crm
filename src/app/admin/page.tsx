@@ -32,7 +32,7 @@ function getRoleVariant(UserRole: User['role']) {
     return UserRole === 'admin' ? 'default' : 'outline';
 }
 
-function UserManagement({ users, teams, onUpdate }: { users: User[], teams: Team[], onUpdate: () => void }) {
+function UserManagement({ users, teams, onUserUpdate, onUserCreate }: { users: User[], teams: Team[], onUserUpdate: (user: User) => void, onUserCreate: (user: User) => void }) {
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -62,9 +62,9 @@ function UserManagement({ users, teams, onUpdate }: { users: User[], teams: Team
 
     const handleAddUser = async (newUserData: Omit<User, 'id' | 'avatar'> & { password?: string }) => {
         try {
-            await createUser(newUserData);
+            const newUser = await createUser(newUserData);
+            onUserCreate(newUser);
             setIsFormOpen(false);
-            onUpdate();
             toast({ title: "User Created", description: `User "${newUserData.name}" has been added.` });
         } catch(e) {
             toast({ variant: 'destructive', title: "Error creating user", description: (e as Error).message });
@@ -73,10 +73,10 @@ function UserManagement({ users, teams, onUpdate }: { users: User[], teams: Team
 
     const handleUpdateUser = async (userId: string, data: Partial<User>) => {
         try {
-            await updateUser(userId, data);
+            const updatedUser = await updateUser(userId, data);
+            onUserUpdate(updatedUser);
             setEditingUser(null);
             setIsFormOpen(false);
-            onUpdate();
             toast({ title: "User Updated", description: `User "${data.name}" has been updated.` });
         } catch(e) {
             toast({ variant: 'destructive', title: "Error updating user", description: (e as Error).message });
@@ -293,7 +293,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
     );
 }
 
-function TeamManagement({ teams: initialTeams, users, onUpdate }: { teams: Team[], users: User[], onUpdate: () => void }) {
+function TeamManagement({ teams, users, onTeamCreate, onTeamUpdate }: { teams: Team[], users: User[], onTeamCreate: (team: Team) => void, onTeamUpdate: (team: Team) => void }) {
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'Active' | 'Archived'>('Active');
@@ -303,17 +303,17 @@ function TeamManagement({ teams: initialTeams, users, onUpdate }: { teams: Team[
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
     const filteredTeams = useMemo(() => {
-        return initialTeams.filter(team =>
+        return teams.filter(team =>
             team.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
             team.status === statusFilter
         );
-    }, [initialTeams, searchQuery, statusFilter]);
+    }, [teams, searchQuery, statusFilter]);
 
     const handleCreateTeam = async (newTeamData: Omit<Team, 'id'>) => {
         try {
-            await createTeam(newTeamData);
+            const newTeam = await createTeam(newTeamData);
+            onTeamCreate(newTeam);
             setIsFormOpen(false);
-            onUpdate();
             toast({ title: "Team Created", description: `Team "${newTeamData.name}" created.` });
         } catch(e) {
             toast({ variant: 'destructive', title: "Error creating team", description: (e as Error).message });
@@ -322,10 +322,10 @@ function TeamManagement({ teams: initialTeams, users, onUpdate }: { teams: Team[
 
     const handleUpdateTeam = async (teamId: string, data: Partial<Team>) => {
         try {
-            await updateTeam(teamId, data);
+            const updatedTeam = await updateTeam(teamId, data);
+            onTeamUpdate(updatedTeam);
             setEditingTeam(null);
             setIsFormOpen(false);
-            onUpdate();
             toast({ title: "Team Updated", description: `Team "${data.name}" updated.` });
         } catch (e) {
             toast({ variant: 'destructive', title: "Error updating team", description: (e as Error).message });
@@ -334,10 +334,10 @@ function TeamManagement({ teams: initialTeams, users, onUpdate }: { teams: Team[
 
     const handleArchiveTeam = async (teamId: string) => {
          try {
-            const teamToArchive = initialTeams.find(t => t.id === teamId);
+            const teamToArchive = teams.find(t => t.id === teamId);
             if (!teamToArchive) return;
-            await archiveTeam(teamId);
-            onUpdate();
+            const archived = await archiveTeam(teamId);
+            onTeamUpdate(archived);
             toast({ title: "Team Archived", description: `Team "${teamToArchive.name}" has been archived.` });
         } catch (e) {
             toast({ variant: 'destructive', title: "Error archiving team", description: (e as Error).message });
@@ -600,15 +600,7 @@ export default function AdminPageLoader() {
     const isClient = useIsClient();
     const [users, setUsers] = useState<User[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
-
-    const fetchData = async () => {
-        const [usersData, teamsData] = await Promise.all([
-            import('./actions').then(actions => actions.getUsers()),
-            import('./actions').then(actions => actions.getTeams())
-        ]);
-        setUsers(usersData);
-        setTeams(teamsData);
-    };
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         if (!isClient || !user) return;
@@ -616,12 +608,48 @@ export default function AdminPageLoader() {
         if (user.role !== 'admin') {
             router.push('/');
         } else {
+            const fetchData = async () => {
+                setIsLoading(true);
+                try {
+                    const [usersData, teamsData] = await Promise.all([
+                        import('./actions').then(actions => actions.getUsers()),
+                        import('./actions').then(actions => actions.getTeams())
+                    ]);
+                    setUsers(usersData);
+                    setTeams(teamsData);
+                } catch(e) {
+                    // Handle error
+                } finally {
+                    setIsLoading(false);
+                }
+            };
             fetchData();
         }
     }, [isClient, user, router]);
+    
+    const handleUserCreate = (newUser: User) => {
+        setUsers(prev => [newUser, ...prev]);
+    };
+
+    const handleUserUpdate = (updatedUser: User) => {
+        setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    };
+
+    const handleTeamCreate = (newTeam: Team) => {
+        setTeams(prev => [newTeam, ...prev]);
+    };
+
+    const handleTeamUpdate = (updatedTeam: Team) => {
+        setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
+    };
+
 
     if (!isClient || !user || user.role !== 'admin') {
         return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
+    }
+
+    if (isLoading) {
+        return <div>Loading...</div>
     }
     
     return (
@@ -633,10 +661,10 @@ export default function AdminPageLoader() {
                     <TabsTrigger value="teams">Team Management</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
-                    <UserManagement users={users} teams={teams} onUpdate={fetchData} />
+                    <UserManagement users={users} teams={teams} onUserCreate={handleUserCreate} onUserUpdate={handleUserUpdate} />
                 </TabsContent>
                 <TabsContent value="teams" className="mt-6">
-                    <TeamManagement teams={teams} users={users} onUpdate={fetchData} />
+                    <TeamManagement teams={teams} users={users} onTeamCreate={handleTeamCreate} onTeamUpdate={handleTeamUpdate} />
                 </TabsContent>
             </Tabs>
         </div>

@@ -110,8 +110,8 @@ export default function CasesPage() {
 
   const handleCreateCase = async (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
     try {
-        await createCase(newCaseData);
-        await fetchData();
+        const newCase = await createCase(newCaseData);
+        setCases(prev => [newCase, ...prev]);
         setCreateDialogOpen(false);
         toast({ title: "Case Created", description: `New case "${newCaseData.subject}" has been created.` });
     } catch(e) {
@@ -122,9 +122,9 @@ export default function CasesPage() {
   const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
     try {
         const { id, ...data } = updatedCaseData;
-        await updateCase(id, data);
-        await fetchData();
-        setSelectedCase(prev => prev ? { ...prev, ...data } as Case : null);
+        const updatedCase = await updateCase(id, data);
+        setCases(prev => prev.map(c => c.id === id ? updatedCase : c));
+        setSelectedCase(updatedCase);
         if (data.status === 'Completed' || data.status === 'Closed' || data.status === 'Declined' || data.status === 'Resolved') {
            toast({ title: `Case ${data.status}`, description: `Case "${updatedCaseData.subject}" has been marked as ${data.status.toLowerCase()}.` });
         }
@@ -347,8 +347,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks, onTasks
     if (content.trim()) {
       const newComm: Omit<Communication, 'id'> = { type, content, author: user?.name || 'System', authorRole: user?.role || 'staff', timestamp: new Date().toLocaleString() };
       try {
-        await addCommunicationToCase(caseItem.id, newComm);
-        setCommunications(prev => [...prev, { ...newComm, id: `comm-${Date.now()}` }]);
+        const updatedCase = await addCommunicationToCase(caseItem.id, newComm);
+        setCommunications(updatedCase.communications || []);
         if (type === 'Finding') setFinding('');
         if (type === 'Note') setNote('');
       } catch (e) {
