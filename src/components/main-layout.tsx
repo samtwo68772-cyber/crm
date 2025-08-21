@@ -63,7 +63,7 @@ const getNotificationIcon = (type: Notification['type']) => {
 };
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-    const { user, logout, isDataLoading } = useAuth();
+    const { user, logout, isLoading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
@@ -111,7 +111,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
     };
 
-    if (!user || isDataLoading) {
+    if (!user || isLoading) {
         return (
           <div className="flex h-screen w-full items-center justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />

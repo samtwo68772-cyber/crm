@@ -23,7 +23,6 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
-  isDataLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -31,7 +30,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDataLoading, setIsDataLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -39,27 +37,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const prefetchData = useCallback((userId: string) => {
     // This function is now non-blocking. It kicks off the fetches but doesn't wait for them.
-    setIsDataLoading(true);
+    // Prioritize core data for the dashboard
     Promise.all([
+        queryClient.prefetchQuery({ queryKey: ['cases'], queryFn: getCases }),
+        queryClient.prefetchQuery({ queryKey: ['tasks'], queryFn: getTasks }),
+        queryClient.prefetchQuery({ queryKey: ['meetings'], queryFn: getMeetings }),
+        queryClient.prefetchQuery({ queryKey: ['users'], queryFn: getUsers }),
         queryClient.prefetchQuery({ queryKey: ['accounts'], queryFn: getAccounts }),
         queryClient.prefetchQuery({ queryKey: ['contacts'], queryFn: getContacts }),
-        queryClient.prefetchQuery({ queryKey: ['users'], queryFn: getUsers }),
-        queryClient.prefetchQuery({ queryKey: ['teams'], queryFn: getTeams }),
-        queryClient.prefetchQuery({ queryKey: ['cases'], queryFn: getCases }),
-        queryClient.prefetchQuery({ queryKey: ['documents'], queryFn: getDocuments }),
-        queryClient.prefetchQuery({ queryKey: ['emails'], queryFn: getEmails }),
-        queryClient.prefetchQuery({ queryKey: ['meetings'], queryFn: getMeetings }),
         queryClient.prefetchQuery({ queryKey: ['notifications', userId], queryFn: () => getNotifications(userId) }),
-        queryClient.prefetchQuery({ queryKey: ['generalSettings'], queryFn: getGeneralSettings }),
-        queryClient.prefetchQuery({ queryKey: ['emailSettings'], queryFn: getEmailSettings }),
-        queryClient.prefetchQuery({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences }),
-        queryClient.prefetchQuery({ queryKey: ['workflows'], queryFn: getWorkflows }),
-        queryClient.prefetchQuery({ queryKey: ['auditLogs'], queryFn: getAuditLogs }),
-        queryClient.prefetchQuery({ queryKey: ['tasks'], queryFn: getTasks }),
-    ]).catch(error => {
+    ]).then(() => {
+        // Pre-fetch less critical data in the background after the essentials are done
+        queryClient.prefetchQuery({ queryKey: ['documents'], queryFn: getDocuments });
+        queryClient.prefetchQuery({ queryKey: ['emails'], queryFn: getEmails });
+        queryClient.prefetchQuery({ queryKey: ['generalSettings'], queryFn: getGeneralSettings });
+        queryClient.prefetchQuery({ queryKey: ['emailSettings'], queryFn: getEmailSettings });
+        queryClient.prefetchQuery({ queryKey: ['teams'], queryFn: getTeams });
+        queryClient.prefetchQuery({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences });
+        queryClient.prefetchQuery({ queryKey: ['workflows'], queryFn: getWorkflows });
+        queryClient.prefetchQuery({ queryKey: ['auditLogs'], queryFn: getAuditLogs });
+    }).catch(error => {
         console.error("Failed to prefetch initial data in the background", error);
-    }).finally(() => {
-        setIsDataLoading(false);
     });
   }, [queryClient]);
 
@@ -113,7 +111,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, isLoading, isDataLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );
