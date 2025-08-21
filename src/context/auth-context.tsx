@@ -5,7 +5,6 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useRouter, usePathname } from 'next/navigation';
 import type { User } from '@/lib/types';
 import { login as loginAction, logout as logoutAction, getSession, getUserById } from './actions';
-import { dataCache } from '@/lib/data-cache';
 
 // Import all server actions for data fetching
 import { getAccounts, getContacts } from '@/app/accounts/actions';
@@ -38,32 +37,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const queryClient = useQueryClient();
 
 
-  const prefetchData = useCallback(async (userId: string) => {
+  const prefetchData = useCallback((userId: string) => {
+    // This function is now non-blocking. It kicks off the fetches but doesn't wait for them.
     setIsDataLoading(true);
-    try {
-        await Promise.all([
-            queryClient.prefetchQuery({ queryKey: ['accounts'], queryFn: getAccounts }),
-            queryClient.prefetchQuery({ queryKey: ['contacts'], queryFn: getContacts }),
-            queryClient.prefetchQuery({ queryKey: ['users'], queryFn: getUsers }),
-            queryClient.prefetchQuery({ queryKey: ['teams'], queryFn: getTeams }),
-            queryClient.prefetchQuery({ queryKey: ['cases'], queryFn: getCases }),
-            queryClient.prefetchQuery({ queryKey: ['documents'], queryFn: getDocuments }),
-            queryClient.prefetchQuery({ queryKey: ['emails'], queryFn: getEmails }),
-            queryClient.prefetchQuery({ queryKey: ['meetings'], queryFn: getMeetings }),
-            queryClient.prefetchQuery({ queryKey: ['notifications', userId], queryFn: () => getNotifications(userId) }),
-            queryClient.prefetchQuery({ queryKey: ['generalSettings'], queryFn: getGeneralSettings }),
-            queryClient.prefetchQuery({ queryKey: ['emailSettings'], queryFn: getEmailSettings }),
-            queryClient.prefetchQuery({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences }),
-            queryClient.prefetchQuery({ queryKey: ['workflows'], queryFn: getWorkflows }),
-            queryClient.prefetchQuery({ queryKey: ['auditLogs'], queryFn: getAuditLogs }),
-            queryClient.prefetchQuery({ queryKey: ['tasks'], queryFn: getTasks }),
-        ]);
-
-    } catch (error) {
-        console.error("Failed to prefetch initial data", error);
-    } finally {
+    Promise.all([
+        queryClient.prefetchQuery({ queryKey: ['accounts'], queryFn: getAccounts }),
+        queryClient.prefetchQuery({ queryKey: ['contacts'], queryFn: getContacts }),
+        queryClient.prefetchQuery({ queryKey: ['users'], queryFn: getUsers }),
+        queryClient.prefetchQuery({ queryKey: ['teams'], queryFn: getTeams }),
+        queryClient.prefetchQuery({ queryKey: ['cases'], queryFn: getCases }),
+        queryClient.prefetchQuery({ queryKey: ['documents'], queryFn: getDocuments }),
+        queryClient.prefetchQuery({ queryKey: ['emails'], queryFn: getEmails }),
+        queryClient.prefetchQuery({ queryKey: ['meetings'], queryFn: getMeetings }),
+        queryClient.prefetchQuery({ queryKey: ['notifications', userId], queryFn: () => getNotifications(userId) }),
+        queryClient.prefetchQuery({ queryKey: ['generalSettings'], queryFn: getGeneralSettings }),
+        queryClient.prefetchQuery({ queryKey: ['emailSettings'], queryFn: getEmailSettings }),
+        queryClient.prefetchQuery({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences }),
+        queryClient.prefetchQuery({ queryKey: ['workflows'], queryFn: getWorkflows }),
+        queryClient.prefetchQuery({ queryKey: ['auditLogs'], queryFn: getAuditLogs }),
+        queryClient.prefetchQuery({ queryKey: ['tasks'], queryFn: getTasks }),
+    ]).catch(error => {
+        console.error("Failed to prefetch initial data in the background", error);
+    }).finally(() => {
         setIsDataLoading(false);
-    }
+    });
   }, [queryClient]);
 
   useEffect(() => {
@@ -74,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (session?.userId) {
           const currentUser = await getUserById(session.userId);
           setUser(currentUser);
-          await prefetchData(currentUser.id);
+          prefetchData(currentUser.id); // Prefetch in the background
         } else {
            if (pathname !== '/login') {
               router.push('/login');
@@ -97,7 +94,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginAction(email, password);
     setUser(loggedInUser);
-    await prefetchData(loggedInUser.id);
+    prefetchData(loggedInUser.id); // Prefetch in the background, don't await
   };
 
   const logout = async () => {
