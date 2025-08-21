@@ -50,14 +50,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
-
+import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function EmailClientView() {
-    const [emails, setEmails] = useState<Email[]>([]);
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: emails, isLoading: emailsLoading } = useQuery<Email[]>({ queryKey: ['emails'], queryFn: getEmails });
+    const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ queryKey: ['contacts'], queryFn: getContacts });
+    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts });
+    const isLoading = emailsLoading || contactsLoading || accountsLoading;
 
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -72,28 +74,6 @@ function EmailClientView() {
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [emailsData, contactsData, accountsData] = await Promise.all([
-                getEmails(),
-                getContacts(),
-                getAccounts()
-            ]);
-            setEmails(emailsData);
-            setContacts(contactsData);
-            setAccounts(accountsData);
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch email data.'})
-        } finally {
-            setIsLoading(false);
-        }
-    }
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
     useEffect(() => {
         if (searchParams.get('filter') === 'unread') {
             setShowUnread(true);
@@ -101,23 +81,32 @@ function EmailClientView() {
         }
     }, [searchParams]);
 
-    const handleProcessEmails = async () => {
-        setIsProcessing(true);
-        try {
-            await processIncomingEmails();
-            await fetchData();
+    const processEmailsMutation = useMutation({
+        mutationFn: processIncomingEmails,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['emails'] });
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
             toast({
                 title: "Email Processing Complete",
                 description: `Processed incoming emails. New cases may have been created.`,
             });
-        } catch (e) {
+        },
+        onError: () => {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to process emails.'})
-        } finally {
+        },
+        onSettled: () => {
             setIsProcessing(false);
         }
+    })
+
+    const handleProcessEmails = async () => {
+        setIsProcessing(true);
+        processEmailsMutation.mutate();
     };
 
     const filteredEmails = useMemo(() => {
+        if (!emails) return [];
         let sortedEmails = emails
             .filter(email => email.type === mailbox)
             .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -138,38 +127,62 @@ function EmailClientView() {
         );
     }, [emails, mailbox, searchQuery, showUnread]);
     
-
+    const markAsReadMutation = useMutation({
+        mutationFn: markEmailAsRead,
+        onSuccess: (updatedEmail) => {
+            queryClient.setQueryData(['emails'], (oldData: Email[] | undefined) => 
+                oldData ? oldData.map(e => e.id === updatedEmail.id ? updatedEmail : e) : []
+            );
+        }
+    });
+    
     const handleSelectEmail = async (email: Email) => {
         setSelectedEmail(email);
         setIsSheetOpen(true);
         if (!email.read) {
-            await markEmailAsRead(email.id);
-            setEmails(emails.map(e => e.id === email.id ? { ...e, read: true } : e));
+            markAsReadMutation.mutate(email.id);
         }
     };
-    
-    const handleCreateCaseFromEmail = async (email: Email) => {
-        try {
-            const newCase = await createCaseFromEmail(email.id);
-            await fetchData();
+
+    const createCaseFromEmailMutation = useMutation({
+        mutationFn: createCaseFromEmail,
+        onSuccess: (newCase) => {
+            queryClient.invalidateQueries({ queryKey: ['emails'] });
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
             setSelectedEmail(prev => prev ? {...prev, linkedCaseId: newCase.id} : null);
             toast({
                 title: "Case Created",
                 description: `New case "${newCase.subject}" has been created and linked to this email.`,
             });
-        } catch (e) {
-            if ((e as Error).message.includes('Contact not found')) {
-                setEmailForNewContact(email);
-                setConfirmCreateContactOpen(true);
+        },
+        onError: (error) => {
+            if (error.message.includes('Contact not found')) {
+                // This logic seems fine, it will trigger the dialog.
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Failed to create case from email.'})
             }
         }
+    });
+    
+    const handleCreateCaseFromEmail = async (email: Email) => {
+        try {
+            await createCaseFromEmailMutation.mutateAsync(email.id);
+        } catch(e) {
+            setEmailForNewContact(email);
+            setConfirmCreateContactOpen(true);
+        }
     };
     
+    const createContactMutation = useMutation({
+        mutationFn: createContact,
+        onSuccess: () => {
+             queryClient.invalidateQueries({ queryKey: ['contacts'] });
+        }
+    })
+
     const handleAddContactAndCreateCase = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
         try {
-            await createContact(newContactData);
+            await createContactMutation.mutateAsync(newContactData);
             setContactCreateOpen(false);
             
             toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created. Now creating case.` });
@@ -183,7 +196,24 @@ function EmailClientView() {
         }
     };
 
-    if (isLoading) return <div>Loading emails...</div>
+    if (isLoading) return (
+         <div className="flex flex-col h-full">
+            <div className="p-4 space-y-4 border-b">
+                 <Skeleton className="h-10 w-full" />
+                 <div className="flex gap-2">
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-10 w-24" />
+                    <Skeleton className="h-10 w-24" />
+                 </div>
+            </div>
+            <div className="p-4 space-y-4">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+            </div>
+         </div>
+    );
 
     const DesktopView = () => (
         <div className="flex-1 overflow-y-auto">
@@ -257,7 +287,7 @@ function EmailClientView() {
                         </Button>
                          <Button variant={showUnread ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => { setMailbox('inbox'); setShowUnread(true); }}>
                              <Mail className="h-4 w-4" /> Unread
-                            <Badge variant="default" className="ml-auto">{emails.filter(e => e.type === 'inbox' && !e.read).length}</Badge>
+                            <Badge variant="default" className="ml-auto">{emails?.filter(e => e.type === 'inbox' && !e.read).length}</Badge>
                         </Button>
                         <Button variant={mailbox === 'sent' ? 'secondary' : 'ghost'} className="justify-start gap-2" onClick={() => { setMailbox('sent'); setShowUnread(false);}}>
                             <Send className="h-4 w-4" /> Sent
@@ -309,7 +339,7 @@ function EmailClientView() {
                 initialName={emailForNewContact?.from.name}
                 onSave={handleAddContactAndCreateCase}
                 onCancel={() => setEmailForNewContact(null)}
-                accounts={accounts}
+                accounts={accounts || []}
             />
         </div>
     );
@@ -464,14 +494,20 @@ function NotConfiguredView() {
 
 
 export default function EmailsPage() {
-    const [emailSettings, setEmailSettings] = useState<EmailSettingsType | null>(null);
+    const { data: emailSettings, isLoading } = useQuery<EmailSettingsType | null>({ 
+        queryKey: ['emailSettings'], 
+        queryFn: getEmailSettings 
+    });
 
-    useEffect(() => {
-        getEmailSettings().then(setEmailSettings);
-    }, [])
-
-    if (!emailSettings) {
-        return <div>Loading settings...</div>
+    if (isLoading) {
+        return (
+            <div className="flex-1 p-0 flex flex-col h-[calc(100vh_-_5rem)]">
+                <Skeleton className="h-20 w-full rounded-none" />
+                <div className="p-8 flex-1 flex items-center justify-center">
+                    <Skeleton className="h-48 w-96" />
+                </div>
+            </div>
+        )
     }
 
     return (
@@ -481,10 +517,10 @@ export default function EmailsPage() {
                     <h1 className="text-2xl font-bold tracking-tight font-headline">Email</h1>
                     <p className="text-muted-foreground">Manage your communications and cases.</p>
                 </div>
-                {emailSettings.configured && <Button><Edit className="mr-2 h-4 w-4" /> Compose</Button>}
+                {emailSettings?.configured && <Button><Edit className="mr-2 h-4 w-4" /> Compose</Button>}
             </header>
             <div className="flex-1 overflow-hidden">
-                {emailSettings.configured ? <EmailClientView /> : <NotConfiguredView />}
+                {emailSettings?.configured ? <EmailClientView /> : <NotConfiguredView />}
             </div>
         </div>
     );

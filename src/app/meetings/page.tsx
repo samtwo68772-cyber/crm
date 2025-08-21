@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -25,7 +26,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 
 function getStatusVariant(status: Meeting['status']) {
@@ -150,10 +153,11 @@ function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[
 
 
 export default function MeetingsPage() {
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [cases, setCases] = useState<Case[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+  const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+  const isLoading = meetingsLoading || casesLoading || usersLoading;
 
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -169,86 +173,70 @@ export default function MeetingsPage() {
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-          const [meetingsData, casesData, usersData] = await Promise.all([
-            getMeetings(),
-            getCases(),
-            getUsers()
-          ]);
-          setMeetings(meetingsData);
-          setCases(casesData);
-          setUsers(usersData);
-        } catch (e) {
-          toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch meetings data.' });
-        } finally {
-          setIsLoading(false);
-        }
-    };
-    fetchData();
-  }, []);
-
-  useEffect(() => {
     if (searchParams.get('filter') === 'upcoming') {
         setActiveTab('upcoming');
     }
   }, [searchParams]);
 
-  const handleUpdateMeeting = async (updatedMeetingData: Partial<Meeting> & { id: string }) => {
-    const { id, ...data } = updatedMeetingData;
-    const optimisticUpdate = { ...meetings.find(m => m.id === id), ...data } as Meeting;
-    setMeetings(prev => prev.map(m => m.id === id ? optimisticUpdate : m));
-    setEditDialogOpen(false);
-    setSelectedMeeting(optimisticUpdate);
+  const updateMeetingMutation = useMutation({
+      mutationFn: (data: Partial<Meeting> & { id: string }) => updateMeeting(data.id, data),
+      onSuccess: (updatedMeeting) => {
+          queryClient.invalidateQueries({ queryKey: ['meetings'] });
+          setSelectedMeeting(updatedMeeting);
+          setEditDialogOpen(false);
+          toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeeting.title}" has been updated.` });
+      },
+      onError: () => {
+          toast({ variant: "destructive", title: "Error", description: "Failed to update meeting." });
+      }
+  });
 
-    try {
-        const updatedMeeting = await updateMeeting(id, data);
-        setMeetings(prev => prev.map(m => m.id === id ? updatedMeeting : m));
-        setSelectedMeeting(updatedMeeting);
-        toast({ title: 'Meeting Updated', description: `Meeting "${updatedMeetingData.title}" has been updated.` });
-    } catch(e) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to update meeting." });
-        setMeetings(prev => prev.map(m => m.id === id ? meetings.find(m => m.id === id)! : m)); // Revert
-    }
+  const deleteMeetingMutation = useMutation({
+      mutationFn: deleteMeeting,
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['meetings'] });
+          setEditDialogOpen(false);
+          setIsSheetOpen(false);
+          setSelectedMeeting(null);
+          toast({ title: 'Meeting Canceled', description: `The meeting has been canceled.` });
+      },
+      onError: () => {
+          toast({ variant: "destructive", title: "Error", description: "Failed to delete meeting." });
+      }
+  });
+
+  const createMeetingMutation = useMutation({
+      mutationFn: createMeeting,
+      onSuccess: (newMeeting) => {
+          queryClient.invalidateQueries({ queryKey: ['meetings'] });
+          setCreateDialogOpen(false);
+          toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeeting.title}" has been scheduled.` });
+      },
+      onError: () => {
+          toast({ variant: "destructive", title: "Error", description: "Failed to create meeting." });
+      }
+  });
+
+  const handleUpdateMeeting = async (updatedMeetingData: Partial<Meeting> & { id: string }) => {
+    updateMeetingMutation.mutate(updatedMeetingData);
   };
   
-   const handleDeleteMeeting = async (meetingId: string) => {
-    const meetingToDelete = meetings.find(m => m.id === meetingId);
-    if(!meetingToDelete) return;
-
-    setMeetings(prev => prev.filter(m => m.id !== meetingId));
-    setEditDialogOpen(false);
-    setIsSheetOpen(false);
-    setSelectedMeeting(null);
-
-    try {
-        await deleteMeeting(meetingId);
-        toast({ title: 'Meeting Canceled', description: `The meeting has been canceled.` });
-    } catch(e) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to delete meeting." });
-        setMeetings(prev => [...prev, meetingToDelete]); // Revert
-    }
+  const handleDeleteMeeting = async (meetingId: string) => {
+    deleteMeetingMutation.mutate(meetingId);
   };
 
   const handleCreateMeeting = async (newMeetingData: Omit<Meeting, 'id'>) => {
-    setCreateDialogOpen(false);
-    try {
-        const newMeeting = await createMeeting(newMeetingData);
-        setMeetings(prev => [newMeeting, ...prev]);
-        toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeetingData.title}" has been scheduled.` });
-    } catch(e) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to create meeting." });
-    }
+    createMeetingMutation.mutate(newMeetingData);
   };
 
   const userMeetings = useMemo(() => {
-    if (!user) return [];
+    if (!user || !meetings) return [];
     if (isAdmin) return meetings;
     return meetings.filter(m => m.participants.includes(user.id));
   }, [meetings, user, isAdmin]);
   
   const upcomingMeetings = useMemo(() => {
+    if (!userMeetings) return [];
     return userMeetings.filter(m => m.status === 'Upcoming');
   }, [userMeetings]);
   
@@ -260,7 +248,16 @@ export default function MeetingsPage() {
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
 
-  if (isLoading) return <div>Loading meetings...</div>
+  if (isLoading) return (
+        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-12 w-64" />
+                <Skeleton className="h-10 w-48" />
+            </div>
+            <Skeleton className="h-10 w-96" />
+            <Skeleton className="h-[50vh] w-full" />
+        </div>
+  );
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -347,8 +344,8 @@ export default function MeetingsPage() {
                 onOpenChange={setIsSheetOpen} 
                 meeting={selectedMeeting} 
                 onEdit={() => { setIsSheetOpen(false); setTimeout(() => setEditDialogOpen(true), 150); }} 
-                cases={cases}
-                users={users}
+                cases={cases || []}
+                users={users || []}
             />
             <EditMeetingDialog 
                 open={isEditDialogOpen} 
@@ -356,8 +353,8 @@ export default function MeetingsPage() {
                 meeting={selectedMeeting} 
                 onUpdate={handleUpdateMeeting} 
                 onDelete={handleDeleteMeeting}
-                users={users}
-                cases={cases}
+                users={users || []}
+                cases={cases || []}
             />
         </>
       )}
@@ -365,8 +362,8 @@ export default function MeetingsPage() {
         open={isCreateDialogOpen} 
         onOpenChange={setCreateDialogOpen} 
         onCreate={handleCreateMeeting} 
-        users={users}
-        cases={cases}
+        users={users || []}
+        cases={cases || []}
       />
     </div>
   );

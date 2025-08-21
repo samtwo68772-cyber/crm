@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -31,7 +32,8 @@ import { getMeetings } from '../meetings/actions';
 import { getTeams } from '../admin/actions';
 import { getAuditLogs } from '../settings/actions';
 import { useToast } from "@/hooks/use-toast";
-
+import { useQuery } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
@@ -102,13 +104,13 @@ type SortConfig = {
 
 
 export default function ReportsPage() {
-    const [cases, setCases] = useState<Case[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [meetings, setMeetings] = useState<Meeting[]>([]);
-    const [teams, setTeams] = useState<Team[]>([]);
-    const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+    const { data: auditLogs, isLoading: auditLogsLoading } = useQuery<AuditLog[]>({ queryKey: ['auditLogs'], queryFn: getAuditLogs });
+    const isLoading = casesLoading || tasksLoading || usersLoading || meetingsLoading || teamsLoading || auditLogsLoading;
     const { toast } = useToast();
 
     const router = useRouter();
@@ -120,41 +122,15 @@ export default function ReportsPage() {
     const [caseCategoryFilter, setCaseCategoryFilter] = useState('all');
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [casesData, tasksData, usersData, meetingsData, teamsData, logsData] = await Promise.all([
-                getCases(),
-                getTasks(),
-                getUsers(),
-                getMeetings(),
-                getTeams(),
-                getAuditLogs()
-            ]);
-            setCases(casesData);
-            setTasks(tasksData);
-            setUsers(usersData);
-            setMeetings(meetingsData);
-            setTeams(teamsData);
-            setAuditLogs(logsData);
-        } catch (error) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load report data.' });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-
     const filteredData = useMemo(() => {
+        if (!cases || !tasks || !meetings || !users || !auditLogs) {
+            return { cases: [], tasks: [], meetings: [], logs: [] };
+        }
         const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
         const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
         
         let userIdsInScope: string[] = [];
-        if (teamFilter !== 'all') {
+        if (teamFilter !== 'all' && teams) {
             userIdsInScope = users.filter(u => u.team === teamFilter).map(u => u.id);
         } else if (userFilter !== 'all') {
             userIdsInScope = [userFilter];
@@ -191,9 +167,15 @@ export default function ReportsPage() {
         });
 
         return { cases: filteredCases, tasks: filteredTasks, meetings: filteredMeetings, logs: filteredLogs };
-    }, [dateRange, userFilter, teamFilter, caseCategoryFilter, cases, tasks, meetings, users, auditLogs]);
+    }, [dateRange, userFilter, teamFilter, caseCategoryFilter, cases, tasks, meetings, users, auditLogs, teams]);
 
     const kpiData = useMemo(() => {
+        if (!cases || !tasks || !meetings) return {
+            totalCases: { value: '0', change: 'N/A', type: 'positive', data: [], positiveChange: true },
+            avgResolutionTime: { value: 'N/A', change: 'N/A', type: 'positive', data: [], positiveChange: true },
+            tasksCompleted: { value: '0', change: 'N/A', type: 'positive', data: [], positiveChange: true },
+            meetingsHeld: { value: '0', change: 'N/A', type: 'negative', data: [], positiveChange: false },
+        };
         const resolvedCases = cases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
         const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
         const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(1) : 'N/A';
@@ -207,9 +189,10 @@ export default function ReportsPage() {
             tasksCompleted: { value: filteredData.tasks.filter(t => t.status === 'Done').length.toString(), change: '+8%', type: 'positive' as const, data: trendData, positiveChange: true },
             meetingsHeld: { value: filteredData.meetings.filter(m => m.status === 'Completed').length.toString(), change: '-2', type: 'negative' as const, data: negTrendData, positiveChange: false },
         }
-    }, [filteredData, cases]);
+    }, [filteredData, cases, tasks, meetings]);
     
     const teamPerformanceData = useMemo(() => {
+        if (!teams || !users || !cases || !tasks) return [];
         let teamsToDisplay = teams;
         if (userFilter !== 'all') {
             const userTeam = users.find(u => u.id === userFilter)?.team;
@@ -246,6 +229,7 @@ export default function ReportsPage() {
 
 
     const individualPerformanceData = useMemo(() => {
+        if (!users) return [];
        let usersToList = users.filter(u => u.role === 'staff');
 
        if (userFilter !== 'all') {
@@ -320,6 +304,7 @@ export default function ReportsPage() {
     };
     
     const caseCategories = useMemo(() => {
+        if (!cases || !users) return [];
         const allCasesInRange = cases.filter(c => {
              const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
              const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
@@ -346,6 +331,7 @@ export default function ReportsPage() {
 
 
     const casesByStatusData = useMemo(() => {
+        if (!filteredData.cases) return [];
         const counts = filteredData.cases.reduce((acc, curr) => {
             acc[curr.status] = (acc[curr.status] || 0) + 1;
             return acc;
@@ -366,8 +352,8 @@ export default function ReportsPage() {
 
             const dateRangeStr = dateRange?.from ? `${format(dateRange.from, 'PPP')} - ${dateRange.to ? format(dateRange.to, 'PPP') : ''}` : 'All time';
             doc.text(`Date Range: ${dateRangeStr}`, 14, 30);
-            doc.text(`Team: ${teamFilter === 'all' ? 'All Teams' : teamFilter}`, 14, 36);
-            doc.text(`User: ${userFilter === 'all' ? 'All Users' : users.find(u => u.id === userFilter)?.name}`, 14, 42);
+            doc.text(`Team: ${teamFilter === 'all' ? 'All Teams' : teams?.find(t => t.name === teamFilter)?.name}`, 14, 36);
+            doc.text(`User: ${userFilter === 'all' ? 'All Users' : users?.find(u => u.id === userFilter)?.name}`, 14, 42);
 
             let startY = 50;
 
@@ -405,7 +391,7 @@ export default function ReportsPage() {
                     head: [['Timestamp', 'User', 'Action', 'Details']],
                     body: filteredData.logs.map(log => [
                         new Date(log.timestamp).toLocaleString(),
-                        users.find(u => u.id === log.userId)?.name || 'System',
+                        users?.find(u => u.id === log.userId)?.name || 'System',
                         log.action,
                         log.details,
                     ]),
@@ -429,7 +415,7 @@ export default function ReportsPage() {
                  if (filteredData.logs.length === 0) { alert("No data available for export."); return; }
                  const logData = filteredData.logs.map(log => ({
                      Timestamp: new Date(log.timestamp).toLocaleString(),
-                     User: users.find(u => u.id === log.userId)?.name || 'System',
+                     User: users?.find(u => u.id === log.userId)?.name || 'System',
                      Action: log.action,
                      Details: log.details,
                  }));
@@ -600,7 +586,20 @@ export default function ReportsPage() {
         )
     }
     
-    if (isLoading) return <div>Loading reports...</div>
+    if (isLoading) return (
+        <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
+            <Skeleton className="h-16 w-1/2" />
+            <Skeleton className="h-10 w-full" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
+            </div>
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-96 w-full" />
+        </div>
+    );
 
     return (
         <div className="flex-1 space-y-6 bg-muted/30 p-4 md:p-8 pt-6 rounded-lg">
@@ -617,7 +616,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Teams</SelectItem>
-                        {teams.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
+                        {teams?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                  <Select value={userFilter} onValueChange={setUserFilter}>
@@ -626,7 +625,7 @@ export default function ReportsPage() {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Users</SelectItem>
-                        {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
+                        {users?.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                  <Button variant="outline" onClick={() => { setUserFilter('all'); setTeamFilter('all'); }}>Clear Filters</Button>
@@ -802,5 +801,3 @@ export default function ReportsPage() {
         </div>
     );
 }
-
-    

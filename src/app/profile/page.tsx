@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -18,6 +19,8 @@ import type { User as UserType, NotificationPreferences, Team } from '@/lib/type
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { getGlobalNotificationPreferences } from '../settings/actions';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const notificationConfig = {
     cases: {
@@ -48,44 +51,63 @@ const notificationConfig = {
 
 export default function ProfilePage() {
     const { user: authUser, login } = useAuth();
+    const queryClient = useQueryClient();
     const { toast } = useToast();
     
-    const [user, setUser] = useState<UserType | null>(null);
+    const { data: user, isLoading: userLoading } = useQuery<UserType | null>({
+        queryKey: ['userProfile', authUser?.id],
+        queryFn: () => getUserProfile(authUser!.id),
+        enabled: !!authUser,
+    });
+    
+    const { data: globalNotificationPrefs, isLoading: globalPrefsLoading } = useQuery<NotificationPreferences | null>({
+        queryKey: ['globalNotificationPreferences'],
+        queryFn: getGlobalNotificationPreferences
+    });
+    
     const [userNotificationPrefs, setUserNotificationPrefs] = useState<NotificationPreferences | null>(null);
-    const [globalNotificationPrefs, setGlobalNotificationPrefs] = useState<NotificationPreferences | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
-
-    const fetchData = async () => {
-        if (!authUser) return;
-        setIsLoading(true);
-        try {
-            const [profile, globalPrefs] = await Promise.all([
-                getUserProfile(authUser.id),
-                getGlobalNotificationPreferences()
-            ]);
-            setUser(profile as UserType);
-            setUserNotificationPrefs(profile?.notificationPreferences as NotificationPreferences);
-            setGlobalNotificationPrefs(globalPrefs);
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load profile data.'})
-        } finally {
-            setIsLoading(false);
-        }
-    }
 
     useEffect(() => {
-        fetchData();
-    }, [authUser]);
+        if (user?.notificationPreferences) {
+            setUserNotificationPrefs(user.notificationPreferences as NotificationPreferences);
+        }
+    }, [user]);
+
+    const profileUpdateMutation = useMutation({
+        mutationFn: (updatedData: Partial<UserType>) => updateUserProfile(user!.id, updatedData),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['userProfile', authUser?.id] });
+            toast({ title: "Profile Updated", description: "Your profile information has been saved." });
+        },
+        onError: () => {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update profile.'})
+        }
+    });
+
+    const passwordChangeMutation = useMutation({
+        mutationFn: (newPassword: string) => updateUserPassword(user!.id, newPassword),
+        onSuccess: async (_, newPassword) => {
+            await login(user!.email, newPassword);
+            toast({ title: "Password Changed", description: "Your password has been successfully updated." });
+        },
+        onError: () => {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.'})
+        }
+    });
+
+    const preferencesSaveMutation = useMutation({
+        mutationFn: (newPreferences: NotificationPreferences) => updateUserPreferences(user!.id, newPreferences),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['userProfile', authUser?.id] });
+            toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
+        },
+        onError: () => {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save preferences.'})
+        }
+    });
 
     const handleProfileUpdate = async (updatedData: Partial<UserType>) => {
-        if (!user) return;
-        try {
-            await updateUserProfile(user.id, updatedData);
-            await fetchData();
-            toast({ title: "Profile Updated", description: "Your profile information has been saved." });
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update profile.'})
-        }
+        profileUpdateMutation.mutate(updatedData);
     };
 
     const handlePasswordChange = async (newPassword: string) => {
@@ -93,28 +115,22 @@ export default function ProfilePage() {
             toast({ variant: 'destructive', title: "Error", description: "Password cannot be empty." });
             return;
         }
-        try {
-            await updateUserPassword(user.id, newPassword);
-            await login(user.email, newPassword);
-            toast({ title: "Password Changed", description: "Your password has been successfully updated." });
-        } catch (e) {
-             toast({ variant: 'destructive', title: 'Error', description: 'Failed to update password.'})
-        }
+        passwordChangeMutation.mutate(newPassword);
     };
 
     const handleNotificationsSave = async (newPreferences: NotificationPreferences) => {
         if (!user) return;
-        try {
-            await updateUserPreferences(user.id, newPreferences);
-            await fetchData();
-            toast({ title: "Preferences Saved", description: "Your notification preferences have been updated." });
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save preferences.'})
-        }
+        preferencesSaveMutation.mutate(newPreferences);
     };
 
-    if (isLoading || !user) {
-        return <div>Loading...</div>;
+    if (userLoading || globalPrefsLoading || !user) {
+        return (
+            <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+                <Skeleton className="h-12 w-1/3" />
+                <Skeleton className="h-10 w-96" />
+                <Skeleton className="h-96 w-full" />
+            </div>
+        )
     }
 
     return (
@@ -156,17 +172,14 @@ export default function ProfilePage() {
 
 function MyTeamView() {
     const { user: authUser } = useAuth();
-    const [users, setUsers] = useState<UserType[]>([]);
-    const [teams, setTeams] = useState<Team[]>([]);
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
     
-    useEffect(() => {
-        Promise.all([getUsers(), getTeams()]).then(([u, t]) => {
-            setUsers(u as UserType[]);
-            setTeams(t);
-        })
-    }, []);
+    if (usersLoading || teamsLoading) {
+        return <Card><CardContent><Skeleton className="h-48 w-full" /></CardContent></Card>
+    }
 
-    const myTeam = teams.find(t => t.name === authUser?.team);
+    const myTeam = teams?.find(t => t.name === authUser?.team);
     
     if (!myTeam) {
         return (
@@ -181,8 +194,8 @@ function MyTeamView() {
         )
     }
     
-    const leader = users.find(u => u.id === myTeam.leaderId);
-    const members = users.filter(u => myTeam.memberIds.includes(u.id));
+    const leader = users?.find(u => u.id === myTeam.leaderId);
+    const members = users?.filter(u => myTeam.memberIds.includes(u.id));
 
     return (
         <Card>
@@ -192,9 +205,9 @@ function MyTeamView() {
                 {leader && <p className="pt-2 text-sm text-muted-foreground">Led by: <span className="font-medium text-foreground">{leader.name}</span></p>}
             </CardHeader>
             <CardContent>
-                <h4 className="font-medium text-lg mb-4">Members ({members.length})</h4>
+                <h4 className="font-medium text-lg mb-4">Members ({members?.length})</h4>
                 <div className="space-y-4">
-                    {members.map(member => (
+                    {members?.map(member => (
                         <div key={member.id} className="flex items-center gap-4">
                             <Avatar>
                                 <AvatarImage src={member.avatar} data-ai-hint="person avatar" />

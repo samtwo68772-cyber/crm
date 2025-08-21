@@ -28,6 +28,9 @@ import { useSearchParams } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
 import { getGeneralSettings, updateGeneralSettings, getEmailSettings, updateEmailSettings, getGlobalNotificationPreferences, updateGlobalNotificationPreferences, getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, getAuditLogs } from './actions';
 import { getUsers, getTeams } from '../admin/actions';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 type SecuritySettingsType = {
     passwordMinLength: number;
@@ -64,51 +67,40 @@ type ApiLog = typeof initialApiLogs[0];
 export default function SettingsPage() {
     const { user } = useAuth();
     const { toast } = useToast();
-    const [generalSettings, setGeneralSettings] = useState<GeneralSettingsType | null>(null);
-    const [emailSettings, setEmailSettings] = useState<EmailSettingsType | null>(null);
-    const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences | null>(null);
-    const [workflows, setWorkflows] = useState<Workflow[]>([]);
-    const [auditLogs, setAuditLogs] = useState<AuditLogType[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [teams, setTeams] = useState<Team[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+
+    const { data: generalSettings, isLoading: generalLoading } = useQuery<GeneralSettingsType>({ queryKey: ['generalSettings'], queryFn: getGeneralSettings });
+    const { data: emailSettings, isLoading: emailLoading } = useQuery<EmailSettingsType>({ queryKey: ['emailSettings'], queryFn: getEmailSettings });
+    const { data: notificationPreferences, isLoading: notificationsLoading } = useQuery<NotificationPreferences>({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences });
+    const { data: workflows, isLoading: workflowsLoading } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows });
+    const { data: auditLogs, isLoading: auditLogsLoading } = useQuery<AuditLogType[]>({ queryKey: ['auditLogs'], queryFn: getAuditLogs });
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+
+    const isLoading = generalLoading || emailLoading || notificationsLoading || workflowsLoading || auditLogsLoading || usersLoading || teamsLoading;
 
     const [securitySettings, setSecuritySettings] = useState<SecuritySettingsType>(initialSecuritySettings);
     const isAdmin = user?.role === 'admin';
     const searchParams = useSearchParams()
     const defaultTab = searchParams.get('tab') || "general";
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [
-                general, email, notifications,
-                wf, logs, u, t
-            ] = await Promise.all([
-                getGeneralSettings(), getEmailSettings(), getGlobalNotificationPreferences(),
-                getWorkflows(), getAuditLogs(), getUsers(), getTeams()
-            ]);
-            setGeneralSettings(general);
-            setEmailSettings(email);
-            setNotificationPreferences(notifications);
-            setWorkflows(wf);
-            setAuditLogs(logs);
-            setUsers(u);
-            setTeams(t);
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to load settings.' });
-        } finally {
-            setIsLoading(false);
+    const workflowMutation = useMutation({
+        mutationFn: async ({ action, payload }: { action: 'create' | 'update' | 'delete', payload: any }) => {
+            switch (action) {
+                case 'create': return createWorkflow(payload);
+                case 'update': return updateWorkflow(payload.id, payload);
+                case 'delete': return deleteWorkflow(payload);
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['workflows'] });
+            toast({ title: 'Success', description: 'Workflow has been updated.'})
+        },
+        onError: () => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update workflow.'})
         }
-    };
-    
-    useEffect(() => {
-        if (isAdmin) {
-            fetchData();
-        }
-    }, [isAdmin]);
+    });
 
-    
     if (!isAdmin) {
         return (
             <div className="p-8">
@@ -118,8 +110,14 @@ export default function SettingsPage() {
         )
     }
 
-    if (isLoading || !generalSettings || !emailSettings || !notificationPreferences) {
-        return <div>Loading settings...</div>;
+    if (isLoading || !generalSettings || !emailSettings || !notificationPreferences || !workflows || !auditLogs || !users || !teams) {
+        return (
+            <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+                <Skeleton className="h-12 w-1/2" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-96 w-full" />
+            </div>
+        );
     }
 
     return (
@@ -143,23 +141,27 @@ export default function SettingsPage() {
                 </div>
                 
                 <TabsContent value="general" className="mt-6">
-                    <GeneralSettings initialSettings={generalSettings} onSave={fetchData} />
+                    <GeneralSettings initialSettings={generalSettings} />
                 </TabsContent>
                 <TabsContent value="security" className="mt-6">
                     <SecuritySettings initialSettings={securitySettings} onSave={setSecuritySettings} />
                 </TabsContent>
                 <TabsContent value="email" className="mt-6">
-                    <EmailSettings initialSettings={emailSettings} onSave={fetchData} />
+                    <EmailSettings initialSettings={emailSettings} />
                 </TabsContent>
                 <TabsContent value="alerts" className="mt-6">
                     <AlertsSettings
                         preferences={notificationPreferences}
-                        onSave={fetchData}
                     />
                 </TabsContent>
                 <TabsContent value="api" className="mt-6"><ApiSettings /></TabsContent>
                 <TabsContent value="workflows" className="mt-6">
-                    <WorkflowsSettings workflows={workflows} setWorkflows={setWorkflows} onSave={fetchData} />
+                    <WorkflowsSettings 
+                        workflows={workflows} 
+                        onAddWorkflow={(payload) => workflowMutation.mutate({ action: 'create', payload })}
+                        onUpdateWorkflow={(payload) => workflowMutation.mutate({ action: 'update', payload })}
+                        onDeleteWorkflow={(payload) => workflowMutation.mutate({ action: 'delete', payload })}
+                    />
                 </TabsContent>
                 <TabsContent value="audit" className="mt-6"><AuditLog logs={auditLogs} users={users} /></TabsContent>
             </Tabs>
@@ -167,12 +169,32 @@ export default function SettingsPage() {
     );
 }
 
-function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSettings: GeneralSettingsType, onSave: () => void }) {
+function GeneralSettings({ initialSettings }: { initialSettings: GeneralSettingsType }) {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [settings, setSettings] = useState<GeneralSettingsType>(initialSettings);
     const [logoPreview, setLogoPreview] = useState<string | null>(initialSettings.logoUrl);
-    const { toast } = useToast();
 
+    useEffect(() => {
+        setSettings(initialSettings);
+        setLogoPreview(initialSettings.logoUrl);
+    }, [initialSettings]);
+    
     const hasChanges = JSON.stringify(settings) !== JSON.stringify(initialSettings) || logoPreview !== initialSettings.logoUrl;
+
+    const mutation = useMutation({
+        mutationFn: updateGeneralSettings,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['generalSettings'] });
+            toast({
+                title: 'Settings Saved',
+                description: 'Your changes have been saved successfully.',
+            });
+        },
+        onError: () => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save settings.'})
+        }
+    })
 
     const handleCancel = () => {
         setSettings(initialSettings);
@@ -184,12 +206,7 @@ function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSetti
         if (logoPreview && logoPreview !== initialSettings.logoUrl) {
             settingsToSave.logoUrl = logoPreview;
         }
-        await updateGeneralSettings(settingsToSave);
-        onSaveProp();
-        toast({
-            title: 'Settings Saved',
-            description: 'Your changes have been saved successfully.',
-        });
+        mutation.mutate(settingsToSave);
     };
 
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,12 +219,6 @@ function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSetti
             reader.readAsDataURL(file);
         }
     };
-
-    useEffect(() => {
-        setSettings(initialSettings);
-        setLogoPreview(initialSettings.logoUrl);
-    }, [initialSettings]);
-
 
     return (
         <Card>
@@ -273,7 +284,9 @@ function GeneralSettings({ initialSettings, onSave: onSaveProp }: { initialSetti
             </CardContent>
             <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
                 {hasChanges && <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Changes</Button>
+                <Button onClick={handleSave} disabled={!hasChanges || mutation.isPending} className="w-full sm:w-auto">
+                    {mutation.isPending ? "Saving..." : "Save Changes"}
+                </Button>
             </CardFooter>
         </Card>
     );
@@ -346,7 +359,7 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
     );
 }
 
-function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSettingsType; onSave: () => void; }) {
+function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType; }) {
     const [isDialogOpen, setDialogOpen] = useState(false);
     
     return (
@@ -382,16 +395,16 @@ function EmailSettings({ initialSettings, onSave }: { initialSettings: EmailSett
                 open={isDialogOpen}
                 onOpenChange={setDialogOpen}
                 settings={initialSettings}
-                onSave={onSave}
             />
         </>
     );
 }
 
-function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType, onSave: () => void }) {
+function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType }) {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [localSettings, setLocalSettings] = useState<EmailSettingsType>(settings);
     const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-    const { toast } = useToast();
 
     const isFormValid = localSettings.smtpHost && localSettings.smtpPort && localSettings.smtpUser && localSettings.smtpPass && localSettings.imapHost && localSettings.imapPort && localSettings.imapUser && localSettings.imapPass;
 
@@ -406,9 +419,20 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
         setLocalSettings(prev => ({...prev, [field]: value}));
     };
 
+    const mutation = useMutation({
+        mutationFn: updateEmailSettings,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['emailSettings'] });
+            toast({ title: 'Email Settings Saved', description: 'Your email configuration has been updated.' });
+            onOpenChange(false);
+        },
+        onError: () => {
+             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save email settings.'})
+        }
+    });
+
     const handleTestConnection = () => {
         setTestStatus('testing');
-        // Simulate API call to test both SMTP and IMAP
         setTimeout(() => {
             if (isFormValid) {
                 setTestStatus('success');
@@ -421,10 +445,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
     };
 
     const handleSubmit = async () => {
-        await updateEmailSettings({ ...localSettings, configured: true });
-        onSave();
-        toast({ title: 'Email Settings Saved', description: 'Your email configuration has been updated.' });
-        onOpenChange(false);
+        mutation.mutate({ ...localSettings, configured: true });
     };
 
     return (
@@ -480,7 +501,9 @@ function EmailSettingsDialog({ open, onOpenChange, settings, onSave }: { open: b
                     </div>
                     <div className="flex gap-2">
                          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                         <Button onClick={handleSubmit} disabled={!isFormValid}>Save Changes</Button>
+                         <Button onClick={handleSubmit} disabled={!isFormValid || mutation.isPending}>
+                            {mutation.isPending ? 'Saving...' : 'Save Changes'}
+                         </Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
@@ -515,13 +538,25 @@ const notificationConfig = {
     },
 };
 
-function AlertsSettings({ preferences, onSave }: { preferences: NotificationPreferences; onSave: () => void; }) {
-    const [currentPreferences, setCurrentPreferences] = useState(preferences);
+function AlertsSettings({ preferences }: { preferences: NotificationPreferences; }) {
+    const queryClient = useQueryClient();
     const { toast } = useToast();
+    const [currentPreferences, setCurrentPreferences] = useState(preferences);
 
     useEffect(() => {
         setCurrentPreferences(preferences);
     }, [preferences]);
+
+    const mutation = useMutation({
+        mutationFn: updateGlobalNotificationPreferences,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['globalNotificationPreferences'] });
+            toast({ title: 'Preferences Saved', description: 'Global notification preferences have been updated.' });
+        },
+        onError: () => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to update preferences.' });
+        }
+    })
 
     const handlePreferenceChange = (
         category: keyof NotificationPreferences,
@@ -547,9 +582,7 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
     };
 
     const handleSave = async () => {
-        await updateGlobalNotificationPreferences(currentPreferences);
-        onSave();
-        toast({ title: 'Preferences Saved', description: 'Global notification preferences have been updated.' });
+        mutation.mutate(currentPreferences);
     };
 
     const hasChanges = JSON.stringify(currentPreferences) !== JSON.stringify(preferences);
@@ -614,7 +647,9 @@ function AlertsSettings({ preferences, onSave }: { preferences: NotificationPref
             </CardContent>
             <CardFooter className="border-t pt-6 flex flex-col sm:flex-row justify-end gap-2">
                 {hasChanges && <Button variant="outline" className="w-full sm:w-auto" onClick={() => setCurrentPreferences(preferences)}>Cancel</Button>}
-                <Button onClick={handleSave} disabled={!hasChanges} className="w-full sm:w-auto">Save Preferences</Button>
+                <Button onClick={handleSave} disabled={!hasChanges || mutation.isPending} className="w-full sm:w-auto">
+                    {mutation.isPending ? "Saving..." : "Save Preferences"}
+                </Button>
             </CardFooter>
         </Card>
     );
@@ -770,31 +805,9 @@ function ApiSettings() {
     );
 }
 
-function WorkflowsSettings({ workflows, setWorkflows, onSave }: { workflows: Workflow[], setWorkflows: React.Dispatch<React.SetStateAction<Workflow[]>>, onSave: () => void }) {
+function WorkflowsSettings({ workflows, onAddWorkflow, onUpdateWorkflow, onDeleteWorkflow }: { workflows: Workflow[], onAddWorkflow: (data: any) => void, onUpdateWorkflow: (data: any) => void, onDeleteWorkflow: (id: string) => void }) {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null);
-    const { toast } = useToast();
-
-    const handleAddWorkflow = async (newWorkflow: Omit<Workflow, 'id'>) => {
-        await createWorkflow(newWorkflow);
-        onSave();
-        setIsFormOpen(false);
-        toast({ title: 'Workflow Created', description: `Workflow "${newWorkflow.name}" has been created.` });
-    };
-    
-    const handleUpdateWorkflow = async (updatedWorkflow: Workflow) => {
-        await updateWorkflow(updatedWorkflow.id, updatedWorkflow);
-        onSave();
-        setEditingWorkflow(null);
-        setIsFormOpen(false);
-        toast({ title: 'Workflow Updated', description: `Workflow "${updatedWorkflow.name}" has been updated.` });
-    };
-
-    const handleDeleteWorkflow = async (workflowId: string) => {
-        await deleteWorkflow(workflowId);
-        onSave();
-        toast({ title: 'Workflow Deleted', description: 'The workflow has been deleted.' });
-    };
 
     const openCreateForm = () => {
         setEditingWorkflow(null);
@@ -868,7 +881,7 @@ function WorkflowsSettings({ workflows, setWorkflows, onSave }: { workflows: Wor
                                             </AlertDialogHeader>
                                             <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteWorkflow(workflow.id)}>Delete</AlertDialogAction>
+                                                <AlertDialogAction onClick={() => onDeleteWorkflow(workflow.id)}>Delete</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
@@ -893,9 +906,9 @@ function WorkflowsSettings({ workflows, setWorkflows, onSave }: { workflows: Wor
                 workflow={editingWorkflow}
                 onSave={(data, isEdit) => {
                     if (isEdit && editingWorkflow) {
-                        handleUpdateWorkflow({ ...editingWorkflow, ...data });
+                        onUpdateWorkflow({ ...editingWorkflow, ...data });
                     } else {
-                        handleAddWorkflow(data as Omit<Workflow, 'id'>);
+                        onAddWorkflow(data);
                     }
                 }}
             />

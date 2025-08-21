@@ -20,7 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const fileTypeIcons: { [key in Document['type']]: React.ReactNode } = {
     'PDF': <FileText className="h-10 w-10 text-red-500" />,
@@ -32,53 +33,37 @@ const fileTypeIcons: { [key in Document['type']]: React.ReactNode } = {
 
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [cases, setCases] = useState<Case[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: documents, isLoading: documentsLoading } = useQuery<Document[]>({ queryKey: ['documents'], queryFn: getDocuments });
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts });
+    const isLoading = documentsLoading || casesLoading || accountsLoading;
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
-  const [isUploadOpen, setUploadOpen] = useState(false);
-  const [editingDocument, setEditingDocument] = useState<Document | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
+    const [isUploadOpen, setUploadOpen] = useState(false);
+    const [editingDocument, setEditingDocument] = useState<Document | null>(null);
   
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
-  const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-          const [docs, caseData, accountData] = await Promise.all([
-            getDocuments(),
-            getCases(),
-            getAccounts()
-          ]);
-          setDocuments(docs);
-          setCases(caseData);
-          setAccounts(accountData);
-        } catch (error) {
-          toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch documents data.' });
-        } finally {
-          setIsLoading(false);
-        }
-    };
-    fetchData();
-  }, []);
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+    const { toast } = useToast();
 
   const getLinkedItemName = (doc: Document) => {
     switch (doc.linkedToType) {
-        case 'Case': return cases.find(c => c.id === doc.linkedToId)?.subject || doc.linkedToId;
-        case 'Account': return accounts.find(a => a.id === doc.linkedToId)?.name || doc.linkedToId;
+        case 'Case': return cases?.find(c => c.id === doc.linkedToId)?.subject || doc.linkedToId;
+        case 'Account': return accounts?.find(a => a.id === doc.linkedToId)?.name || doc.linkedToId;
         default: return doc.linkedToId;
     }
   }
 
-  const documentCategories = useMemo(() => ['all', ...Array.from(new Set(documents.map(d => d.category)))], [documents]);
+  const documentCategories = useMemo(() => {
+      if (!documents) return [];
+      return ['all', ...Array.from(new Set(documents.map(d => d.category)))]
+  }, [documents]);
 
   const filteredDocuments = useMemo(() => {
+    if (!documents) return [];
     return documents.filter(doc => {
       const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase()) || (doc.description && doc.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter;
@@ -86,40 +71,54 @@ export default function DocumentsPage() {
     });
   }, [documents, searchQuery, categoryFilter]);
 
+  const createDocumentMutation = useMutation({
+    mutationFn: (data: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt'>) => createDocument(data, user!.id),
+    onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['documents'] });
+        toast({ title: 'Document Uploaded', description: 'The document has been uploaded.' });
+        setUploadOpen(false);
+    },
+    onError: (error) => {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  })
+
+  const updateDocumentMutation = useMutation({
+    mutationFn: (data: Partial<Document> & { id: string }) => updateDocument(data.id, data),
+    onSuccess: (updatedDoc) => {
+        queryClient.invalidateQueries({ queryKey: ['documents'] });
+        toast({ title: 'Document Updated', description: `"${updatedDoc.name}" has been updated.` });
+        setEditingDocument(null);
+        setExpandedDocId(updatedDoc.id);
+    },
+    onError: (error) => {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  });
+
+  const deleteDocumentMutation = useMutation({
+      mutationFn: deleteDocument,
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['documents'] });
+          toast({ title: 'Document Deleted', description: 'The document has been deleted.' });
+          setExpandedDocId(null);
+      },
+      onError: (error) => {
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+      }
+  });
+
   const handleUploadDocument = async (newDocData: Omit<Document, 'id' | 'uploadedBy' | 'uploadedAt'>) => {
     if (!user) return;
-    try {
-      const newDoc = await createDocument(newDocData, user.id);
-      setDocuments(prev => [newDoc, ...prev]);
-      setUploadOpen(false);
-      toast({ title: 'Document Uploaded', description: `"${newDocData.name}" has been uploaded.` });
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
-    }
+    createDocumentMutation.mutate(newDocData);
   };
   
   const handleUpdateDocument = async (updatedDocData: Partial<Document> & { id: string }) => {
-    try {
-      const { id, ...data } = updatedDocData;
-      const updatedDoc = await updateDocument(id, data);
-      setDocuments(prev => prev.map(d => d.id === id ? updatedDoc : d));
-      setEditingDocument(null);
-      setExpandedDocId(id);
-      toast({ title: 'Document Updated', description: `"${updatedDocData.name}" has been updated.` });
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
-    }
+    updateDocumentMutation.mutate(updatedDocData);
   };
   
   const handleDeleteDocument = async (docId: string) => {
-    try {
-      await deleteDocument(docId);
-      setDocuments(prev => prev.filter(d => d.id !== docId));
-      setExpandedDocId(null);
-      toast({ title: 'Document Deleted', description: 'The document has been deleted.' });
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: (error as Error).message });
-    }
+    deleteDocumentMutation.mutate(docId);
   };
   
   const handleDownload = (doc: Document) => {
@@ -170,7 +169,15 @@ export default function DocumentsPage() {
     setCategoryFilter('all');
   }
 
-  if (isLoading) return <div>Loading documents...</div>
+  if (isLoading) return (
+        <div className="flex-1 space-y-6 pt-6">
+            <Skeleton className="h-12 w-1/3" />
+            <Skeleton className="h-16 w-full" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-24 w-full" />)}
+            </div>
+        </div>
+  );
 
   return (
     <div className="flex-1 space-y-6 pt-6">
@@ -208,7 +215,7 @@ export default function DocumentsPage() {
         </Card>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filteredDocuments.map(doc => (
+        {filteredDocuments?.map(doc => (
             <Collapsible key={doc.id} open={expandedDocId === doc.id} onOpenChange={(isOpen) => setExpandedDocId(isOpen ? doc.id : null)} className="col-span-1 md:col-span-2 lg:col-span-3 xl:col-span-4 data-[state=open]:col-span-full">
                 <Card className="hover:shadow-md transition-shadow duration-200">
                     <CollapsibleTrigger asChild>
@@ -256,7 +263,7 @@ export default function DocumentsPage() {
              </Collapsible>
         ))}
       </div>
-      {filteredDocuments.length === 0 && (
+      {filteredDocuments?.length === 0 && !isLoading && (
         <div className="text-center py-16 text-muted-foreground">
             <p className="text-lg font-semibold">No documents found</p>
             <p>Try adjusting your search or filters.</p>
@@ -280,8 +287,8 @@ export default function DocumentsPage() {
               handleUploadDocument(data);
             }
           }}
-          cases={cases}
-          accounts={accounts}
+          cases={cases || []}
+          accounts={accounts || []}
        />
     </div>
   );
@@ -386,7 +393,13 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
                      )}
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="linkType" className="text-right">Link To</Label>
-                        <Select onValueChange={(v: Document['linkedToType']) => { setLinkedToType(v); setLinkedToId(''); }} value={linkedToType}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select type..." /></SelectTrigger><SelectContent><SelectItem value="Case">Case</SelectItem><SelectItem value="Account">Account</SelectItem></SelectContent></Select>
+                        <Select onValueChange={(v: any) => { setLinkedToType(v); setLinkedToId(''); }} value={linkedToType}>
+                            <SelectTrigger className="col-span-3"><SelectValue placeholder="Select type..." /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="Case">Case</SelectItem>
+                                <SelectItem value="Account">Account</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                      {linkedToType && <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="linkId" className="text-right">Record</Label>
