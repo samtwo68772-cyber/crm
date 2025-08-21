@@ -80,3 +80,10 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
     });
     return updatedCase;
 }
+
+export async function deleteCase(id: string) {
+    const deletedCase = await prisma.case.delete({
+        where: { id },
+    });
+    return deletedCase;
+}

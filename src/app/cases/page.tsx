@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import type { DateRange } from "react-day-picker"
-import { getCases, createCase, updateCase, addCommunicationToCase } from './actions';
+import { getCases, createCase, updateCase, addCommunicationToCase, deleteCase } from './actions';
 import { getTasks, updateTask as updateTaskAction } from '../tasks/actions';
 import { getUsers } from '../admin/actions';
 import { getWorkflows } from '../settings/actions';
@@ -15,10 +15,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose, SheetFooter } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -111,6 +111,22 @@ export default function CasesPage() {
             toast({ variant: "destructive", title: "Error", description: error.message });
         }
     });
+    
+    const deleteCaseMutation = useMutation({
+        mutationFn: deleteCase,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            toast({ title: "Case Deleted", description: "The case has been deleted." });
+            setSelectedCase(null);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
+
+    const handleDeleteCase = async (caseId: string) => {
+        deleteCaseMutation.mutate(caseId);
+    }
 
     const handleCreateCase = async (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
         createCaseMutation.mutate(newCaseData);
@@ -304,10 +320,11 @@ export default function CasesPage() {
 
       {selectedCase && (
         <Sheet open={!!selectedCase} onOpenChange={(open) => !open && setSelectedCase(null)}>
-            <SheetContent className="w-full sm:max-w-xl md:max-w-2xl lg:max-w-4xl p-0">
+            <SheetContent className="w-full sm:max-w-xl md:max-w-2xl lg:max-w-4xl p-0 flex flex-col">
                <CaseDetailPanel 
                     caseItem={selectedCase} 
                     onUpdateCase={handleUpdateCase} 
+                    onDeleteCase={handleDeleteCase}
                     onBack={() => setSelectedCase(null)}
                     users={users || []}
                     tasks={tasks || []}
@@ -321,14 +338,16 @@ export default function CasesPage() {
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onBack: () => void, users: User[], tasks: Task[] }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], tasks: Task[] }) {
   const queryClient = useQueryClient();
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
+  const [description, setDescription] = useState(caseItem.description);
   const [communications, setCommunications] = useState(caseItem.communications || []);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [replyMessage, setReplyMessage] = useState('');
   const [isResolveDialogOpen, setResolveDialogOpen] = useState(false);
+  const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isTaskWarningOpen, setTaskWarningOpen] = useState(false);
   const [resolutionNote, setResolutionNote] = useState('');
   
@@ -339,6 +358,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { cas
 
   const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
   const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
+
+  const hasDescriptionChanged = description !== caseItem.description;
 
   const addCommunicationMutation = useMutation({
       mutationFn: (data: { caseId: string, comm: Omit<Communication, 'id'> }) => addCommunicationToCase(data.caseId, data.comm),
@@ -442,30 +463,6 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { cas
                         <SheetDescription className="text-xs md:text-sm">From {caseItem.customer} ({caseItem.email}) | Created on {caseItem.createdAt}</SheetDescription>
                     </div>
                 </div>
-                 <div className="flex items-center gap-2">
-                    {isAdmin && caseItem.status === 'New' && (
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button size="icon" onClick={() => handleStatusChange('Under Review')} className="h-8 w-8">
-                                        <Check className="h-4 w-4" />
-                                        <span className="sr-only">Accept Case</span>
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Accept Case</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button size="icon" variant="destructive" onClick={() => handleStatusChange('Declined')} className="h-8 w-8">
-                                        <XCircle className="h-4 w-4" />
-                                        <span className="sr-only">Decline Case</span>
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>Decline Case</TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    )}
-                </div>
             </div>
         </SheetHeader>
         <div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden">
@@ -502,7 +499,15 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { cas
                 </div>
                  <div className="space-y-2">
                     <h4 className="font-semibold">Description</h4>
-                    <p className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md">{caseItem.description}</p>
+                    <Textarea 
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      disabled={!isAdmin}
+                      className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md"
+                    />
+                    {hasDescriptionChanged && isAdmin && (
+                        <Button size="sm" onClick={() => onUpdateCase({ id: caseItem.id, description })}>Save Description</Button>
+                    )}
                 </div>
                 
                 {isAdmin && (
@@ -633,6 +638,28 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { cas
                 </Tabs>
             </div>
         </div>
+        <SheetFooter className="p-4 border-t mt-auto bg-background flex-shrink-0">
+             <div className="flex items-center justify-end gap-2 w-full">
+                    {isAdmin && caseItem.status === 'New' && (
+                        <>
+                            <Button variant="outline" size="sm" onClick={() => handleStatusChange('Declined')}>
+                                <XCircle className="mr-2 h-4 w-4" /> Decline Case
+                            </Button>
+                            <Button size="sm" onClick={() => handleStatusChange('Under Review')}>
+                                <Check className="mr-2 h-4 w-4" /> Accept Case
+                            </Button>
+                        </>
+                    )}
+                    {isAdmin && (
+                        <Button variant="destructive" size="icon" onClick={() => setDeleteConfirmOpen(true)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    )}
+                     <SheetClose asChild>
+                        <Button variant="outline" size="icon"><X className="h-4 w-4" /></Button>
+                    </SheetClose>
+            </div>
+        </SheetFooter>
     </div>
     
     <Dialog open={isResolveDialogOpen} onOpenChange={setResolveDialogOpen}>
@@ -663,6 +690,21 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { cas
             <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                 {isAdmin && <AlertDialogAction onClick={handleForceResolve}>Force Resolve</AlertDialogAction>}
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    
+    <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    This will permanently delete the case "{caseItem.subject}". This action cannot be undone.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDeleteCase(caseItem.id)}>Delete Case</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
