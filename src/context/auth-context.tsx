@@ -23,7 +23,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const checkSession = async () => {
-      setIsLoading(true);
       const session = await getSession();
       if (session?.userId) {
         try {
@@ -32,11 +31,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } catch (error) {
           console.error("Failed to fetch user from session", error);
           setUser(null);
-          router.push('/login');
+          if (pathname !== '/login') router.push('/login');
         }
       } else {
         setUser(null);
-        if (pathname !== '/login') {
+         if (pathname !== '/login') {
             router.push('/login');
         }
       }
@@ -44,7 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     checkSession();
-  }, [pathname, router]);
+  }, []);
 
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginAction(email, password);
