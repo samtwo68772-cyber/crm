@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -79,7 +80,7 @@ const DropdownMenuItem = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Item> & {
     inset?: boolean
   }
->(({ className, inset, ...props }, ref) => (
+>(({ className, inset, onSelect, ...props }, ref) => (
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
@@ -87,6 +88,13 @@ const DropdownMenuItem = React.forwardRef<
       inset && "pl-8",
       className
     )}
+    onSelect={(event) => {
+        if (props.disabled) {
+            event.preventDefault();
+            return;
+        }
+        onSelect?.(event);
+    }}
     {...props}
   />
 ))

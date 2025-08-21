@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose, SheetFooter } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2 } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -33,6 +33,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -485,16 +487,12 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                         <Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge>
 
                         <div><Label className="text-muted-foreground">Assigned To</Label></div>
-                        {isAdmin ? 
-                            (<Select onValueChange={handleAssigneeChange} value={caseItem.assignedTo}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="Unassigned">Unassigned</SelectItem>
-                                    {users.filter(u => u.role === 'staff').map(u => <SelectItem key={u.id} value={u.name}>{u.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>) : 
-                            (<div>{caseItem.assignedTo}</div>)
-                        }
+                          <SearchableUserSelect
+                            users={users.filter(u => u.role === 'staff')}
+                            selectedUser={users.find(u => u.name === caseItem.assignedTo)}
+                            onSelect={(user) => handleAssigneeChange(user ? user.name : 'Unassigned')}
+                            disabled={!isAdmin}
+                          />
                     </div>
                 </div>
                  <div className="space-y-2">
@@ -503,7 +501,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       disabled={!isAdmin}
-                      className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md"
+                      className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md min-h-[120px]"
                     />
                     {hasDescriptionChanged && isAdmin && (
                         <Button size="sm" onClick={() => onUpdateCase({ id: caseItem.id, description })}>Save Description</Button>
@@ -639,25 +637,26 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
             </div>
         </div>
         <SheetFooter className="p-4 border-t mt-auto bg-background flex-shrink-0">
-             <div className="flex items-center justify-end gap-2 w-full">
+             <div className="flex items-center justify-between gap-2 w-full">
+                 <Button variant="destructive" size="icon" onClick={() => setDeleteConfirmOpen(true)} disabled={!isAdmin}>
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete Case</span>
+                 </Button>
+                <div className="flex gap-2">
                     {isAdmin && caseItem.status === 'New' && (
                         <>
-                            <Button variant="outline" size="sm" onClick={() => handleStatusChange('Declined')}>
-                                <XCircle className="mr-2 h-4 w-4" /> Decline Case
+                            <Button variant="outline" onClick={() => handleStatusChange('Declined')}>
+                                <XCircle className="mr-2 h-4 w-4" /> Decline
                             </Button>
-                            <Button size="sm" onClick={() => handleStatusChange('Under Review')}>
-                                <Check className="mr-2 h-4 w-4" /> Accept Case
+                            <Button onClick={() => handleStatusChange('Under Review')}>
+                                <Check className="mr-2 h-4 w-4" /> Accept
                             </Button>
                         </>
                     )}
-                    {isAdmin && (
-                        <Button variant="destructive" size="icon" onClick={() => setDeleteConfirmOpen(true)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    )}
                      <SheetClose asChild>
-                        <Button variant="outline" size="icon"><X className="h-4 w-4" /></Button>
+                        <Button variant="ghost"><X className="h-4 w-4 mr-2" /> Close</Button>
                     </SheetClose>
+                </div>
             </div>
         </SheetFooter>
     </div>
@@ -712,6 +711,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
   );
 }
 
+const defaultCaseTypes = ['Bug Report', 'Feature Request', 'Billing Inquiry', 'General Question'];
+
 function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflows }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], cases: Case[], workflows: Workflow[] }) {
   const [subject, setSubject] = useState('');
   const [customer, setCustomer] = useState('');
@@ -720,7 +721,13 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   const [priority, setPriority] = useState<Case['priority']>('Medium');
   const [type, setType] = useState<Case['type']>('General Question');
   const [status, setStatus] = useState<Case['status']>('New');
+  const [assignedTo, setAssignedTo] = useState('Unassigned');
+  const [caseTypes, setCaseTypes] = useState(defaultCaseTypes);
+  const [isManageTypesOpen, setManageTypesOpen] = useState(false);
   const { toast } = useToast();
+  
+  const staffUsers = useMemo(() => users.filter(u => u.role === 'staff' || u.role === 'admin'), [users]);
+
 
   const handleSubmit = () => {
     const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> = { 
@@ -730,7 +737,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
         priority, 
         type, 
         status, 
-        assignedTo: 'Unassigned',
+        assignedTo,
         description: description,
     };
     
@@ -759,10 +766,11 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
     });
 
     onCreate(caseData);
-    setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New');
+    setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New'); setAssignedTo('Unassigned');
   };
   
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader><DialogTitle className="font-headline">Create New Case</DialogTitle><DialogDescription>Fill in the details for the new support case.</DialogDescription></DialogHeader>
@@ -777,11 +785,142 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="type" className="text-right">Case Type</Label>
-            <Select onValueChange={(v: Case['type']) => setType(v)} defaultValue={type}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Bug Report">Bug Report</SelectItem><SelectItem value="Feature Request">Feature Request</SelectItem><SelectItem value="Billing Inquiry">Billing Inquiry</SelectItem><SelectItem value="General Question">General Question</SelectItem></SelectContent></Select>
+            <Select onValueChange={(v: Case['type']) => setType(v)} value={type}>
+                <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    {caseTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setManageTypesOpen(true)}>
+                      <Settings className="mr-2 h-4 w-4" />
+                      Manage Types
+                    </DropdownMenuItem>
+                </SelectContent>
+            </Select>
+          </div>
+           <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="assignTo" className="text-right">Assign To</Label>
+             <SearchableUserSelect
+                users={staffUsers}
+                selectedUser={staffUsers.find(u => u.name === assignedTo)}
+                onSelect={(user) => setAssignedTo(user ? user.name : 'Unassigned')}
+                placeholder="Select a staff member..."
+              />
           </div>
         </div>
         <DialogFooter><Button type="submit" onClick={handleSubmit}>Create Case</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+    <ManageCaseTypesDialog
+        open={isManageTypesOpen}
+        onOpenChange={setManageTypesOpen}
+        caseTypes={caseTypes}
+        onSave={setCaseTypes}
+      />
+    </>
   );
+}
+
+function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open: boolean; onOpenChange: (open: boolean) => void; caseTypes: string[]; onSave: (types: string[]) => void; }) {
+    const [types, setTypes] = useState(caseTypes);
+    const [newType, setNewType] = useState('');
+
+    useEffect(() => {
+        setTypes(caseTypes);
+    }, [caseTypes, open]);
+
+    const handleAdd = () => {
+        if (newType && !types.includes(newType)) {
+            setTypes([...types, newType]);
+            setNewType('');
+        }
+    };
+
+    const handleDelete = (typeToDelete: string) => {
+        setTypes(types.filter(t => t !== typeToDelete));
+    };
+    
+    const handleSave = () => {
+        onSave(types);
+        onOpenChange(false);
+    }
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Manage Case Types</DialogTitle>
+                    <DialogDescription>Add, edit, or remove case types available in the dropdown.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        {types.map(type => (
+                            <div key={type} className="flex items-center justify-between p-2 border rounded-md">
+                                <span>{type}</span>
+                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDelete(type)}>
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+                     <div className="flex gap-2">
+                        <Input value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="New case type name..." />
+                        <Button onClick={handleAdd}>Add</Button>
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSave}>Save Changes</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function SearchableUserSelect({ users, selectedUser, onSelect, placeholder = "Select a user...", disabled = false }: { users: User[], selectedUser: User | undefined, onSelect: (user: User | null) => void, placeholder?: string, disabled?: boolean }) {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between col-span-3 font-normal"
+                    disabled={disabled}
+                >
+                    {selectedUser ? selectedUser.name : placeholder}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                <Command>
+                    <CommandInput placeholder="Search users..." />
+                    <CommandList>
+                        <CommandEmpty>No user found.</CommandEmpty>
+                        <CommandGroup>
+                            {users.map((user) => (
+                                <CommandItem
+                                    key={user.id}
+                                    value={user.name}
+                                    onSelect={() => {
+                                        onSelect(user.id === selectedUser?.id ? null : user);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selectedUser?.id === user.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {user.name}
+                                </CommandItem>
+                            ))}
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
 }
