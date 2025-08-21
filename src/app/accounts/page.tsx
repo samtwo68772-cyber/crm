@@ -27,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { dataCache } from '@/lib/data-cache';
 
 export default function CustomersPage() {
     const searchParams = useSearchParams();
@@ -65,12 +66,12 @@ export default function CustomersPage() {
 
 
 function AccountsView() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [cases, setCases] = useState<Case[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [accounts, setAccounts] = useState<Account[]>(dataCache.get('accounts'));
+  const [contacts, setContacts] = useState<Contact[]>(dataCache.get('contacts'));
+  const [cases, setCases] = useState<Case[]>(dataCache.get('cases'));
+  const [tasks, setTasks] = useState<Task[]>(dataCache.get('tasks'));
+  const [meetings, setMeetings] = useState<Meeting[]>(dataCache.get('meetings'));
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -81,28 +82,14 @@ function AccountsView() {
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [accountsData, contactsData, casesData, tasksData, meetingsData] = await Promise.all([
-                getAccounts(),
-                getContacts(),
-                getCases(),
-                getTasks(),
-                getMeetings()
-            ]);
-            setAccounts(accountsData);
-            setContacts(contactsData);
-            setCases(casesData);
-            setTasks(tasksData);
-            setMeetings(meetingsData);
-        } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "Failed to fetch data." });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    fetchData();
+    const unsubscribe = dataCache.subscribe(() => {
+      setAccounts(dataCache.get('accounts'));
+      setContacts(dataCache.get('contacts'));
+      setCases(dataCache.get('cases'));
+      setTasks(dataCache.get('tasks'));
+      setMeetings(dataCache.get('meetings'));
+    });
+    return () => unsubscribe();
   }, []);
 
   const filteredAccounts = useMemo(() => {
@@ -114,38 +101,43 @@ function AccountsView() {
 
   const handleAddAccount = async (newAccountData: Omit<Account, 'id' | 'createdAt' | 'owner' | 'primaryContactId'>) => {
     try {
-        const newAccount = await createAccount(newAccountData);
-        setAccounts(prev => [newAccount, ...prev]);
+        dataCache.add('accounts', { ...newAccountData, id: `temp-${Date.now()}`, createdAt: new Date().toISOString(), owner: user?.name || '' });
         setIsFormOpen(false);
+        const newAccount = await createAccount(newAccountData);
+        dataCache.update('accounts', newAccount);
         toast({ title: "Account Created", description: `Account "${newAccountData.name}" has been successfully created.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+        setAccounts(dataCache.get('accounts')); // Revert optimistic update
     }
   };
   
   const handleUpdateAccount = async (updatedAccountData: Partial<Account> & { id: string }) => {
     try {
         const { id, ...data } = updatedAccountData;
-        const updatedAccount = await updateAccount(id, data as any);
-        setAccounts(prev => prev.map(acc => acc.id === id ? updatedAccount : acc));
+        dataCache.update('accounts', updatedAccountData as Account);
         setEditingAccount(null);
         setIsFormOpen(false);
+        const updatedAccount = await updateAccount(id, data as any);
+        dataCache.update('accounts', updatedAccount);
         setSelectedAccount(updatedAccount);
         toast({ title: "Account Updated", description: `Account "${updatedAccountData.name}" has been updated.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+        setAccounts(dataCache.get('accounts')); // Revert optimistic update
     }
   };
   
   const handleDeleteAccount = async (accountId: string) => {
     try {
-        await deleteAccount(accountId);
-        setAccounts(prev => prev.filter(acc => acc.id !== accountId));
+        dataCache.remove('accounts', accountId);
         setSelectedAccount(null);
         setIsSheetOpen(false);
+        await deleteAccount(accountId);
         toast({ title: "Account Deleted", description: `The account has been deleted.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+        setAccounts(dataCache.get('accounts')); // Revert optimistic update
     }
   };
 
@@ -167,10 +159,6 @@ function AccountsView() {
     const relatedTasks = tasks.filter(t => t.contactId && relatedContactIds.includes(t.contactId)).length;
     return { contacts: relatedContacts.length, cases: relatedCases, tasks: relatedTasks };
   };
-
-  if (isLoading) {
-      return <div>Loading...</div>;
-  }
 
   return (
     <div className="space-y-4 pt-2 bg-muted/50 rounded-lg p-4">
@@ -387,9 +375,8 @@ function AccountFormDialog({ open, onOpenChange, account, onSave }: { open: bool
 }
 
 function ContactsView() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [contacts, setContacts] = useState<Contact[]>(dataCache.get('contacts'));
+  const [accounts, setAccounts] = useState<Account[]>(dataCache.get('accounts'));
 
   const [searchQuery, setSearchQuery] = useState('');
   const [companyFilter, setCompanyFilter] = useState('all');
@@ -406,19 +393,11 @@ function ContactsView() {
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [contactsData, accountsData] = await Promise.all([getContacts(), getAccounts()]);
-            setContacts(contactsData);
-            setAccounts(accountsData);
-        } catch (error) {
-            toast({ variant: "destructive", title: "Error", description: "Failed to fetch contacts data." });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    fetchData();
+    const unsubscribe = dataCache.subscribe(() => {
+      setContacts(dataCache.get('contacts'));
+      setAccounts(dataCache.get('accounts'));
+    });
+    return () => unsubscribe();
   }, []);
 
   const companies = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.company).filter(Boolean)))], [contacts]);
@@ -443,35 +422,41 @@ function ContactsView() {
   
   const handleAddContact = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
     try {
-        const newContact = await createContact(newContactData);
-        setContacts(prev => [newContact, ...prev]);
+        const tempId = `temp-${Date.now()}`;
+        dataCache.add('contacts', { ...newContactData, id: tempId, avatar: '' });
         setIsFormOpen(false);
+        const newContact = await createContact(newContactData);
+        dataCache.update('contacts', { ...newContact, id: tempId }); // Keep temp id for key stability, but update with real data
         toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+        setContacts(dataCache.get('contacts'));
     }
   };
   
   const handleUpdateContact = async (updatedContactData: Partial<Contact> & { id: string }) => {
     try {
         const { id, ...data } = updatedContactData;
-        const updatedContact = await updateContact(id, data as any);
-        setContacts(prev => prev.map(c => c.id === id ? updatedContact : c));
+        dataCache.update('contacts', updatedContactData as Contact);
         setEditingContact(null);
         setIsFormOpen(false);
+        const updatedContact = await updateContact(id, data as any);
+        dataCache.update('contacts', updatedContact);
         toast({ title: "Contact Updated", description: `Contact "${updatedContactData.name}" has been updated.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+        setContacts(dataCache.get('contacts'));
     }
   };
   
   const handleDeleteContact = async (contactId: string) => {
     try {
+        dataCache.remove('contacts', contactId);
         await deleteContact(contactId);
-        setContacts(prev => prev.filter(c => c.id !== contactId));
         toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
     } catch (e) {
         toast({ variant: "destructive", title: "Error", description: (e as Error).message });
+        setContacts(dataCache.get('contacts'));
     }
   };
   
@@ -525,8 +510,6 @@ function ContactsView() {
     </div>
   );
   
-  if(isLoading) return <div>Loading...</div>;
-
   return (
     <div className="space-y-6 pt-2">
        <Card>
@@ -679,16 +662,13 @@ function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: {
 
     useEffect(() => {
         if(contact) {
-            Promise.all([
-                getCases(),
-                getTasks(),
-                getMeetings()
-            ]).then(([casesData, tasksData, meetingsData]) => {
-                setRelatedItems({
-                    cases: casesData.filter(c => c.contactId === contact.id),
-                    tasks: tasksData.filter(t => t.contactId === contact.id),
-                    meetings: meetingsData.filter(m => m.contactId === contact.id)
-                });
+            const casesData = dataCache.get('cases');
+            const tasksData = dataCache.get('tasks');
+            const meetingsData = dataCache.get('meetings');
+            setRelatedItems({
+                cases: casesData.filter(c => c.contactId === contact.id),
+                tasks: tasksData.filter(t => t.contactId === contact.id),
+                meetings: meetingsData.filter(m => m.contactId === contact.id)
             });
         }
     }, [contact]);

@@ -27,6 +27,7 @@ import type { Notification } from '@/lib/types';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { getNotifications, markAllAsRead, markAsRead } from '@/app/notifications/actions';
 import { getGeneralSettings } from '@/app/settings/actions';
+import { useIsClient } from '@/hooks/use-is-client';
 
 const navItemsAdmin = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -62,10 +63,11 @@ const getNotificationIcon = (type: Notification['type']) => {
 };
 
 export default function MainLayout({ children }: { children: React.ReactNode }) {
-    const { user, logout } = useAuth();
+    const { user, logout, isDataLoading } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const isMobile = useIsMobile();
+    const isClient = useIsClient();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -87,12 +89,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const unreadCount = useMemo(() => {
         return unreadNotifications.length;
     }, [unreadNotifications]);
-
-    useEffect(() => {
-        if (!user) {
-            router.push('/login');
-        }
-    }, [user, router]);
     
     const handleLinkClick = () => {
         if (isMobile) {
@@ -115,7 +111,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
     };
 
-    if (!user) {
+    if (!user || isDataLoading) {
         return (
           <div className="flex h-screen w-full items-center justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -279,5 +275,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
-
-    

@@ -25,14 +25,7 @@ import { format, parseISO, formatDistanceToNow, subDays, isAfter } from 'date-fn
 import React, { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { getCases } from './cases/actions';
-import { getTasks } from './tasks/actions';
-import { getEmails } from './emails/actions';
-import { getMeetings } from './meetings/actions';
-import { getContacts, getAccounts } from './accounts/actions';
-import { getUsers } from './admin/actions';
-import { getDocuments } from './documents/actions';
-
+import { dataCache } from '@/lib/data-cache';
 
 function getStatusVariant(status: Case['status']) {
     switch (status) {
@@ -235,42 +228,28 @@ function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[
 export default function DashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
-    const [cases, setCases] = useState<Case[]>([]);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [emails, setEmails] = useState<Email[]>([]);
-    const [meetings, setMeetings] = useState<Meeting[]>([]);
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [accounts, setAccounts] = useState<Account[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
-    const [documents, setDocuments] = useState<Document[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
 
+    const [cases, setCases] = useState<Case[]>(dataCache.get('cases'));
+    const [tasks, setTasks] = useState<Task[]>(dataCache.get('tasks'));
+    const [emails, setEmails] = useState<Email[]>(dataCache.get('emails'));
+    const [meetings, setMeetings] = useState<Meeting[]>(dataCache.get('meetings'));
+    const [contacts, setContacts] = useState<Contact[]>(dataCache.get('contacts'));
+    const [accounts, setAccounts] = useState<Account[]>(dataCache.get('accounts'));
+    const [users, setUsers] = useState<User[]>(dataCache.get('users'));
+    const [documents, setDocuments] = useState<Document[]>(dataCache.get('documents'));
+    
     useEffect(() => {
-        async function loadData() {
-            setIsLoading(true);
-            try {
-                const [
-                    casesData, tasksData, emailsData, meetingsData, 
-                    contactsData, accountsData, usersData, documentsData
-                ] = await Promise.all([
-                    getCases(), getTasks(), getEmails(), getMeetings(),
-                    getContacts(), getAccounts(), getUsers(), getDocuments()
-                ]);
-                setCases(casesData);
-                setTasks(tasksData);
-                setEmails(emailsData);
-                setMeetings(meetingsData);
-                setContacts(contactsData);
-                setAccounts(accountsData);
-                setUsers(usersData);
-                setDocuments(documentsData);
-            } catch (error) {
-                console.error("Failed to load dashboard data:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        loadData();
+        const unsubscribe = dataCache.subscribe(() => {
+            setCases(dataCache.get('cases'));
+            setTasks(dataCache.get('tasks'));
+            setEmails(dataCache.get('emails'));
+            setMeetings(dataCache.get('meetings'));
+            setContacts(dataCache.get('contacts'));
+            setAccounts(dataCache.get('accounts'));
+            setUsers(dataCache.get('users'));
+            setDocuments(dataCache.get('documents'));
+        });
+        return () => unsubscribe();
     }, []);
 
     const stats = useMemo(() => ({
@@ -285,15 +264,6 @@ export default function DashboardPage() {
     }), [cases, tasks, emails, meetings, contacts, accounts, users, documents]);
 
     if (!user) return null;
-    
-    // In a real app, you'd have a proper loading skeleton component
-    if (isLoading) {
-        return (
-             <div className="flex h-screen w-full items-center justify-center">
-                <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-            </div>
-        )
-    }
 
     return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -329,5 +299,3 @@ export default function DashboardPage() {
         </div>
     );
 }
-
-    
