@@ -803,7 +803,7 @@ function ContactFormDialog({ open, onOpenChange, contact, accounts, onSave }: { 
 
     const handleSubmit = () => {
         const selectedAccount = accounts.find(acc => acc.name === company);
-        onSave({ name, email, phone, company, accountId: selectedAccount?.id || null, role, notes }, isEditMode);
+        onSave({ name, email, phone, company, accountId: selectedAccount?.id || null, role, notes: notes || '' }, isEditMode);
     };
 
     return (
