@@ -24,7 +24,8 @@ import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'Canceled' | 'all' | 'pending';
 type TaskPriorityFilter = 'High' | 'Medium' | 'Low' | 'all';
@@ -49,15 +50,15 @@ function getStatusIcon(status: Task['status']) {
 
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [cases, setCases] = useState<Case[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+  const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+  const isLoading = tasksLoading || usersLoading || casesLoading;
 
   const { user } = useAuth();
   const { toast } = useToast();
   const searchParams = useSearchParams();
-  const isMobile = useIsMobile();
   
   const [statusFilter, setStatusFilter] = useState<TaskStatusFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<TaskPriorityFilter>('all');
@@ -67,27 +68,6 @@ export default function TasksPage() {
   const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const [tasksData, usersData, casesData] = await Promise.all([
-                getTasks(),
-                getUsers(),
-                getCases()
-            ]);
-            setTasks(tasksData);
-            setUsers(usersData);
-            setCases(casesData);
-        } catch (e) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to fetch tasks data.' });
-        } finally {
-            setIsLoading(false);
-        }
-    }
-    fetchData();
-  }, []);
-
-  useEffect(() => {
     const status = searchParams.get('status') as TaskStatusFilter;
     if (status === 'pending') {
       setStatusFilter('pending');
@@ -95,61 +75,62 @@ export default function TasksPage() {
   }, [searchParams]);
 
   const userTasks = useMemo(() => {
+    if (!tasks) return [];
     if (isAdmin) {
       return tasks;
     }
     return tasks.filter(task => task.assignedTo === user?.id);
   }, [tasks, user, isAdmin]);
   
-  const handleDeleteTask = async (taskId: string) => {
-    const originalTasks = tasks;
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    try {
-        await deleteTask(taskId);
-        toast({
-            title: "Task Deleted",
-            description: "The task has been successfully deleted.",
-        });
-    } catch (e) {
-        setTasks(originalTasks);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to delete task.' });
-    }
-  };
+  const createTaskMutation = useMutation({
+      mutationFn: createTask,
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          toast({ title: "Task Created", description: "A new task has been created." });
+          setCreateDialogOpen(false);
+      },
+      onError: (error) => {
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+      }
+  })
 
-  const handleUpdateTask = async (updatedTaskData: Partial<Task> & {id: string}, oldStatus?: Task['status']) => {
-    const originalTasks = tasks;
-    const optimisticUpdate = { ...tasks.find(t => t.id === updatedTaskData.id), ...updatedTaskData } as Task;
-    setTasks(prev => prev.map(t => t.id === updatedTaskData.id ? optimisticUpdate : t));
-    setEditingTask(null);
+  const updateTaskMutation = useMutation({
+      mutationFn: (data: { id: string; data: Partial<Task> }) => updateTask(data.id, data.data),
+      onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          toast({ title: "Task Updated", description: "The task has been updated." });
+          setEditingTask(null);
+      },
+      onError: (error) => {
+          toast({ variant: 'destructive', title: 'Error', description: error.message });
+      }
+  })
 
-    try {
-        const updatedTask = await updateTask(updatedTaskData.id, updatedTaskData);
-        setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t)); // Ensure consistent state
-        toast({
-            title: "Task Updated",
-            description: `Task "${updatedTaskData.title}" has been updated.`,
-        });
-    } catch (e) {
-        setTasks(originalTasks);
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to update task.' });
-    }
-  };
-  
-  const handleCreateTask = async (newTaskData: Omit<Task, 'id' | 'status'>) => {
-    setCreateDialogOpen(false);
-    try {
-        const newTask = await createTask(newTaskData);
-        setTasks(prev => [newTask, ...prev]);
-        toast({
-            title: "Task Created",
-            description: `Task "${newTaskData.title}" has been successfully created.`,
-        });
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Error', description: 'Failed to create task.' });
-    }
-  };
+    const deleteTaskMutation = useMutation({
+        mutationFn: deleteTask,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+            toast({ title: "Task Deleted", description: "The task has been deleted." });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        }
+    })
+
+    const handleDeleteTask = (taskId: string) => {
+        deleteTaskMutation.mutate(taskId);
+    };
+
+    const handleUpdateTask = (updatedTaskData: Partial<Task> & {id: string}, oldStatus?: Task['status']) => {
+        updateTaskMutation.mutate({ id: updatedTaskData.id, data: updatedTaskData });
+    };
+
+    const handleCreateTask = (newTaskData: Omit<Task, 'id' | 'status'>) => {
+        createTaskMutation.mutate(newTaskData);
+    };
   
   const filteredTasks = useMemo(() => {
+     if (!userTasks || !cases) return [];
      return userTasks.filter(task => {
         const matchesStatus = statusFilter === 'all' || 
                               (statusFilter === 'pending' && (task.status === 'To Do' || task.status === 'In Progress')) ||
@@ -162,6 +143,7 @@ export default function TasksPage() {
   }, [userTasks, statusFilter, priorityFilter, searchQuery, cases]);
 
   const summaryStats = useMemo(() => {
+    if (!userTasks) return { toDo: 0, inProgress: 0, done: 0 };
     const toDo = userTasks.filter(t => t.status === 'To Do').length;
     const inProgress = userTasks.filter(t => t.status === 'In Progress').length;
     const done = userTasks.filter(t => t.status === 'Done').length;
@@ -170,7 +152,20 @@ export default function TasksPage() {
 
   const statusGroups: Task['status'][] = ['To Do', 'In Progress', 'Done', 'Canceled'];
   
-  if (isLoading) return <div>Loading tasks...</div>;
+  if (isLoading) {
+      return (
+        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+            <Skeleton className="h-10 w-1/3" />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
+                <Skeleton className="h-28 w-full" />
+            </div>
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-64 w-full" />
+        </div>
+      )
+  }
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -262,7 +257,7 @@ export default function TasksPage() {
                  {tasksInGroup.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {tasksInGroup.map(task => (
-                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} users={users} cases={cases} />
+                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} users={users || []} cases={cases || []} />
                         ))}
                     </div>
                  ) : (
@@ -290,8 +285,8 @@ export default function TasksPage() {
               handleCreateTask(taskData);
             }
           }}
-          users={users}
-          cases={cases}
+          users={users || []}
+          cases={cases || []}
        />
     </div>
   );

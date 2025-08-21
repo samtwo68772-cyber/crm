@@ -17,6 +17,7 @@ import { getMeetings } from '@/app/meetings/actions';
 import { getNotifications } from '@/app/notifications/actions';
 import { getGeneralSettings, getEmailSettings, getGlobalNotificationPreferences, getWorkflows, getAuditLogs } from '@/app/settings/actions';
 import { getTasks } from '@/app/tasks/actions';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
   user: User | null;
@@ -34,83 +35,79 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isDataLoading, setIsDataLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
+  const queryClient = useQueryClient();
 
-  const loadInitialData = useCallback(async (userId: string) => {
+
+  const prefetchData = useCallback(async (userId: string) => {
     setIsDataLoading(true);
     try {
-        const [
-            accounts, contacts, users, teams, cases, documents, emails,
-            meetings, notifications, generalSettings, emailSettings,
-            globalNotificationPreferences, workflows, auditLogs, tasks
-        ] = await Promise.all([
-            getAccounts(), getContacts(), getUsers(), getTeams(), getCases(),
-            getDocuments(), getEmails(), getMeetings(), getNotifications(userId),
-            getGeneralSettings(), getEmailSettings(), getGlobalNotificationPreferences(),
-            getWorkflows(), getAuditLogs(), getTasks()
+        await Promise.all([
+            queryClient.prefetchQuery({ queryKey: ['accounts'], queryFn: getAccounts }),
+            queryClient.prefetchQuery({ queryKey: ['contacts'], queryFn: getContacts }),
+            queryClient.prefetchQuery({ queryKey: ['users'], queryFn: getUsers }),
+            queryClient.prefetchQuery({ queryKey: ['teams'], queryFn: getTeams }),
+            queryClient.prefetchQuery({ queryKey: ['cases'], queryFn: getCases }),
+            queryClient.prefetchQuery({ queryKey: ['documents'], queryFn: getDocuments }),
+            queryClient.prefetchQuery({ queryKey: ['emails'], queryFn: getEmails }),
+            queryClient.prefetchQuery({ queryKey: ['meetings'], queryFn: getMeetings }),
+            queryClient.prefetchQuery({ queryKey: ['notifications', userId], queryFn: () => getNotifications(userId) }),
+            queryClient.prefetchQuery({ queryKey: ['generalSettings'], queryFn: getGeneralSettings }),
+            queryClient.prefetchQuery({ queryKey: ['emailSettings'], queryFn: getEmailSettings }),
+            queryClient.prefetchQuery({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences }),
+            queryClient.prefetchQuery({ queryKey: ['workflows'], queryFn: getWorkflows }),
+            queryClient.prefetchQuery({ queryKey: ['auditLogs'], queryFn: getAuditLogs }),
+            queryClient.prefetchQuery({ queryKey: ['tasks'], queryFn: getTasks }),
         ]);
 
-        dataCache.set('accounts', accounts);
-        dataCache.set('contacts', contacts);
-        dataCache.set('users', users);
-        dataCache.set('teams', teams);
-        dataCache.set('cases', cases);
-        dataCache.set('documents', documents);
-        dataCache.set('emails', emails);
-        dataCache.set('meetings', meetings);
-        dataCache.set('notifications', notifications);
-        dataCache.set('generalSettings', generalSettings);
-        dataCache.set('emailSettings', emailSettings);
-        dataCache.set('globalNotificationPreferences', globalNotificationPreferences);
-        dataCache.set('workflows', workflows);
-        dataCache.set('auditLogs', auditLogs);
-        dataCache.set('tasks', tasks);
-
     } catch (error) {
-        console.error("Failed to load initial data into cache", error);
+        console.error("Failed to prefetch initial data", error);
     } finally {
         setIsDataLoading(false);
     }
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     const checkSession = async () => {
       setIsLoading(true);
-      const session = await getSession();
-      if (session?.userId) {
-        try {
+      try {
+        const session = await getSession();
+        if (session?.userId) {
           const currentUser = await getUserById(session.userId);
           setUser(currentUser);
-          await loadInitialData(currentUser.id);
-        } catch (error) {
-          console.error("Failed to fetch user from session", error);
-          setUser(null);
-          if (pathname !== '/login') router.push('/login');
+          await prefetchData(currentUser.id);
+        } else {
+           if (pathname !== '/login') {
+              router.push('/login');
+           }
         }
-      } else {
+      } catch (error) {
+        console.error("Failed to fetch user from session", error);
         setUser(null);
-         if (pathname !== '/login') {
-            router.push('/login');
-        }
+        if (pathname !== '/login') router.push('/login');
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    checkSession();
-  }, [pathname, router, loadInitialData]);
+    if(!user) {
+        checkSession();
+    }
+  }, [pathname, router, prefetchData, user]);
 
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginAction(email, password);
     setUser(loggedInUser);
-    await loadInitialData(loggedInUser.id);
+    await prefetchData(loggedInUser.id);
   };
 
   const logout = async () => {
     await logoutAction();
     setUser(null);
+    queryClient.clear();
     router.push('/login');
   };
 
-  if (isLoading) {
+  if (isLoading && pathname !== '/login') {
       return (
           <div className="flex h-screen w-full items-center justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />

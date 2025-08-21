@@ -32,7 +32,6 @@ export async function createTask(data: Omit<Task, 'id' | 'status'>) {
       })
   }
 
-  // revalidatePath('/tasks');
   return newTask;
 }
 
@@ -51,9 +50,7 @@ export async function updateTask(id: string, data: Partial<Omit<Task, 'id'>>) {
           type: 'task'
       })
   }
-
-  // revalidatePath('/tasks');
-  // revalidatePath('/cases'); // In case a task status change affects a case
+  
   return updatedTask;
 }
 
@@ -61,6 +58,5 @@ export async function deleteTask(id: string) {
   const deleted = await prisma.task.delete({
     where: { id },
   });
-  // revalidatePath('/tasks');
   return deleted;
 }

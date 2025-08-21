@@ -33,7 +33,6 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
         });
     }
 
-    // revalidatePath('/cases');
     return newCase;
 }
 
@@ -67,7 +66,6 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id'>>) {
         });
     }
 
-    // revalidatePath('/cases');
     return updatedCase;
 }
 
@@ -80,6 +78,5 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
             }
         }
     });
-    // revalidatePath('/cases');
     return updatedCase;
 }

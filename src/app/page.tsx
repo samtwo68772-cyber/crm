@@ -25,7 +25,18 @@ import { format, parseISO, formatDistanceToNow, subDays, isAfter } from 'date-fn
 import React, { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { dataCache } from '@/lib/data-cache';
+import { useQuery } from '@tanstack/react-query';
+import { getCases } from './cases/actions';
+import { getTasks } from './tasks/actions';
+import { getEmails } from './emails/actions';
+import { getMeetings } from './meetings/actions';
+import { getContacts } from './accounts/actions';
+import { getAccounts } from './accounts/actions';
+import { getUsers } from './admin/actions';
+import { getDocuments } from './documents/actions';
+import { getAuditLogs } from './settings/actions';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 function getStatusVariant(status: Case['status']) {
     switch (status) {
@@ -37,8 +48,24 @@ function getStatusVariant(status: Case['status']) {
     }
 }
 
-function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string, value: string | number, change: string, icon: React.ElementType, onClick?: () => void }) {
+function KpiCard({ title, value, change, icon: Icon, onClick, isLoading }: { title: string, value: string | number, change: string, icon: React.ElementType, onClick?: () => void, isLoading: boolean }) {
     const cardProps = onClick ? { onClick, className: "cursor-pointer hover:shadow-lg transition-shadow duration-200" } : {};
+    
+    if (isLoading) {
+        return (
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">{title}</CardTitle>
+                    <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <Skeleton className="h-8 w-1/2" />
+                    <Skeleton className="h-4 w-1/3 mt-2" />
+                </CardContent>
+            </Card>
+        )
+    }
+    
     return (
         <Card {...cardProps}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -56,11 +83,18 @@ function KpiCard({ title, value, change, icon: Icon, onClick }: { title: string,
     );
 }
 
-function RecentCases({ initialCases, allUsers }: { initialCases: Case[], allUsers: User[] }) {
+function RecentCases({ allUsers }: { allUsers: User[] }) {
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
+    
+    const { data: initialCases, isLoading } = useQuery<Case[]>({
+        queryKey: ['cases'],
+        queryFn: getCases,
+    });
+
 
     const recentCases = useMemo(() => {
+        if (!initialCases) return [];
         const twoWeeksAgo = subDays(new Date(), 14);
         return initialCases
             .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
@@ -83,7 +117,11 @@ function RecentCases({ initialCases, allUsers }: { initialCases: Case[], allUser
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                     <CardContent>
-                        {recentCases.length > 0 ? (
+                        {isLoading ? (
+                            <div className="space-y-4">
+                                {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
+                            </div>
+                        ) : recentCases.length > 0 ? (
                             <div className="space-y-4">
                                 {recentCases.map(caseItem => (
                                     <div key={caseItem.id} className="flex items-start gap-4">
@@ -116,15 +154,21 @@ function RecentCases({ initialCases, allUsers }: { initialCases: Case[], allUser
     );
 }
 
-function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[], tasks: Task[], meetings: Meeting[], auditLogs: AuditLog[] }, allUsers: User[] }) {
-    const { cases, tasks, meetings, auditLogs } = initialData;
+function RecentActivity({ allUsers }: { allUsers: User[] }) {
     const router = useRouter();
     const [isOpen, setIsOpen] = useState(false);
+    
+    const { data: casesData, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: tasksData, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: meetingsData, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+    const { data: auditLogsData, isLoading: auditLogsLoading } = useQuery<AuditLog[]>({ queryKey: ['auditLogs'], queryFn: getAuditLogs });
+
 
     const activities = useMemo(() => {
+        if (!casesData || !tasksData || !meetingsData || !auditLogsData) return [];
         const twoWeeksAgo = subDays(new Date(), 14);
 
-        const caseActivities = cases
+        const caseActivities = casesData
             .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
             .map(c => ({
                 id: `case-${c.id}`,
@@ -134,7 +178,7 @@ function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[
                 user: allUsers.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
             }));
 
-        const taskActivities = tasks
+        const taskActivities = tasksData
             .filter(t => isAfter(new Date(t.dueDate), twoWeeksAgo))
             .map(t => ({
                 id: `task-${t.id}`,
@@ -144,7 +188,7 @@ function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[
                 user: allUsers.find(u => u.id === t.assignedTo)
             }));
 
-        const meetingActivities = meetings
+        const meetingActivities = meetingsData
             .filter(m => isAfter(new Date(m.date), twoWeeksAgo))
             .map(m => ({
                 id: `meeting-${m.id}`,
@@ -154,7 +198,7 @@ function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[
                 user: allUsers.find(u => m.participants.includes(u.id))
             }));
         
-        const auditActivities = (auditLogs || [])
+        const auditActivities = (auditLogsData || [])
             .filter((log: AuditLog) => isAfter(new Date(log.timestamp), twoWeeksAgo))
             .map((log: AuditLog) => ({
                 id: `audit-${log.id}`,
@@ -168,8 +212,9 @@ function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[
         return [...caseActivities, ...taskActivities, ...meetingActivities, ...auditActivities]
             .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    }, [cases, tasks, meetings, allUsers, auditLogs]);
+    }, [casesData, tasksData, meetingsData, allUsers, auditLogsData]);
     
+    const isLoading = casesLoading || tasksLoading || meetingsLoading || auditLogsLoading;
 
     const getActivityDot = (type: string) => {
         switch (type) {
@@ -198,7 +243,11 @@ function RecentActivity({ initialData, allUsers }: { initialData: { cases: Case[
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                     <CardContent>
-                        {activities.length > 0 ? (
+                        {isLoading ? (
+                             <div className="space-y-4">
+                                {[...Array(5)].map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
+                            </div>
+                        ) : activities.length > 0 ? (
                             <div className="space-y-6">
                                  {activities.map(activity => (
                                     <div key={activity.id} className="flex items-start gap-3">
@@ -229,39 +278,41 @@ export default function DashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
 
-    const [cases, setCases] = useState<Case[]>(dataCache.get('cases'));
-    const [tasks, setTasks] = useState<Task[]>(dataCache.get('tasks'));
-    const [emails, setEmails] = useState<Email[]>(dataCache.get('emails'));
-    const [meetings, setMeetings] = useState<Meeting[]>(dataCache.get('meetings'));
-    const [contacts, setContacts] = useState<Contact[]>(dataCache.get('contacts'));
-    const [accounts, setAccounts] = useState<Account[]>(dataCache.get('accounts'));
-    const [users, setUsers] = useState<User[]>(dataCache.get('users'));
-    const [documents, setDocuments] = useState<Document[]>(dataCache.get('documents'));
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: emails, isLoading: emailsLoading } = useQuery<Email[]>({ queryKey: ['emails'], queryFn: getEmails });
+    const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+    const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ queryKey: ['contacts'], queryFn: getContacts });
+    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts });
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: documents, isLoading: documentsLoading } = useQuery<Document[]>({ queryKey: ['documents'], queryFn: getDocuments });
     
-    useEffect(() => {
-        const unsubscribe = dataCache.subscribe(() => {
-            setCases(dataCache.get('cases'));
-            setTasks(dataCache.get('tasks'));
-            setEmails(dataCache.get('emails'));
-            setMeetings(dataCache.get('meetings'));
-            setContacts(dataCache.get('contacts'));
-            setAccounts(dataCache.get('accounts'));
-            setUsers(dataCache.get('users'));
-            setDocuments(dataCache.get('documents'));
-        });
-        return () => unsubscribe();
-    }, []);
+    const isLoading = casesLoading || tasksLoading || emailsLoading || meetingsLoading || contactsLoading || accountsLoading || usersLoading || documentsLoading;
 
-    const stats = useMemo(() => ({
-        activeCases: cases.filter(c => ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)).length,
-        pendingTasks: tasks.filter(t => ['To Do', 'In Progress'].includes(t.status)).length,
-        unreadEmails: emails.filter(e => e.type === 'inbox' && !e.read).length,
-        upcomingMeetings: meetings.filter(m => m.status === 'Upcoming').length,
-        totalContacts: contacts.length,
-        totalCompanies: accounts.length,
-        totalUsers: users.length,
-        totalDocuments: documents.length,
-    }), [cases, tasks, emails, meetings, contacts, accounts, users, documents]);
+    const stats = useMemo(() => {
+        if (isLoading || !cases || !tasks || !emails || !meetings || !contacts || !accounts || !users || !documents) {
+            return {
+                activeCases: 0,
+                pendingTasks: 0,
+                unreadEmails: 0,
+                upcomingMeetings: 0,
+                totalContacts: 0,
+                totalCompanies: 0,
+                totalUsers: 0,
+                totalDocuments: 0,
+            };
+        }
+        return {
+            activeCases: cases.filter(c => ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)).length,
+            pendingTasks: tasks.filter(t => ['To Do', 'In Progress'].includes(t.status)).length,
+            unreadEmails: emails.filter(e => e.type === 'inbox' && !e.read).length,
+            upcomingMeetings: meetings.filter(m => m.status === 'Upcoming').length,
+            totalContacts: contacts.length,
+            totalCompanies: accounts.length,
+            totalUsers: users.length,
+            totalDocuments: documents.length,
+        }
+    }, [cases, tasks, emails, meetings, contacts, accounts, users, documents, isLoading]);
 
     if (!user) return null;
 
@@ -275,25 +326,25 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <KpiCard title="Active Cases" value={stats.activeCases} change="+2 this week" icon={Briefcase} onClick={() => router.push('/cases?status=active')} />
-                <KpiCard title="Pending Tasks" value={stats.pendingTasks} change="+5 this week" icon={ListTodo} onClick={() => router.push('/tasks?status=pending')} />
-                <KpiCard title="Unread Emails" value={stats.unreadEmails} change="+12 today" icon={Mail} onClick={() => router.push('/emails?filter=unread')} />
-                <KpiCard title="Upcoming Meetings" value={stats.upcomingMeetings} change="2 scheduled today" icon={Calendar} onClick={() => router.push('/meetings?filter=upcoming')} />
+                <KpiCard title="Active Cases" value={stats.activeCases} change="+2 this week" icon={Briefcase} onClick={() => router.push('/cases?status=active')} isLoading={isLoading} />
+                <KpiCard title="Pending Tasks" value={stats.pendingTasks} change="+5 this week" icon={ListTodo} onClick={() => router.push('/tasks?status=pending')} isLoading={isLoading} />
+                <KpiCard title="Unread Emails" value={stats.unreadEmails} change="+12 today" icon={Mail} onClick={() => router.push('/emails?filter=unread')} isLoading={isLoading} />
+                <KpiCard title="Upcoming Meetings" value={stats.upcomingMeetings} change="2 scheduled today" icon={Calendar} onClick={() => router.push('/meetings?filter=upcoming')} isLoading={isLoading} />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                 <KpiCard title="Total Contacts" value={stats.totalContacts} change="+10 this month" icon={Contact} onClick={() => router.push('/accounts?tab=contacts')} />
-                 <KpiCard title="Total Companies" value={stats.totalCompanies} change="+3 this month" icon={Building} onClick={() => router.push('/accounts?tab=accounts')} />
-                 <KpiCard title="Total Users" value={stats.totalUsers} change="+1 this month" icon={Users} onClick={() => router.push('/admin')} />
-                 <KpiCard title="Total Documents" value={stats.totalDocuments} change="+25 this month" icon={FileText} onClick={() => router.push('/documents')} />
+                 <KpiCard title="Total Contacts" value={stats.totalContacts} change="+10 this month" icon={Contact} onClick={() => router.push('/accounts?tab=contacts')} isLoading={isLoading} />
+                 <KpiCard title="Total Companies" value={stats.totalCompanies} change="+3 this month" icon={Building} onClick={() => router.push('/accounts?tab=accounts')} isLoading={isLoading} />
+                 <KpiCard title="Total Users" value={stats.totalUsers} change="+1 this month" icon={Users} onClick={() => router.push('/admin')} isLoading={isLoading} />
+                 <KpiCard title="Total Documents" value={stats.totalDocuments} change="+25 this month" icon={FileText} onClick={() => router.push('/documents')} isLoading={isLoading} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3">
-                    <RecentCases initialCases={cases} allUsers={users} />
+                    <RecentCases allUsers={users || []} />
                 </div>
                 <div className="lg:col-span-2">
-                    <RecentActivity initialData={{cases, tasks, meetings, auditLogs: []}} allUsers={users} />
+                    <RecentActivity allUsers={users || []} />
                 </div>
             </div>
         </div>

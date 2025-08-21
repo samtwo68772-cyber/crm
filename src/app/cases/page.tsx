@@ -31,6 +31,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -53,146 +55,141 @@ function getStatusVariant(status: Case['status']) {
 
 
 export default function CasesPage() {
-  const [cases, setCases] = useState<Case[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [workflows, setWorkflows] = useState<Workflow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: workflows, isLoading: workflowsLoading } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows });
+    const isLoading = casesLoading || usersLoading || tasksLoading || workflowsLoading;
 
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
-  const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const searchParams = useSearchParams();
-  const isMobile = useIsMobile();
+    const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+    const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const searchParams = useSearchParams();
+    const isMobile = useIsMobile();
 
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [assignedToFilter, setAssignedToFilter] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [priorityFilter, setPriorityFilter] = useState<string>('all');
+    const [typeFilter, setTypeFilter] = useState<string>('all');
+    const [assignedToFilter, setAssignedToFilter] = useState<string>('all');
+    const [searchQuery, setSearchQuery] = useState<string>('');
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
-  const fetchData = async () => {
-      setIsLoading(true);
-      try {
-          const [casesData, usersData, tasksData, workflowsData] = await Promise.all([
-              getCases(),
-              getUsers(),
-              getTasks(),
-              getWorkflows()
-          ]);
-          setCases(casesData);
-          setUsers(usersData);
-          setTasks(tasksData);
-          setWorkflows(workflowsData);
-      } catch (error) {
-          toast({ variant: "destructive", title: "Error", description: "Failed to fetch page data." });
-      } finally {
-          setIsLoading(false);
-      }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-
-  useEffect(() => {
-    const status = searchParams.get('status');
-    if (status === 'active') {
-        setStatusFilter('active');
-    }
-  }, [searchParams]);
-
-  const handleCreateCase = async (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
-    try {
-        const newCase = await createCase(newCaseData);
-        setCases(prev => [newCase, ...prev]);
-        setCreateDialogOpen(false);
-        toast({ title: "Case Created", description: `New case "${newCaseData.subject}" has been created.` });
-    } catch(e) {
-        toast({ variant: "destructive", title: "Error creating case", description: (e as Error).message });
-    }
-  };
-  
-  const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
-    try {
-        const { id, ...data } = updatedCaseData;
-        const updatedCase = await updateCase(id, data);
-        setCases(prev => prev.map(c => c.id === id ? updatedCase : c));
-        setSelectedCase(updatedCase);
-        if (data.status === 'Completed' || data.status === 'Closed' || data.status === 'Declined' || data.status === 'Resolved') {
-           toast({ title: `Case ${data.status}`, description: `Case "${updatedCaseData.subject}" has been marked as ${data.status.toLowerCase()}.` });
+    useEffect(() => {
+        const status = searchParams.get('status');
+        if (status === 'active') {
+            setStatusFilter('active');
         }
-    } catch(e) {
-        toast({ variant: "destructive", title: "Error updating case", description: (e as Error).message });
-    }
-  };
-  
-  const userCases = useMemo(() => {
-    const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => c.assignedTo === user?.name);
-  }, [cases, user]);
-
-  const filteredCases = useMemo(() => {
-    setCurrentPage(1); // Reset to first page on filter change
-    return userCases.filter(c => {
-        const matchesStatus = statusFilter === 'all' || 
-            (statusFilter === 'active' && ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)) ||
-            c.status === statusFilter;
-        const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
-        const matchesType = typeFilter === 'all' || c.type === typeFilter;
-        const assignedUser = users.find(u => u.name === c.assignedTo);
-        const matchesAssignedTo = assignedToFilter === 'all' || (assignedUser && assignedUser.id === assignedToFilter) || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
-        const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
-        return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
+    }, [searchParams]);
+    
+    const createCaseMutation = useMutation({
+        mutationFn: createCase,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            toast({ title: "Case Created", description: "A new case has been created." });
+            setCreateDialogOpen(false);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
     });
-  }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users]);
-  
-  const paginatedCases = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    return filteredCases.slice(startIndex, endIndex);
-  }, [filteredCases, currentPage]);
-  
-  const totalPages = Math.ceil(filteredCases.length / ITEMS_PER_PAGE);
 
-  const PaginationControls = () => (
-     <div className="flex items-center justify-between pt-4">
-        <div className="text-sm text-muted-foreground">
-            Page {currentPage} of {totalPages} ({filteredCases.length} total cases)
-        </div>
-        <div className="flex items-center gap-2">
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-            >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Previous
-            </Button>
-            <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-            >
-                Next
-                <ArrowRight className="h-4 w-4 ml-2" />
-            </Button>
-        </div>
-    </div>
-  );
+    const updateCaseMutation = useMutation({
+        mutationFn: (data: { id: string; data: Partial<Case> }) => updateCase(data.id, data.data),
+        onSuccess: (updatedCase) => {
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            setSelectedCase(updatedCase);
+            if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
+                toast({ title: `Case ${updatedCase.status}`, description: `Case "${updatedCase.subject}" has been marked as ${updatedCase.status.toLowerCase()}.` });
+            }
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
 
-  if (isLoading) {
-      return <div>Loading...</div>;
-  }
+    const handleCreateCase = async (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
+        createCaseMutation.mutate(newCaseData);
+    };
+  
+    const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
+        const { id, ...data } = updatedCaseData;
+        updateCaseMutation.mutate({ id, data });
+    };
+  
+    const userCases = useMemo(() => {
+        if (!cases) return [];
+        const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => c.assignedTo === user?.name);
+    }, [cases, user]);
+
+    const filteredCases = useMemo(() => {
+        if (!userCases || !users) return [];
+        setCurrentPage(1); // Reset to first page on filter change
+        return userCases.filter(c => {
+            const matchesStatus = statusFilter === 'all' || 
+                (statusFilter === 'active' && ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)) ||
+                c.status === statusFilter;
+            const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
+            const matchesType = typeFilter === 'all' || c.type === typeFilter;
+            const assignedUser = users.find(u => u.name === c.assignedTo);
+            const matchesAssignedTo = assignedToFilter === 'all' || (assignedUser && assignedUser.id === assignedToFilter) || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
+            const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
+            return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
+        });
+    }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users]);
+  
+    const paginatedCases = useMemo(() => {
+        if (!filteredCases) return [];
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        return filteredCases.slice(startIndex, endIndex);
+    }, [filteredCases, currentPage]);
+  
+    const totalPages = Math.ceil((filteredCases?.length || 0) / ITEMS_PER_PAGE);
+
+    const PaginationControls = () => (
+        <div className="flex items-center justify-between pt-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages} ({filteredCases.length} total cases)
+            </div>
+            <div className="flex items-center gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                >
+                    Next
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+            </div>
+        </div>
+    );
+    
+    if (isLoading) {
+        return (
+             <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+                 <Skeleton className="h-12 w-1/2" />
+                 <Skeleton className="h-10 w-full" />
+                 <Skeleton className="h-64 w-full" />
+             </div>
+        )
+    }
 
 
   const MainContent = () => (
@@ -312,20 +309,20 @@ export default function CasesPage() {
                     caseItem={selectedCase} 
                     onUpdateCase={handleUpdateCase} 
                     onBack={() => setSelectedCase(null)}
-                    users={users}
-                    tasks={tasks}
-                    onTasksUpdate={fetchData}
+                    users={users || []}
+                    tasks={tasks || []}
                 />
             </SheetContent>
         </Sheet>
       )}
 
-      <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} users={users} cases={cases} workflows={workflows}/>
+      <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} users={users || []} cases={cases || []} workflows={workflows || []}/>
     </div>
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks, onTasksUpdate }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onBack: () => void, users: User[], tasks: Task[], onTasksUpdate: () => void }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onBack: () => void, users: User[], tasks: Task[] }) {
+  const queryClient = useQueryClient();
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
   const [communications, setCommunications] = useState(caseItem.communications || []);
@@ -343,17 +340,24 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks, onTasks
   const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
   const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
 
+  const addCommunicationMutation = useMutation({
+      mutationFn: (data: { caseId: string, comm: Omit<Communication, 'id'> }) => addCommunicationToCase(data.caseId, data.comm),
+      onSuccess: (updatedCase) => {
+          queryClient.invalidateQueries({ queryKey: ['cases', caseItem.id] });
+          queryClient.invalidateQueries({ queryKey: ['cases'] });
+          setCommunications(updatedCase.communications || []);
+      },
+      onError: (error) => {
+           toast({ variant: "destructive", title: "Error", description: "Failed to add communication." });
+      }
+  })
+
   const handleAddCommunication = async (type: 'Finding' | 'Note' | 'Email' | 'Resolution', content: string) => {
     if (content.trim()) {
       const newComm: Omit<Communication, 'id'> = { type, content, author: user?.name || 'System', authorRole: user?.role || 'staff', timestamp: new Date().toLocaleString() };
-      try {
-        const updatedCase = await addCommunicationToCase(caseItem.id, newComm);
-        setCommunications(updatedCase.communications || []);
-        if (type === 'Finding') setFinding('');
-        if (type === 'Note') setNote('');
-      } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: "Failed to add communication." });
-      }
+      addCommunicationMutation.mutate({ caseId: caseItem.id, comm: newComm });
+      if (type === 'Finding') setFinding('');
+      if (type === 'Note') setNote('');
     }
   };
   
@@ -396,7 +400,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onBack, users, tasks, onTasks
       if (openTasks.length > 0) {
         const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
         await handleAddCommunication('Note', taskNote);
-        onTasksUpdate();
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
       }
 
       setResolutionNote('');

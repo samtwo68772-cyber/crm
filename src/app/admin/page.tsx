@@ -21,8 +21,11 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetCl
 import { Textarea } from '@/components/ui/textarea';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import { createUser, updateUser, createTeam, updateTeam, archiveTeam } from './actions';
+import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams } from './actions';
 import { useIsClient } from '@/hooks/use-is-client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
+
 
 function getStatusVariant(status: User['status']) {
     return status === 'Active' ? 'success' : 'secondary';
@@ -32,7 +35,8 @@ function getRoleVariant(UserRole: User['role']) {
     return UserRole === 'admin' ? 'default' : 'outline';
 }
 
-function UserManagement({ users, teams, onUserUpdate, onUserCreate }: { users: User[], teams: Team[], onUserUpdate: (user: User) => void, onUserCreate: (user: User) => void }) {
+function UserManagement({ users, teams }: { users: User[], teams: Team[] }) {
+    const queryClient = useQueryClient();
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -44,7 +48,8 @@ function UserManagement({ users, teams, onUserUpdate, onUserCreate }: { users: U
     const ITEMS_PER_PAGE = 10;
 
     const filteredUsers = useMemo(() => {
-        setCurrentPage(1); // Reset to first page on filter change
+        if (!users) return [];
+        setCurrentPage(1);
         return users.filter(user => {
             const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesRole = roleFilter === 'all' || user.role === roleFilter;
@@ -54,33 +59,44 @@ function UserManagement({ users, teams, onUserUpdate, onUserCreate }: { users: U
     }, [users, searchQuery, roleFilter, statusFilter]);
 
     const paginatedUsers = useMemo(() => {
+        if (!filteredUsers) return [];
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         return filteredUsers.slice(startIndex, startIndex + ITEMS_PER_PAGE);
     }, [filteredUsers, currentPage]);
 
-    const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
-
-    const handleAddUser = async (newUserData: Omit<User, 'id' | 'avatar'> & { password?: string }) => {
-        try {
-            const newUser = await createUser(newUserData);
-            onUserCreate(newUser);
+    const totalPages = Math.ceil((filteredUsers?.length || 0) / ITEMS_PER_PAGE);
+    
+    const createUserMutation = useMutation({
+        mutationFn: createUser,
+        onSuccess: (newUser) => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            toast({ title: "User Created", description: `User "${newUser.name}" has been added.` });
             setIsFormOpen(false);
-            toast({ title: "User Created", description: `User "${newUserData.name}" has been added.` });
-        } catch(e) {
-            toast({ variant: 'destructive', title: "Error creating user", description: (e as Error).message });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error creating user", description: error.message });
         }
-    };
+    });
 
-    const handleUpdateUser = async (userId: string, data: Partial<User>) => {
-        try {
-            const updatedUser = await updateUser(userId, data);
-            onUserUpdate(updatedUser);
+    const updateUserMutation = useMutation({
+        mutationFn: (data: { id: string; data: Partial<User> }) => updateUser(data.id, data.data),
+        onSuccess: (updatedUser) => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            toast({ title: "User Updated", description: `User "${updatedUser.name}" has been updated.` });
             setEditingUser(null);
             setIsFormOpen(false);
-            toast({ title: "User Updated", description: `User "${data.name}" has been updated.` });
-        } catch(e) {
-            toast({ variant: 'destructive', title: "Error updating user", description: (e as Error).message });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error updating user", description: error.message });
         }
+    });
+
+    const handleAddUser = (newUserData: Omit<User, 'id' | 'avatar'> & { password?: string }) => {
+        createUserMutation.mutate(newUserData);
+    };
+
+    const handleUpdateUser = (userId: string, data: Partial<User>) => {
+        updateUserMutation.mutate({ id: userId, data });
     };
     
     const openCreateForm = () => {
@@ -293,7 +309,8 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
     );
 }
 
-function TeamManagement({ teams, users, onTeamCreate, onTeamUpdate }: { teams: Team[], users: User[], onTeamCreate: (team: Team) => void, onTeamUpdate: (team: Team) => void }) {
+function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
+    const queryClient = useQueryClient();
     const { toast } = useToast();
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState<'Active' | 'Archived'>('Active');
@@ -303,45 +320,59 @@ function TeamManagement({ teams, users, onTeamCreate, onTeamUpdate }: { teams: T
     const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
     const filteredTeams = useMemo(() => {
+        if (!teams) return [];
         return teams.filter(team =>
             team.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
             team.status === statusFilter
         );
     }, [teams, searchQuery, statusFilter]);
 
-    const handleCreateTeam = async (newTeamData: Omit<Team, 'id'>) => {
-        try {
-            const newTeam = await createTeam(newTeamData);
-            onTeamCreate(newTeam);
+    const createTeamMutation = useMutation({
+        mutationFn: createTeam,
+        onSuccess: (newTeam) => {
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
+            toast({ title: "Team Created", description: `Team "${newTeam.name}" created.` });
             setIsFormOpen(false);
-            toast({ title: "Team Created", description: `Team "${newTeamData.name}" created.` });
-        } catch(e) {
-            toast({ variant: 'destructive', title: "Error creating team", description: (e as Error).message });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error creating team", description: error.message });
         }
-    };
+    });
 
-    const handleUpdateTeam = async (teamId: string, data: Partial<Team>) => {
-        try {
-            const updatedTeam = await updateTeam(teamId, data);
-            onTeamUpdate(updatedTeam);
+    const updateTeamMutation = useMutation({
+        mutationFn: (data: { id: string; data: Partial<Team> }) => updateTeam(data.id, data.data),
+        onSuccess: (updatedTeam) => {
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
+            toast({ title: "Team Updated", description: `Team "${updatedTeam.name}" updated.` });
             setEditingTeam(null);
             setIsFormOpen(false);
-            toast({ title: "Team Updated", description: `Team "${data.name}" updated.` });
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Error updating team", description: (e as Error).message });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error updating team", description: error.message });
         }
+    });
+    
+    const archiveTeamMutation = useMutation({
+        mutationFn: archiveTeam,
+        onSuccess: (archivedTeam) => {
+             queryClient.invalidateQueries({ queryKey: ['teams'] });
+             toast({ title: "Team Archived", description: `Team "${archivedTeam.name}" has been archived.` });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error archiving team", description: error.message });
+        }
+    });
+
+    const handleCreateTeam = (newTeamData: Omit<Team, 'id'>) => {
+        createTeamMutation.mutate(newTeamData);
     };
 
-    const handleArchiveTeam = async (teamId: string) => {
-         try {
-            const teamToArchive = teams.find(t => t.id === teamId);
-            if (!teamToArchive) return;
-            const archived = await archiveTeam(teamId);
-            onTeamUpdate(archived);
-            toast({ title: "Team Archived", description: `Team "${teamToArchive.name}" has been archived.` });
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Error archiving team", description: (e as Error).message });
-        }
+    const handleUpdateTeam = (teamId: string, data: Partial<Team>) => {
+        updateTeamMutation.mutate({ id: teamId, data });
+    };
+
+    const handleArchiveTeam = (teamId: string) => {
+        archiveTeamMutation.mutate(teamId);
     };
 
     const handleSelectTeam = (team: Team) => {
@@ -597,59 +628,27 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
 export default function AdminPageLoader() {
     const { user } = useAuth();
     const router = useRouter();
-    const isClient = useIsClient();
-    const [users, setUsers] = useState<User[]>([]);
-    const [teams, setTeams] = useState<Team[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
 
     useEffect(() => {
-        if (!isClient || !user) return;
-
-        if (user.role !== 'admin') {
+        if (user && user.role !== 'admin') {
             router.push('/');
-        } else {
-            const fetchData = async () => {
-                setIsLoading(true);
-                try {
-                    const [usersData, teamsData] = await Promise.all([
-                        import('./actions').then(actions => actions.getUsers()),
-                        import('./actions').then(actions => actions.getTeams())
-                    ]);
-                    setUsers(usersData);
-                    setTeams(teamsData);
-                } catch(e) {
-                    // Handle error
-                } finally {
-                    setIsLoading(false);
-                }
-            };
-            fetchData();
         }
-    }, [isClient, user, router]);
+    }, [user, router]);
     
-    const handleUserCreate = (newUser: User) => {
-        setUsers(prev => [newUser, ...prev]);
-    };
-
-    const handleUserUpdate = (updatedUser: User) => {
-        setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-    };
-
-    const handleTeamCreate = (newTeam: Team) => {
-        setTeams(prev => [newTeam, ...prev]);
-    };
-
-    const handleTeamUpdate = (updatedTeam: Team) => {
-        setTeams(prev => prev.map(t => t.id === updatedTeam.id ? updatedTeam : t));
-    };
-
-
-    if (!isClient || !user || user.role !== 'admin') {
+    if (!user || user.role !== 'admin') {
         return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
     }
 
-    if (isLoading) {
-        return <div>Loading...</div>
+    if (usersLoading || teamsLoading) {
+        return (
+             <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+                <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-96 w-full" />
+            </div>
+        )
     }
     
     return (
@@ -661,10 +660,10 @@ export default function AdminPageLoader() {
                     <TabsTrigger value="teams">Team Management</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
-                    <UserManagement users={users} teams={teams} onUserCreate={handleUserCreate} onUserUpdate={handleUserUpdate} />
+                    <UserManagement users={users || []} teams={teams || []} />
                 </TabsContent>
                 <TabsContent value="teams" className="mt-6">
-                    <TeamManagement teams={teams} users={users} onTeamCreate={handleTeamCreate} onTeamUpdate={handleTeamUpdate} />
+                    <TeamManagement teams={teams || []} users={users || []} />
                 </TabsContent>
             </Tabs>
         </div>

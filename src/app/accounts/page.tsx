@@ -28,6 +28,8 @@ import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { dataCache } from '@/lib/data-cache';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function CustomersPage() {
     const searchParams = useSearchParams();
@@ -66,80 +68,83 @@ export default function CustomersPage() {
 
 
 function AccountsView() {
-  const [accounts, setAccounts] = useState<Account[]>(dataCache.get('accounts'));
-  const [contacts, setContacts] = useState<Contact[]>(dataCache.get('contacts'));
-  const [cases, setCases] = useState<Case[]>(dataCache.get('cases'));
-  const [tasks, setTasks] = useState<Task[]>(dataCache.get('tasks'));
-  const [meetings, setMeetings] = useState<Meeting[]>(dataCache.get('meetings'));
+    const queryClient = useQueryClient();
+    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts });
+    const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ queryKey: ['contacts'], queryFn: getContacts });
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isAdmin = user?.role === 'admin';
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+    const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const isAdmin = user?.role === 'admin';
+    const isLoading = accountsLoading || contactsLoading || casesLoading || tasksLoading || meetingsLoading;
 
-  useEffect(() => {
-    const unsubscribe = dataCache.subscribe(() => {
-      setAccounts(dataCache.get('accounts'));
-      setContacts(dataCache.get('contacts'));
-      setCases(dataCache.get('cases'));
-      setTasks(dataCache.get('tasks'));
-      setMeetings(dataCache.get('meetings'));
+    const filteredAccounts = useMemo(() => {
+        if (!accounts) return [];
+        return accounts.filter(account =>
+            account.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (account.industry && account.industry.toLowerCase().includes(searchQuery.toLowerCase()))
+        );
+    }, [accounts, searchQuery]);
+
+    const createAccountMutation = useMutation({
+        mutationFn: createAccount,
+        onSuccess: (newAccount) => {
+            queryClient.invalidateQueries({ queryKey: ['accounts'] });
+            toast({ title: "Account Created", description: `Account "${newAccount.name}" has been successfully created.` });
+            setIsFormOpen(false);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
     });
-    return () => unsubscribe();
-  }, []);
 
-  const filteredAccounts = useMemo(() => {
-    return accounts.filter(account =>
-      account.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (account.industry && account.industry.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
-  }, [accounts, searchQuery]);
+    const updateAccountMutation = useMutation({
+        mutationFn: (data: { id: string, data: Partial<Account> }) => updateAccount(data.id, data.data as any),
+        onSuccess: (updatedAccount) => {
+            queryClient.invalidateQueries({ queryKey: ['accounts'] });
+            toast({ title: "Account Updated", description: `Account "${updatedAccount.name}" has been updated.` });
+            setEditingAccount(null);
+            setIsFormOpen(false);
+            setSelectedAccount(updatedAccount);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
 
-  const handleAddAccount = async (newAccountData: Omit<Account, 'id' | 'createdAt' | 'owner' | 'primaryContactId'>) => {
-    try {
-        dataCache.add('accounts', { ...newAccountData, id: `temp-${Date.now()}`, createdAt: new Date().toISOString(), owner: user?.name || '' });
-        setIsFormOpen(false);
-        const newAccount = await createAccount(newAccountData);
-        dataCache.update('accounts', newAccount);
-        toast({ title: "Account Created", description: `Account "${newAccountData.name}" has been successfully created.` });
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
-        setAccounts(dataCache.get('accounts')); // Revert optimistic update
-    }
-  };
+    const deleteAccountMutation = useMutation({
+        mutationFn: deleteAccount,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['accounts'] });
+            toast({ title: "Account Deleted", description: `The account has been deleted.` });
+            setSelectedAccount(null);
+            setIsSheetOpen(false);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
+
+
+    const handleAddAccount = async (newAccountData: Omit<Account, 'id' | 'createdAt' | 'owner' | 'primaryContactId'>) => {
+        createAccountMutation.mutate(newAccountData);
+    };
   
-  const handleUpdateAccount = async (updatedAccountData: Partial<Account> & { id: string }) => {
-    try {
+    const handleUpdateAccount = async (updatedAccountData: Partial<Account> & { id: string }) => {
         const { id, ...data } = updatedAccountData;
-        dataCache.update('accounts', updatedAccountData as Account);
-        setEditingAccount(null);
-        setIsFormOpen(false);
-        const updatedAccount = await updateAccount(id, data as any);
-        dataCache.update('accounts', updatedAccount);
-        setSelectedAccount(updatedAccount);
-        toast({ title: "Account Updated", description: `Account "${updatedAccountData.name}" has been updated.` });
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
-        setAccounts(dataCache.get('accounts')); // Revert optimistic update
-    }
-  };
+        updateAccountMutation.mutate({ id, data });
+    };
   
-  const handleDeleteAccount = async (accountId: string) => {
-    try {
-        dataCache.remove('accounts', accountId);
-        setSelectedAccount(null);
-        setIsSheetOpen(false);
-        await deleteAccount(accountId);
-        toast({ title: "Account Deleted", description: `The account has been deleted.` });
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
-        setAccounts(dataCache.get('accounts')); // Revert optimistic update
-    }
-  };
+    const handleDeleteAccount = async (accountId: string) => {
+        deleteAccountMutation.mutate(accountId);
+    };
 
   const openCreateForm = () => {
     setEditingAccount(null);
@@ -153,6 +158,7 @@ function AccountsView() {
   };
 
   const getAccountStats = (accountId: string) => {
+    if(!contacts || !cases || !tasks) return { contacts: 0, cases: 0, tasks: 0 };
     const relatedContacts = contacts.filter(c => c.accountId === accountId);
     const relatedContactIds = relatedContacts.map(c => c.id);
     const relatedCases = cases.filter(c => c.contactId && relatedContactIds.includes(c.contactId)).length;
@@ -176,30 +182,36 @@ function AccountsView() {
         </Card>
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {filteredAccounts.map((account) => {
-            const stats = getAccountStats(account.id);
-            return (
-              <Card key={account.id} onClick={() => { setSelectedAccount(account); setIsSheetOpen(true); }} className="cursor-pointer hover:shadow-lg transition-shadow duration-200">
-                <CardHeader className="flex flex-row items-center gap-4">
-                    <Avatar className="h-12 w-12">
-                        <AvatarImage src={`https://placehold.co/64x64/F1F5F9/334155.png?text=${account.name.charAt(0)}`} data-ai-hint="company logo" />
-                        <AvatarFallback>{account.name.charAt(0)}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <CardTitle className="text-lg">{account.name}</CardTitle>
-                        <CardDescription>{account.industry}</CardDescription>
-                    </div>
-                </CardHeader>
-                <CardFooter className="flex justify-between text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1"><Users className="h-4 w-4"/> {stats.contacts}</div>
-                    <div className="flex items-center gap-1"><Briefcase className="h-4 w-4"/> {stats.cases}</div>
-                    <div className="flex items-center gap-1"><ListTodo className="h-4 w-4"/> {stats.tasks}</div>
-                </CardFooter>
-              </Card>
-            )
-        })}
-      </div>
+        {isLoading ? (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {[...Array(8)].map((_, i) => <Skeleton key={i} className="h-36 w-full" />)}
+            </div>
+        ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filteredAccounts.map((account) => {
+                    const stats = getAccountStats(account.id);
+                    return (
+                    <Card key={account.id} onClick={() => { setSelectedAccount(account); setIsSheetOpen(true); }} className="cursor-pointer hover:shadow-lg transition-shadow duration-200">
+                        <CardHeader className="flex flex-row items-center gap-4">
+                            <Avatar className="h-12 w-12">
+                                <AvatarImage src={`https://placehold.co/64x64/F1F5F9/334155.png?text=${account.name.charAt(0)}`} data-ai-hint="company logo" />
+                                <AvatarFallback>{account.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                                <CardTitle className="text-lg">{account.name}</CardTitle>
+                                <CardDescription>{account.industry}</CardDescription>
+                            </div>
+                        </CardHeader>
+                        <CardFooter className="flex justify-between text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1"><Users className="h-4 w-4"/> {stats.contacts}</div>
+                            <div className="flex items-center gap-1"><Briefcase className="h-4 w-4"/> {stats.cases}</div>
+                            <div className="flex items-center gap-1"><ListTodo className="h-4 w-4"/> {stats.tasks}</div>
+                        </CardFooter>
+                    </Card>
+                    )
+                })}
+            </div>
+        )}
       
       {selectedAccount && (
         <AccountDetailSheet
@@ -208,10 +220,10 @@ function AccountsView() {
             account={selectedAccount}
             onEdit={() => openEditForm(selectedAccount)}
             onDelete={() => handleDeleteAccount(selectedAccount.id)}
-            contacts={contacts}
-            cases={cases}
-            tasks={tasks}
-            meetings={meetings}
+            contacts={contacts || []}
+            cases={cases || []}
+            tasks={tasks || []}
+            meetings={meetings || []}
         />
       )}
       
@@ -375,117 +387,132 @@ function AccountFormDialog({ open, onOpenChange, account, onSave }: { open: bool
 }
 
 function ContactsView() {
-  const [contacts, setContacts] = useState<Contact[]>(dataCache.get('contacts'));
-  const [accounts, setAccounts] = useState<Account[]>(dataCache.get('accounts'));
+    const queryClient = useQueryClient();
+    const { data: contacts, isLoading: contactsLoading } = useQuery<Contact[]>({ queryKey: ['contacts'], queryFn: getContacts });
+    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts });
+    
+    const { data: cases } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: meetings } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [companyFilter, setCompanyFilter] = useState('all');
-  const [roleFilter, setRoleFilter] = useState('all');
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [isDetailSheetOpen, setDetailSheetOpen] = useState(false);
-  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
-  const isMobile = useIsMobile();
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 10;
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+    const [searchQuery, setSearchQuery] = useState('');
+    const [companyFilter, setCompanyFilter] = useState('all');
+    const [roleFilter, setRoleFilter] = useState('all');
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingContact, setEditingContact] = useState<Contact | null>(null);
+    const [isDetailSheetOpen, setDetailSheetOpen] = useState(false);
+    const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+    const isMobile = useIsMobile();
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
+    const { toast } = useToast();
+    const { user } = useAuth();
+    const isAdmin = user?.role === 'admin';
+    const isLoading = contactsLoading || accountsLoading;
 
-  useEffect(() => {
-    const unsubscribe = dataCache.subscribe(() => {
-      setContacts(dataCache.get('contacts'));
-      setAccounts(dataCache.get('accounts'));
+    const companies = useMemo(() => {
+        if (!contacts) return [];
+        return ['all', ...Array.from(new Set(contacts.map(c => c.company).filter(Boolean)))]
+    }, [contacts]);
+    const roles = useMemo(() => {
+        if (!contacts) return [];
+        return ['all', ...Array.from(new Set(contacts.map(c => c.role).filter(Boolean)))]
+    }, [contacts]);
+
+    const filteredContacts = useMemo(() => {
+        if (!contacts) return [];
+        setCurrentPage(1); // Reset to first page on filter change
+        return contacts.filter(contact =>
+            (contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            contact.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
+            (companyFilter === 'all' || contact.company === companyFilter) &&
+            (roleFilter === 'all' || contact.role === roleFilter)
+        );
+    }, [contacts, searchQuery, companyFilter, roleFilter]);
+  
+    const paginatedContacts = useMemo(() => {
+        if (!filteredContacts) return [];
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredContacts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filteredContacts, currentPage]);
+  
+    const totalPages = Math.ceil((filteredContacts?.length || 0) / ITEMS_PER_PAGE);
+
+    const createContactMutation = useMutation({
+        mutationFn: createContact,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            toast({ title: "Contact Created", description: "A new contact has been created." });
+            setIsFormOpen(false);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
     });
-    return () => unsubscribe();
-  }, []);
 
-  const companies = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.company).filter(Boolean)))], [contacts]);
-  const roles = useMemo(() => ['all', ...Array.from(new Set(contacts.map(c => c.role).filter(Boolean)))], [contacts]);
+    const updateContactMutation = useMutation({
+        mutationFn: (data: { id: string, data: Partial<Contact> }) => updateContact(data.id, data.data as any),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            toast({ title: "Contact Updated", description: "The contact has been updated." });
+            setIsFormOpen(false);
+            setEditingContact(null);
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
 
-  const filteredContacts = useMemo(() => {
-    setCurrentPage(1); // Reset to first page on filter change
-    return contacts.filter(contact =>
-      (contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.email.toLowerCase().includes(searchQuery.toLowerCase())) &&
-      (companyFilter === 'all' || contact.company === companyFilter) &&
-      (roleFilter === 'all' || contact.role === roleFilter)
-    );
-  }, [contacts, searchQuery, companyFilter, roleFilter]);
+    const deleteContactMutation = useMutation({
+        mutationFn: deleteContact,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['contacts'] });
+            toast({ title: "Contact Deleted", description: "The contact has been deleted." });
+        },
+        onError: (error) => {
+            toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
   
-  const paginatedContacts = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredContacts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredContacts, currentPage]);
+    const handleAddContact = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
+        createContactMutation.mutate(newContactData);
+    };
   
-  const totalPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
-  
-  const handleAddContact = async (newContactData: Omit<Contact, 'id' | 'avatar'>) => {
-    try {
-        const tempId = `temp-${Date.now()}`;
-        dataCache.add('contacts', { ...newContactData, id: tempId, avatar: '' });
-        setIsFormOpen(false);
-        const newContact = await createContact(newContactData);
-        dataCache.update('contacts', { ...newContact, id: tempId }); // Keep temp id for key stability, but update with real data
-        toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created.` });
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
-        setContacts(dataCache.get('contacts'));
-    }
-  };
-  
-  const handleUpdateContact = async (updatedContactData: Partial<Contact> & { id: string }) => {
-    try {
+    const handleUpdateContact = async (updatedContactData: Partial<Contact> & { id: string }) => {
         const { id, ...data } = updatedContactData;
-        dataCache.update('contacts', updatedContactData as Contact);
+        updateContactMutation.mutate({ id, data });
+    };
+  
+    const handleDeleteContact = async (contactId: string) => {
+        deleteContactMutation.mutate(contactId);
+    };
+  
+    const openCreateForm = () => {
         setEditingContact(null);
-        setIsFormOpen(false);
-        const updatedContact = await updateContact(id, data as any);
-        dataCache.update('contacts', updatedContact);
-        toast({ title: "Contact Updated", description: `Contact "${updatedContactData.name}" has been updated.` });
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
-        setContacts(dataCache.get('contacts'));
+        setIsFormOpen(true);
     }
-  };
-  
-  const handleDeleteContact = async (contactId: string) => {
-    try {
-        dataCache.remove('contacts', contactId);
-        await deleteContact(contactId);
-        toast({ title: "Contact Deleted", description: `Contact has been deleted.` });
-    } catch (e) {
-        toast({ variant: "destructive", title: "Error", description: (e as Error).message });
-        setContacts(dataCache.get('contacts'));
+
+    const openEditForm = (contact: Contact) => {
+        setEditingContact(contact);
+        setDetailSheetOpen(false); // Close detail sheet if open
+        setTimeout(() => setIsFormOpen(true), 150);
     }
-  };
   
-  const openCreateForm = () => {
-    setEditingContact(null);
-    setIsFormOpen(true);
-  }
+    const openDetailSheet = (contact: Contact) => {
+        setSelectedContact(contact);
+        setDetailSheetOpen(true);
+    }
 
-  const openEditForm = (contact: Contact) => {
-    setEditingContact(contact);
-    setDetailSheetOpen(false); // Close detail sheet if open
-    setTimeout(() => setIsFormOpen(true), 150);
-  }
-  
-  const openDetailSheet = (contact: Contact) => {
-    setSelectedContact(contact);
-    setDetailSheetOpen(true);
-  }
+    const clearFilters = () => {
+        setSearchQuery('');
+        setCompanyFilter('all');
+        setRoleFilter('all');
+    }
 
-  const clearFilters = () => {
-      setSearchQuery('');
-      setCompanyFilter('all');
-      setRoleFilter('all');
-  }
-
-  const PaginationControls = () => (
+    const PaginationControls = () => (
      <div className="flex items-center justify-between pt-4">
         <div className="text-sm text-muted-foreground">
-            Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({filteredContacts.length} total contacts)
+            Page {totalPages > 0 ? currentPage : 0} of {totalPages} ({(filteredContacts || []).length} total contacts)
         </div>
         <div className="flex items-center gap-2">
             <Button
@@ -508,170 +535,195 @@ function ContactsView() {
             </Button>
         </div>
     </div>
-  );
+    );
   
-  return (
-    <div className="space-y-6 pt-2">
-       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row items-center gap-4">
-            <div className="relative w-full md:flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Search contacts..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+    return (
+        <div className="space-y-6 pt-2">
+        <Card>
+            <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row items-center gap-4">
+                <div className="relative w-full md:flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input placeholder="Search contacts..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
+                    <span className="text-sm font-medium text-muted-foreground hidden sm:block">Filter by:</span>
+                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                        <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Company" /></SelectTrigger>
+                        <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                        <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
+                        <SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r === 'all' ? 'All Roles' : r}</SelectItem>)}</SelectContent>
+                    </Select>
+                    <Button variant="outline" onClick={clearFilters} className="w-full md:w-auto"><X className="mr-2 h-4 w-4" /> Clear</Button>
+                </div>
+                <Button onClick={openCreateForm} className="w-full md:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Add Contact</Button>
             </div>
-            <div className="flex flex-col sm:flex-row items-center gap-2 w-full md:w-auto">
-                <span className="text-sm font-medium text-muted-foreground hidden sm:block">Filter by:</span>
-                 <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Company" /></SelectTrigger>
-                    <SelectContent>{companies.map(c => <SelectItem key={c} value={c}>{c === 'all' ? 'All Companies' : c}</SelectItem>)}</SelectContent>
-                </Select>
-                 <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Role" /></SelectTrigger>
-                    <SelectContent>{roles.map(r => <SelectItem key={r} value={r}>{r === 'all' ? 'All Roles' : r}</SelectItem>)}</SelectContent>
-                </Select>
-                <Button variant="outline" onClick={clearFilters} className="w-full md:w-auto"><X className="mr-2 h-4 w-4" /> Clear</Button>
-            </div>
-            <Button onClick={openCreateForm} className="w-full md:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Add Contact</Button>
-          </div>
-        </CardContent>
-       </Card>
+            </CardContent>
+        </Card>
 
-      {isMobile ? (
-         <div className="space-y-4">
-            {paginatedContacts.map((contact) => (
-                <Card key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <Avatar className="h-12 w-12">
-                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
-                            <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                            <p className="font-semibold">{contact.name}</p>
-                            <p className="text-sm text-muted-foreground">{contact.role}</p>
-                            <p className="text-sm text-muted-foreground">{contact.company}</p>
-                        </div>
-                         <div className="flex flex-col gap-1">
-                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
-                                <Mail className="h-4 w-4" />
-                                <span className="sr-only">Email</span>
-                            </Button>
-                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
-                                <Phone className="h-4 w-4" />
-                                <span className="sr-only">Call</span>
-                            </Button>
-                         </div>
-                    </CardContent>
-                </Card>
-            ))}
-        </div>
-      ) : (
-        <div className="border rounded-lg bg-card overflow-hidden">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead className="w-[250px]">Name</TableHead>
-                        <TableHead>Company</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Phone</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {paginatedContacts.map((contact) => (
-                        <TableRow key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
-                            <TableCell>
-                                <div className="flex items-center gap-3">
-                                    <Avatar className="h-10 w-10">
-                                        <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
-                                        <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold">{contact.name}</p>
-                                        <p className="text-sm text-muted-foreground">{contact.role}</p>
-                                    </div>
-                                </div>
-                            </TableCell>
-                            <TableCell>{contact.company}</TableCell>
-                            <TableCell>{contact.email}</TableCell>
-                            <TableCell>{contact.phone}</TableCell>
-                            <TableCell className="text-right">
-                                 <div className="flex gap-1 items-center justify-end">
-                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
-                                        <Mail className="h-4 w-4" />
-                                        <span className="sr-only">Email</span>
-                                    </Button>
-                                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
-                                        <Phone className="h-4 w-4" />
-                                        <span className="sr-only">Call</span>
-                                    </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetailSheet(contact)}}>
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">View Details</span>
-                                    </Button>
-                                 </div>
-                            </TableCell>
+        {isLoading ? (
+            <div className="border rounded-lg bg-card overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[250px]">Name</TableHead>
+                            <TableHead>Company</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
-                    ))}
-                </TableBody>
-            </Table>
-             {totalPages > 1 && <div className="p-4 border-t"><PaginationControls /></div>}
-        </div>
-      )}
-      {isMobile && totalPages > 1 && <PaginationControls />}
+                    </TableHeader>
+                    <TableBody>
+                        {[...Array(10)].map((_, i) => (
+                            <TableRow key={i}>
+                                <TableCell><Skeleton className="h-10 w-48" /></TableCell>
+                                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                                <TableCell><Skeleton className="h-6 w-36" /></TableCell>
+                                <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                                <TableCell className="text-right"><Skeleton className="h-8 w-20" /></TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
+        ) : isMobile ? (
+            <div className="space-y-4">
+                {paginatedContacts.map((contact) => (
+                    <Card key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
+                        <CardContent className="p-4 flex items-center gap-4">
+                            <Avatar className="h-12 w-12">
+                                <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
+                                <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1">
+                                <p className="font-semibold">{contact.name}</p>
+                                <p className="text-sm text-muted-foreground">{contact.role}</p>
+                                <p className="text-sm text-muted-foreground">{contact.company}</p>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                                    <Mail className="h-4 w-4" />
+                                    <span className="sr-only">Email</span>
+                                </Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                                    <Phone className="h-4 w-4" />
+                                    <span className="sr-only">Call</span>
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        ) : (
+            <div className="border rounded-lg bg-card overflow-hidden">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[250px]">Name</TableHead>
+                            <TableHead>Company</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Phone</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {paginatedContacts.map((contact) => (
+                            <TableRow key={contact.id} onClick={() => openDetailSheet(contact)} className="cursor-pointer">
+                                <TableCell>
+                                    <div className="flex items-center gap-3">
+                                        <Avatar className="h-10 w-10">
+                                            <AvatarImage src={`https://placehold.co/40x40.png`} data-ai-hint="person avatar" alt={contact.name} />
+                                            <AvatarFallback>{contact.name.charAt(0)}</AvatarFallback>
+                                        </Avatar>
+                                        <div>
+                                            <p className="font-semibold">{contact.name}</p>
+                                            <p className="text-sm text-muted-foreground">{contact.role}</p>
+                                        </div>
+                                    </div>
+                                </TableCell>
+                                <TableCell>{contact.company}</TableCell>
+                                <TableCell>{contact.email}</TableCell>
+                                <TableCell>{contact.phone}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex gap-1 items-center justify-end">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Emailing ${contact.name}`); }}>
+                                            <Mail className="h-4 w-4" />
+                                            <span className="sr-only">Email</span>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); alert(`Calling ${contact.name}`); }}>
+                                            <Phone className="h-4 w-4" />
+                                            <span className="sr-only">Call</span>
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); openDetailSheet(contact)}}>
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">View Details</span>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+                {totalPages > 1 && <div className="p-4 border-t"><PaginationControls /></div>}
+            </div>
+        )}
+        {isMobile && totalPages > 1 && <PaginationControls />}
       
-       {filteredContacts.length === 0 && (
+        {filteredContacts?.length === 0 && !isLoading && (
             <div className="text-center py-16 text-muted-foreground">
                 <p className="text-lg font-semibold">No contacts found</p>
                 <p>Try adjusting your search or filters.</p>
             </div>
         )}
       
-      {selectedContact && (
-        <ContactDetailSheet
-            open={isDetailSheetOpen}
-            onOpenChange={setDetailSheetOpen}
-            contact={selectedContact}
-            onEdit={() => openEditForm(selectedContact)}
-            onDelete={() => handleDeleteContact(selectedContact.id)}
-        />
-      )}
+        {selectedContact && (
+            <ContactDetailSheet
+                open={isDetailSheetOpen}
+                onOpenChange={setDetailSheetOpen}
+                contact={selectedContact}
+                onEdit={() => openEditForm(selectedContact)}
+                onDelete={() => handleDeleteContact(selectedContact.id)}
+                cases={cases || []}
+                tasks={tasks || []}
+                meetings={meetings || []}
+            />
+        )}
       
-      <ContactFormDialog
-        key={editingContact ? editingContact.id : 'create'}
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        contact={editingContact}
-        accounts={accounts}
-        onSave={(data, isEdit) => {
-            if (isEdit && editingContact) {
-                handleUpdateContact({ ...editingContact, ...data });
-            } else {
-                handleAddContact(data as Omit<Contact, 'id' | 'avatar'>);
-            }
-        }}
-      />
-    </div>
-  );
+        <ContactFormDialog
+            key={editingContact ? editingContact.id : 'create'}
+            open={isFormOpen}
+            onOpenChange={setIsFormOpen}
+            contact={editingContact}
+            accounts={accounts || []}
+            onSave={(data, isEdit) => {
+                if (isEdit && editingContact) {
+                    handleUpdateContact({ ...editingContact, ...data });
+                } else {
+                    handleAddContact(data as Omit<Contact, 'id' | 'avatar'>);
+                }
+            }}
+        />
+        </div>
+    );
 }
 
 
-function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact, onEdit: () => void, onDelete: () => void }) {
+function ContactDetailSheet({ open, onOpenChange, contact, onEdit, onDelete, cases, tasks, meetings }: { open: boolean, onOpenChange: (open: boolean) => void, contact: Contact, onEdit: () => void, onDelete: () => void, cases: Case[], tasks: Task[], meetings: Meeting[] }) {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const [relatedItems, setRelatedItems] = useState<{cases: Case[], tasks: Task[], meetings: Meeting[]}>({cases: [], tasks: [], meetings: []});
 
     useEffect(() => {
         if(contact) {
-            const casesData = dataCache.get('cases');
-            const tasksData = dataCache.get('tasks');
-            const meetingsData = dataCache.get('meetings');
             setRelatedItems({
-                cases: casesData.filter(c => c.contactId === contact.id),
-                tasks: tasksData.filter(t => t.contactId === contact.id),
-                meetings: meetingsData.filter(m => m.contactId === contact.id)
+                cases: cases.filter(c => c.contactId === contact.id),
+                tasks: tasks.filter(t => t.contactId === contact.id),
+                meetings: meetings.filter(m => m.contactId === contact.id)
             });
         }
-    }, [contact]);
+    }, [contact, cases, tasks, meetings]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>

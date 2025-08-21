@@ -8,6 +8,7 @@ import { AuthProvider } from '@/context/auth-context';
 import MainLayout from '@/components/main-layout';
 import { Toaster } from "@/components/ui/toaster"
 import { Inter, Space_Grotesk } from 'next/font/google'
+import { QueryProvider } from '@/components/query-provider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-space-grotesk' });
@@ -27,10 +28,12 @@ export default function RootLayout({
         <meta name="description" content="A web-based Customer Relationship Management (CRM) system." />
       </head>
       <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
-        <AuthProvider>
-            {isLoginPage ? children : <MainLayout>{children}</MainLayout>}
-            <Toaster />
-        </AuthProvider>
+        <QueryProvider>
+            <AuthProvider>
+                {isLoginPage ? children : <MainLayout>{children}</MainLayout>}
+                <Toaster />
+            </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );
