@@ -790,10 +790,10 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
                 <SelectContent>
                     {caseTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => setManageTypesOpen(true)}>
-                      <Settings className="mr-2 h-4 w-4" />
-                      Manage Types
-                    </DropdownMenuItem>
+                     <SelectItem value="manage-types" onSelect={() => setManageTypesOpen(true)} className="flex items-center gap-2 cursor-pointer focus:bg-accent focus:text-accent-foreground">
+                        <Settings className="mr-2 h-4 w-4" />
+                        Manage Types
+                    </SelectItem>
                 </SelectContent>
             </Select>
           </div>
