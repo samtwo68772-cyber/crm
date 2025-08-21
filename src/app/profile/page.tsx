@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { getUserProfile, updateUserProfile, updateUserPassword, updateUserPreferences } from './actions';
-import { getTeams } from '../admin/actions';
+import { getTeams, getUsers } from '../admin/actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -172,7 +172,7 @@ export default function ProfilePage() {
 
 function MyTeamView() {
     const { user: authUser } = useAuth();
-    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: users, isLoading: usersLoading } = useQuery<UserType[]>({ queryKey: ['users'], queryFn: getUsers });
     const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
     
     if (usersLoading || teamsLoading) {
