@@ -117,7 +117,7 @@ export default function CasesPage() {
     });
 
     const updateCaseMutation = useMutation({
-        mutationFn: (data: { id: string; data: Partial<Case> }) => updateCase(data.id, data.data as any),
+        mutationFn: (data: { id: string; data: Partial<Case> & { assignedTo?: string[] } }) => updateCase(data.id, data.data),
         onMutate: async (newCaseData) => {
             await queryClient.cancelQueries({ queryKey: ['cases'] });
             const previousCases = queryClient.getQueryData(['cases']);
@@ -129,7 +129,15 @@ export default function CasesPage() {
             );
             
             if (selectedCase && selectedCase.id === newCaseData.id) {
-                setSelectedCase((prev: any) => ({...prev, ...newCaseData.data}));
+                 const newAssignments = newCaseData.data.assignedTo ? 
+                    newCaseData.data.assignedTo.map(id => ({ userId: id.replace('user-','') }))
+                    : selectedCase.assignments;
+                
+                setSelectedCase((prev: any) => ({
+                    ...prev, 
+                    ...newCaseData.data,
+                    assignments: newAssignments
+                }));
             }
 
             return { previousCases, previousSelectedCase };
@@ -176,7 +184,7 @@ export default function CasesPage() {
   
     const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
         const { id, ...data } = updatedCaseData;
-        updateCaseMutation.mutate({ id, data });
+        updateCaseMutation.mutate({ id, data: data as any });
     };
   
     const userCases = useMemo(() => {
@@ -837,7 +845,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
 
 
   const handleSubmit = () => {
-    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> & { assignedTo: string[] } = { 
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications' | 'assignments'> & { assignedTo: string[] } = { 
         subject, 
         customer, 
         email, 
@@ -1019,3 +1027,6 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
 
 
 
+
+
+    
