@@ -1,66 +1,67 @@
 
-// datasource db defines the database connection details.
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// generator client defines the Prisma Client generator.
 generator client {
   provider = "prisma-client-js"
 }
 
-// User model
-model User {
-  id                      String                  @id @default(cuid())
-  name                    String
-  email                   String                  @unique
-  passwordHash            String
-  role                    String                  @default("staff") // "admin", "staff"
-  team                    String
-  avatar                  String
-  status                  String                  @default("Active") // "Active", "Inactive"
-  createdAt               DateTime                @default(now())
-  updatedAt               DateTime                @updatedAt
-  assignedCases           CaseAssignment[]
-  createdTasks            Task[]                  @relation("CreatedBy")
-  assignedTasks           Task[]                  @relation("AssignedTo")
-  meetings                MeetingParticipant[]
-  notificationPreferences NotificationPreferences?
-  auditLogs               AuditLog[]
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:wR78ZKGathYtcANaYcK6@containers-us-west-111.railway.app:7054/railway"
 }
 
-// Team model
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  passwordHash String
+  role      String // "admin" or "staff"
+  status    String // "Active" or "Inactive"
+  team      String
+  avatar    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignments             CaseAssignment[]
+  meetingsAsParticipant   MeetingParticipant[]
+  auditLogs               AuditLog[]
+  tasksCreated            Task[]
+  notificationPreferences NotificationPreferences?
+}
+
+
 model Team {
   id          String   @id @default(cuid())
   name        String   @unique
   description String?
   leaderId    String
   memberIds   String[]
-  status      String   @default("Active") // "Active", "Archived"
+  status      String // "Active" or "Archived"
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
-// Case model
 model Case {
-  id                 String           @id @default(cuid())
-  subject            String
-  description        String?
-  customer           String
-  email              String
-  priority           String
-  type               String
-  status             String
-  createdAt          String
-  resolvedAt         String?
-  contactId          String?
+  id        String   @id
+  subject   String
+  customer  String
+  email     String
+  priority  String
+  type      String
+  status    String
+  createdAt String
+  resolvedAt        String?
+  description       String
+  communications    Json?
+  contactId         String?
   satisfactionRating Int?
-  assignments        CaseAssignment[]
-  tasks              Task[]
-  documents          Document[]
-  contact            Contact?         @relation(fields: [contactId], references: [id])
-  communications     Json[]
+
+  assignments CaseAssignment[]
+  contact     Contact?         @relation(fields: [contactId], references: [id])
+  tasks       Task[]
+  documents   Document[]
 }
 
 model CaseAssignment {
@@ -73,10 +74,63 @@ model CaseAssignment {
   assignedBy String
 }
 
-// Account model
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String
+  dueDate     String
+  priority    String
+  linkedCase  String?
+  assignedTo  String?
+  contactId   String?
+
+  case      Case?    @relation(fields: [linkedCase], references: [id])
+  assignee  User?    @relation(fields: [assignedTo], references: [id])
+  contact   Contact? @relation(fields: [contactId], references: [id])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  company   String
+  accountId String?
+  role      String
+  notes     String?
+  avatar    String
+  cases     Case[]
+  tasks     Task[]
+  account   Account? @relation(fields: [accountId], references: [id])
+}
+
+model Meeting {
+  id           String               @id @default(cuid())
+  title        String
+  description  String?
+  date         String
+  status       String
+  linkedRecord String?
+  notes        Json?
+  attachments  Json?
+  contactId    String?
+  participants MeetingParticipant[]
+}
+
+model MeetingParticipant {
+  id        String   @id @default(cuid())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  meetingId String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  joinedAt  DateTime @default(now())
+}
+
+
 model Account {
   id               String    @id @default(cuid())
-  name             String
+  name             String    @unique
   industry         String
   createdAt        DateTime
   address          String?
@@ -91,67 +145,6 @@ model Account {
   documents        Document[]
 }
 
-// Contact model
-model Contact {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  phone     String?
-  company   String
-  accountId String?
-  role      String
-  notes     String?
-  avatar    String
-  account   Account? @relation(fields: [accountId], references: [id])
-  cases     Case[]
-  tasks     Task[]
-  meetings  Meeting[]
-}
-
-// Task model
-model Task {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  status      String
-  dueDate     String
-  priority    String
-  linkedCase  String?
-  assignedTo  String?
-  contactId   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  case        Case?    @relation(fields: [linkedCase], references: [id])
-  createdBy   User?    @relation("CreatedBy", fields: [assignedTo], references: [id])
-  assignee    User?    @relation("AssignedTo", fields: [assignedTo], references: [id])
-  contact     Contact? @relation(fields: [contactId], references: [id])
-}
-
-// Meeting model
-model Meeting {
-  id           String               @id @default(cuid())
-  title        String
-  description  String?
-  date         String
-  status       String
-  linkedRecord String?
-  contactId    String?
-  createdAt    DateTime             @default(now())
-  updatedAt    DateTime             @updatedAt
-  contact      Contact?             @relation(fields: [contactId], references: [id])
-  participants MeetingParticipant[]
-}
-
-model MeetingParticipant {
-  id        String   @id @default(cuid())
-  meeting   Meeting  @relation(fields: [meetingId], references: [id])
-  meetingId String
-  user      User     @relation(fields: [userId], references: [id])
-  userId    String
-  joinedAt  DateTime @default(now())
-}
-
-// Document model
 model Document {
   id          String   @id @default(cuid())
   name        String
@@ -164,65 +157,30 @@ model Document {
   accountId   String?
   caseId      String?
   previewUrl  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
   account     Account? @relation(fields: [accountId], references: [id])
   case        Case?    @relation(fields: [caseId], references: [id])
 }
 
-// Email model
-model Email {
-  id           String   @id @default(cuid())
-  from         Json
-  to           Json
-  subject      String
-  body         String
-  date         String
-  type         String // "inbox" | "sent"
-  read         Boolean
-  linkedCaseId String?
-  attachments  Json[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
-// Workflow model
-model Workflow {
-  id        String @id @default(cuid())
-  name      String
-  trigger   String
-  condition String
-  action    String
-}
-
-// AuditLog model
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String
   action    String
   details   String
-  timestamp String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  timestamp DateTime @default(now())
   user      User     @relation(fields: [userId], references: [id])
 }
 
-// NotificationPreferences model (for individual users)
-model NotificationPreferences {
-  id       String @id @default(cuid())
-  user     User   @relation(fields: [userId], references: [id])
-  userId   String @unique
-  cases    Json
-  tasks    Json
-  meetings Json
-}
-
-// GlobalNotificationPreferences model (system-wide defaults)
-model GlobalNotificationPreferences {
-  id       String @id @default(cuid())
-  cases    Json
-  tasks    Json
-  meetings Json
+model Email {
+  id           String @id @default(cuid())
+  from         Json
+  to           Json
+  subject      String
+  body         String
+  date         String
+  type         String
+  read         Boolean
+  linkedCaseId String?
+  attachments  Json?
 }
 
 model Notification {
@@ -236,28 +194,50 @@ model Notification {
   link        String
 }
 
-// GeneralSettings model
 model GeneralSettings {
-  id          String  @id @default(cuid())
-  systemName  String
-  companyName String
-  logoUrl     String?
-  timeZone    String
-  language    String
+    id String @id @default(cuid())
+    systemName String
+    companyName String
+    logoUrl String
+    timeZone String
+    language String
 }
 
-// EmailSettings model
 model EmailSettings {
-  id             String  @id @default(cuid())
-  smtpHost       String
-  smtpPort       Int
-  smtpUser       String
-  smtpPass       String
-  smtpEncryption String
-  imapHost       String
-  imapPort       Int
-  imapUser       String
-  imapPass       String
-  imapEncryption String
-  configured     Boolean @default(false)
+    id String @id @default(cuid())
+    smtpHost String
+    smtpPort Int
+    smtpUser String
+    smtpPass String
+    smtpEncryption String
+    imapHost String
+    imapPort Int
+    imapUser String
+    imapPass String
+    imapEncryption String
+    configured Boolean
+}
+
+model NotificationPreferences {
+    id String @id @default(cuid())
+    userId String @unique
+    cases Json
+    tasks Json
+    meetings Json
+    user User @relation(fields: [userId], references: [id])
+}
+
+model GlobalNotificationPreferences {
+    id String @id @default(cuid())
+    cases Json
+    tasks Json
+    meetings Json
+}
+
+model Workflow {
+    id String @id @default(cuid())
+    name String
+    trigger String
+    condition String
+    action String
 }
