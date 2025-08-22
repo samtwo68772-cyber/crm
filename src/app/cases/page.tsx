@@ -528,7 +528,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                            <AssigneePicker
                             users={users}
                             teams={teams}
-                            selectedAssignees={caseItem.assignedTo}
+                            selectedAssignees={caseItem.assignedTo || []}
                             onChange={handleAssigneeChange}
                           />
                         </div>
@@ -946,4 +946,6 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
         </Dialog>
     );
 }
+    
+
     
