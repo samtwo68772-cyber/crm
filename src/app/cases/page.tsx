@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import type { DateRange } from "react-day-picker"
 import { getCases, createCase, updateCase, addCommunicationToCase, deleteCase } from './actions';
 import { getTasks, updateTask as updateTaskAction } from '../tasks/actions';
-import { getUsers } from '../admin/actions';
+import { getUsers, getTeams } from '../admin/actions';
 import { getWorkflows } from '../settings/actions';
 import type { Case, User, Communication, Task, Notification, Workflow, Team } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
@@ -35,6 +35,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AssigneePicker } from '@/components/ui/assignee-picker';
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
   switch (priority) {
@@ -60,9 +61,10 @@ export default function CasesPage() {
     const queryClient = useQueryClient();
     const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
     const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
     const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
     const { data: workflows, isLoading: workflowsLoading } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows });
-    const isLoading = casesLoading || usersLoading || tasksLoading || workflowsLoading;
+    const isLoading = casesLoading || usersLoading || tasksLoading || workflowsLoading || teamsLoading;
 
     const [selectedCase, setSelectedCase] = useState<Case | null>(null);
     const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -142,11 +144,11 @@ export default function CasesPage() {
     const userCases = useMemo(() => {
         if (!cases) return [];
         const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => c.assignedTo === user?.name);
+        return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => c.assignedTo.includes(`user-${user?.id}`));
     }, [cases, user]);
 
     const filteredCases = useMemo(() => {
-        if (!userCases || !users) return [];
+        if (!userCases || !users || !teams) return [];
         setCurrentPage(1); // Reset to first page on filter change
         return userCases.filter(c => {
             const matchesStatus = statusFilter === 'all' || 
@@ -154,13 +156,12 @@ export default function CasesPage() {
                 c.status === statusFilter;
             const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
             const matchesType = typeFilter === 'all' || c.type === typeFilter;
-            const assignedUser = users.find(u => u.name === c.assignedTo);
-            const matchesAssignedTo = assignedToFilter === 'all' || (assignedUser && assignedUser.id === assignedToFilter) || (assignedToFilter === 'Unassigned' && c.assignedTo === 'Unassigned');
+            const matchesAssignedTo = assignedToFilter === 'all' || c.assignedTo.includes(assignedToFilter);
             const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
             return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
         });
-    }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users]);
+    }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users, teams]);
   
     const paginatedCases = useMemo(() => {
         if (!filteredCases) return [];
@@ -170,6 +171,21 @@ export default function CasesPage() {
     }, [filteredCases, currentPage]);
   
     const totalPages = Math.ceil((filteredCases?.length || 0) / ITEMS_PER_PAGE);
+
+    const getAssigneeNames = (assigneeIds: string[]) => {
+        if (!users || !teams) return 'Unassigned';
+        if (assigneeIds.length === 0) return 'Unassigned';
+
+        return assigneeIds.map(id => {
+            if (id.startsWith('user-')) {
+                return users.find(u => u.id === id.replace('user-', ''))?.name;
+            }
+            if (id.startsWith('team-')) {
+                return teams.find(t => t.id === id.replace('team-', ''))?.name;
+            }
+            return id;
+        }).filter(Boolean).join(', ');
+    };
 
     const PaginationControls = () => (
         <div className="flex items-center justify-between pt-4">
@@ -252,14 +268,13 @@ export default function CasesPage() {
             </SelectContent>
           </Select>
           {user?.role === 'admin' && (
-            <Select value={assignedToFilter} onValueChange={setAssignedToFilter}>
-                <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Assigned To" /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">All Users</SelectItem>
-                    <SelectItem value="Unassigned">Unassigned</SelectItem>
-                    {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
-                </SelectContent>
-            </Select>
+            <AssigneePicker
+                users={users || []}
+                teams={teams || []}
+                selectedAssignees={assignedToFilter === 'all' ? [] : [assignedToFilter]}
+                onChange={(assignees) => setAssignedToFilter(assignees.length > 0 ? assignees[0] : 'all')}
+                className="w-full sm:w-[180px]"
+            />
           )}
         </div>
       </div>
@@ -271,7 +286,7 @@ export default function CasesPage() {
               <TableHead>Subject</TableHead>
               <TableHead className="hidden lg:table-cell">Priority</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="hidden lg:table-cell">Assigned Staff</TableHead>
+              <TableHead className="hidden lg:table-cell">Assigned To</TableHead>
               <TableHead className="hidden lg:table-cell">Created</TableHead>
               <TableHead><span className="sr-only">Actions</span></TableHead>
             </TableRow>
@@ -283,7 +298,7 @@ export default function CasesPage() {
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
                 <TableCell className="hidden lg:table-cell"><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
                 <TableCell><Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge></TableCell>
-                <TableCell className="hidden lg:table-cell">{caseItem.assignedTo}</TableCell>
+                <TableCell className="hidden lg:table-cell">{getAssigneeNames(caseItem.assignedTo)}</TableCell>
                 <TableCell className="hidden lg:table-cell">{caseItem.createdAt}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedCase(caseItem)}>View</Button>
@@ -305,7 +320,7 @@ export default function CasesPage() {
               <div className="text-sm text-muted-foreground space-y-1">
                   <p>ID: <span className="font-mono text-xs">{caseItem.id}</span></p>
                   <div>Priority: <Badge variant={getPriorityVariant(caseItem.priority)} className="text-xs">{caseItem.priority}</Badge></div>
-                  <p>Assigned: {caseItem.assignedTo}</p>
+                  <p>Assigned: {getAssigneeNames(caseItem.assignedTo)}</p>
                   <p>Created: {caseItem.createdAt}</p>
               </div>
             </CardContent>
@@ -329,18 +344,19 @@ export default function CasesPage() {
                     onDeleteCase={handleDeleteCase}
                     onBack={() => setSelectedCase(null)}
                     users={users || []}
+                    teams={teams || []}
                     tasks={tasks || []}
                 />
             </SheetContent>
         </Sheet>
       )}
 
-      <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} users={users || []} cases={cases || []} workflows={workflows || []}/>
+      <CreateCaseDialog open={isCreateDialogOpen} onOpenChange={setCreateDialogOpen} onCreate={handleCreateCase} users={users || []} cases={cases || []} workflows={workflows || []} teams={teams || []} />
     </div>
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], tasks: Task[] }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
   const queryClient = useQueryClient();
   const [finding, setFinding] = useState('');
   const [note, setNote] = useState('');
@@ -438,8 +454,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
     }
   };
 
-  const handleAssigneeChange = (newAssigneeName: string) => {
-      onUpdateCase({ id: caseItem.id, assignedTo: newAssigneeName });
+  const handleAssigneeChange = (newAssignees: string[]) => {
+      onUpdateCase({ id: caseItem.id, assignedTo: newAssignees });
   };
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -487,11 +503,11 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                         <Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge>
 
                         <div><Label className="text-muted-foreground">Assigned To</Label></div>
-                          <SearchableUserSelect
-                            users={users.filter(u => u.role === 'staff')}
-                            selectedUser={users.find(u => u.name === caseItem.assignedTo)}
-                            onSelect={(user) => handleAssigneeChange(user ? user.name : 'Unassigned')}
-                            disabled={!isAdmin}
+                          <AssigneePicker
+                            users={users}
+                            teams={teams}
+                            selectedAssignees={caseItem.assignedTo}
+                            onChange={handleAssigneeChange}
                           />
                     </div>
                 </div>
@@ -713,7 +729,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
 const defaultCaseTypes = ['Bug Report', 'Feature Request', 'Billing Inquiry', 'General Question'];
 
-function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflows }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], cases: Case[], workflows: Workflow[] }) {
+function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflows, teams }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], cases: Case[], workflows: Workflow[], teams: Team[] }) {
   const [subject, setSubject] = useState('');
   const [customer, setCustomer] = useState('');
   const [email, setEmail] = useState('');
@@ -721,7 +737,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   const [priority, setPriority] = useState<Case['priority']>('Medium');
   const [type, setType] = useState<Case['type']>('General Question');
   const [status, setStatus] = useState<Case['status']>('New');
-  const [assignedTo, setAssignedTo] = useState('Unassigned');
+  const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [caseTypes, setCaseTypes] = useState(defaultCaseTypes);
   const [isManageTypesOpen, setManageTypesOpen] = useState(false);
   const { toast } = useToast();
@@ -753,20 +769,17 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
         if (conditionMet) {
             // Team Assignment Action
             if (workflow.action === 'assign-team-t2') {
-                const tier2Team = users.find(u => u.team === 'Support Tier 2');
-                if (tier2Team) {
-                    caseData.assignedTo = tier2Team.name;
-                     toast({
-                        title: "Workflow Triggered",
-                        description: `Case automatically assigned to ${tier2Team.name} in Tier 2 Support.`,
-                    });
-                }
+                caseData.assignedTo.push('team-team-2'); // Assign to Tier 2 team
+                 toast({
+                    title: "Workflow Triggered",
+                    description: `Case automatically assigned to Tier 2 Support.`,
+                });
             }
         }
     });
 
     onCreate(caseData);
-    setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New'); setAssignedTo('Unassigned');
+    setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New'); setAssignedTo([]);
   };
   
   return (
@@ -785,12 +798,18 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="type" className="text-right">Case Type</Label>
-            <Select onValueChange={(v: Case['type']) => setType(v)} value={type}>
+            <Select onValueChange={(v: Case['type'] | 'manage-types') => {
+                if (v === 'manage-types') {
+                    setManageTypesOpen(true);
+                } else {
+                    setType(v);
+                }
+            }} value={type}>
                 <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     {caseTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     <DropdownMenuSeparator />
-                     <SelectItem value="manage-types" onSelect={() => setManageTypesOpen(true)} className="flex items-center gap-2 cursor-pointer focus:bg-accent focus:text-accent-foreground">
+                     <SelectItem value="manage-types" onSelect={(e) => e.preventDefault()} className="flex items-center gap-2 cursor-pointer focus:bg-accent focus:text-accent-foreground">
                         <Settings className="mr-2 h-4 w-4" />
                         Manage Types
                     </SelectItem>
@@ -799,11 +818,12 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="assignTo" className="text-right">Assign To</Label>
-             <SearchableUserSelect
+             <AssigneePicker
                 users={staffUsers}
-                selectedUser={staffUsers.find(u => u.name === assignedTo)}
-                onSelect={(user) => setAssignedTo(user ? user.name : 'Unassigned')}
-                placeholder="Select a staff member..."
+                teams={teams}
+                selectedAssignees={assignedTo}
+                onChange={setAssignedTo}
+                className="col-span-3"
               />
           </div>
         </div>
@@ -873,54 +893,5 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
                 </DialogFooter>
             </DialogContent>
         </Dialog>
-    );
-}
-
-function SearchableUserSelect({ users, selectedUser, onSelect, placeholder = "Select a user...", disabled = false }: { users: User[], selectedUser: User | undefined, onSelect: (user: User | null) => void, placeholder?: string, disabled?: boolean }) {
-    const [open, setOpen] = useState(false);
-
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    role="combobox"
-                    aria-expanded={open}
-                    className="w-full justify-between col-span-3 font-normal"
-                    disabled={disabled}
-                >
-                    {selectedUser ? selectedUser.name : placeholder}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                <Command>
-                    <CommandInput placeholder="Search users..." />
-                    <CommandList>
-                        <CommandEmpty>No user found.</CommandEmpty>
-                        <CommandGroup>
-                            {users.map((user) => (
-                                <CommandItem
-                                    key={user.id}
-                                    value={user.name}
-                                    onSelect={() => {
-                                        onSelect(user.id === selectedUser?.id ? null : user);
-                                        setOpen(false);
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            selectedUser?.id === user.id ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {user.name}
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
     );
 }

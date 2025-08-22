@@ -4,13 +4,10 @@
 import * as React from "react"
 import { type DialogProps } from "@radix-ui/react-dialog"
 import { Command as CommandPrimitive } from "cmdk"
-import { Search, ChevronsUpDown } from "lucide-react"
+import { Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
-import { Check } from "lucide-react"
-import { Popover, PopoverContent, PopoverTrigger } from "./popover"
-import { Button } from "./button"
 
 const Command = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive>,

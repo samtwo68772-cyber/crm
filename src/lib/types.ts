@@ -19,7 +19,7 @@ export type Case = {
   priority: 'High' | 'Medium' | 'Low';
   type: 'Bug Report' | 'Feature Request' | 'Billing Inquiry' | 'General Question';
   status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
-  assignedTo: string;
+  assignedTo: string[];
   createdAt: string;
   resolvedAt?: string;
   description: string;
