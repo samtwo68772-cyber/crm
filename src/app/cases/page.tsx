@@ -27,7 +27,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { format, isWithinInterval, subDays, addDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -941,4 +941,5 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
     );
 }
     
+
 
