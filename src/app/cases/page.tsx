@@ -94,8 +94,15 @@ export default function CasesPage() {
     
     const cases = useMemo(() => casesData?.map(c => ({
         ...c,
-        assignedTo: c.assignments.map((a: any) => `user-${a.userId}`)
-    })) || [], [casesData]);
+        assignedTo: c.assignments.map((a: any) => {
+            const team = teams?.find(t => t.memberIds.includes(a.userId));
+            // This is imperfect, as a user could be on multiple teams.
+            // A better solution would involve checking assignments against teams directly.
+            // For now, we simplify. If a team is assigned, all its members are considered assigned.
+            const teamAssignment = teams?.find(t => t.memberIds.includes(a.userId));
+            return teamAssignment ? `team-${teamAssignment.id}` : `user-${a.userId}`;
+        })
+    })) || [], [casesData, teams]);
 
     useEffect(() => {
         const status = searchParams.get('status');
@@ -125,12 +132,12 @@ export default function CasesPage() {
 
             // Optimistically update to the new value
              queryClient.setQueryData(['cases'], (old: any[] | undefined) => 
-                old ? old.map(c => c.id === newCaseData.id ? {...c, ...newCaseData.data} : c) : []
+                old ? old.map(c => c.id === newCaseData.id ? {...c, ...newCaseData.data, assignments: newCaseData.data.assignedTo?.map(id => ({userId: id.replace(/user-|team-/g, '')})) } : c) : []
             );
             
             if (selectedCase && selectedCase.id === newCaseData.id) {
                  const newAssignments = newCaseData.data.assignedTo ? 
-                    newCaseData.data.assignedTo.map(id => ({ userId: id.replace('user-','') }))
+                    newCaseData.data.assignedTo.map(id => ({ userId: id.replace(/user-|team-/g,'') }))
                     : selectedCase.assignments;
                 
                 setSelectedCase((prev: any) => ({
@@ -187,16 +194,24 @@ export default function CasesPage() {
         updateCaseMutation.mutate({ id, data: data as any });
     };
   
-    const userCases = useMemo(() => {
-        if (!cases) return [];
-        const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        if (user?.role === 'admin') {
-            return sortedCases;
+     const userCases = useMemo(() => {
+        if (!cases || !user || !teams) return [];
+        if (user.role === 'admin') {
+            return cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         }
-        return sortedCases.filter(c => 
-            Array.isArray(c.assignments) && c.assignments.some((a: any) => a.userId === user?.id)
-        );
-    }, [cases, user]);
+
+        const userTeams = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.id);
+
+        return cases.filter(c => {
+            const isDirectlyAssigned = c.assignments.some((a: any) => a.userId === user.id);
+            const isTeamAssigned = c.assignments.some((a: any) => {
+                const assignedUser = users?.find(u => u.id === a.userId);
+                const assignedTeam = teams?.find(t => t.name === assignedUser?.team);
+                return assignedTeam && userTeams.includes(assignedTeam.id);
+            });
+            return isDirectlyAssigned || isTeamAssigned;
+        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }, [cases, user, teams, users]);
 
     const filteredCases = useMemo(() => {
         if (!userCases || !users || !teams) return [];
@@ -207,7 +222,10 @@ export default function CasesPage() {
                 c.status === statusFilter;
             const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
             const matchesType = typeFilter === 'all' || c.type === typeFilter;
-            const matchesAssignedTo = assignedToFilter === 'all' || (Array.isArray(c.assignedTo) && c.assignedTo.includes(assignedToFilter));
+            
+            const assignedIds = c.assignments.map((a: any) => `user-${a.userId}`);
+            const matchesAssignedTo = assignedToFilter === 'all' || assignedIds.includes(assignedToFilter);
+
             const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
             const from = dateRange?.from ? startOfDay(dateRange.from) : undefined;
             const to = dateRange?.to ? endOfDay(dateRange.to) : undefined;
@@ -225,20 +243,14 @@ export default function CasesPage() {
   
     const totalPages = Math.ceil((filteredCases?.length || 0) / ITEMS_PER_PAGE);
 
-    const getAssigneeNames = (assigneeIds: string | string[]) => {
-        if (!users || !teams || !assigneeIds) return 'Unassigned';
+    const getAssigneeNames = (assignments: any[]) => {
+        if (!users || !teams || !assignments) return 'Unassigned';
         
-        const ids = Array.isArray(assigneeIds) ? assigneeIds : [assigneeIds];
+        const ids = assignments.map(a => a.userId);
         if (ids.length === 0) return 'Unassigned';
 
         const names = ids.map(id => {
-            if (id.startsWith('user-')) {
-                return users.find(u => u.id === id.replace('user-', ''))?.name;
-            }
-            if (id.startsWith('team-')) {
-                return teams.find(t => t.id === id.replace('team-', ''))?.name;
-            }
-            return id; // Fallback for old string data
+            return users.find(u => u.id === id)?.name;
         }).filter(Boolean);
         
         if (names.length > 2) {
@@ -360,7 +372,7 @@ export default function CasesPage() {
                 <TableCell className="font-medium">{caseItem.subject}</TableCell>
                 <TableCell className="hidden lg:table-cell"><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
                 <TableCell><Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge></TableCell>
-                <TableCell className="hidden lg:table-cell">{getAssigneeNames(caseItem.assignedTo)}</TableCell>
+                <TableCell className="hidden lg:table-cell">{getAssigneeNames(caseItem.assignments)}</TableCell>
                 <TableCell className="hidden lg:table-cell">{format(new Date(caseItem.createdAt), 'yyyy-MM-dd')}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedCase(caseItem)}>View</Button>
@@ -382,7 +394,7 @@ export default function CasesPage() {
               <div className="text-sm text-muted-foreground space-y-1">
                   <p>ID: <span className="font-mono text-xs">{caseItem.id}</span></p>
                   <div>Priority: <Badge variant={getPriorityVariant(caseItem.priority)} className="text-xs">{caseItem.priority}</Badge></div>
-                  <p>Assigned: {getAssigneeNames(caseItem.assignedTo)}</p>
+                  <p>Assigned: {getAssigneeNames(caseItem.assignments)}</p>
                   <p>Created: {format(new Date(caseItem.createdAt), 'yyyy-MM-dd')}</p>
               </div>
             </CardContent>
@@ -612,7 +624,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                            <AssigneePicker
                             users={users}
                             teams={teams}
-                            selectedAssignees={caseItem.assignedTo || []}
+                            selectedAssignees={caseItem.assignments.map((a:any) => `user-${a.userId}`) || []}
                             onChange={handleAssigneeChange}
                           />
                         </div>
@@ -659,7 +671,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     <TabsContent value="communication">
                         <div className="space-y-4">
                             <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
-                                {(caseItem.communications || []).map((comm) => (
+                                {(caseItem.communications || []).map((comm: Communication) => (
                                   <div key={comm.id} className="flex items-start gap-4 group">
                                     <div className="mt-1 shrink-0">
                                       {comm.type === 'Finding' && <FileText className="h-5 w-5 text-muted-foreground" />}
