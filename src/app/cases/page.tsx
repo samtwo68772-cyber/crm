@@ -195,23 +195,23 @@ export default function CasesPage() {
     };
   
      const userCases = useMemo(() => {
-        if (!cases || !user || !teams) return [];
+        if (!casesData || !user || !teams) return [];
         if (user.role === 'admin') {
-            return cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return casesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         }
 
         const userTeams = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.id);
 
-        return cases.filter(c => {
+        return casesData.filter(c => {
             const isDirectlyAssigned = c.assignments.some((a: any) => a.userId === user.id);
+            if (isDirectlyAssigned) return true;
+            
             const isTeamAssigned = c.assignments.some((a: any) => {
-                const assignedUser = users?.find(u => u.id === a.userId);
-                const assignedTeam = teams?.find(t => t.name === assignedUser?.team);
-                return assignedTeam && userTeams.includes(assignedTeam.id);
+                 return userTeams.some(teamId => teams.find(t => t.id === teamId)?.memberIds.includes(a.userId));
             });
-            return isDirectlyAssigned || isTeamAssigned;
+            return isTeamAssigned;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [cases, user, teams, users]);
+    }, [casesData, user, teams]);
 
     const filteredCases = useMemo(() => {
         if (!userCases || !users || !teams) return [];
@@ -588,7 +588,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
   return (
     <>
-    <div className="flex flex-col h-full max-h-[100vh]">
+      <div className="flex flex-col h-full max-h-[100vh]">
         <SheetHeader className="p-4 md:p-6 border-b flex-shrink-0">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -624,7 +624,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                            <AssigneePicker
                             users={users}
                             teams={teams}
-                            selectedAssignees={caseItem.assignments.map((a:any) => `user-${a.userId}`) || []}
+                            selectedAssignees={caseItem.assignments?.map((a:any) => `user-${a.userId}`) ?? []}
                             onChange={handleAssigneeChange}
                           />
                         </div>
@@ -785,54 +785,54 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                 </div>
             </div>
         </SheetFooter>
-    </div>
+      </div>
     
-    <Dialog open={isResolveDialogOpen} onOpenChange={setResolveDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Resolve Case</DialogTitle>
-                <DialogDescription>Please provide a resolution note before closing this case.</DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-                <Label htmlFor="resolution-note">Resolution Note</Label>
-                <Textarea id="resolution-note" value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Enter details of how this case was resolved..." />
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleConfirmResolve}>Confirm Resolution</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+      <Dialog open={isResolveDialogOpen} onOpenChange={setResolveDialogOpen}>
+          <DialogContent>
+              <DialogHeader>
+                  <DialogTitle>Resolve Case</DialogTitle>
+                  <DialogDescription>Please provide a resolution note before closing this case.</DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                  <Label htmlFor="resolution-note">Resolution Note</Label>
+                  <Textarea id="resolution-note" value={resolutionNote} onChange={(e) => setResolutionNote(e.target.value)} placeholder="Enter details of how this case was resolved..." />
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={() => setResolveDialogOpen(false)}>Cancel</Button>
+                  <Button onClick={handleConfirmResolve}>Confirm Resolution</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
 
-    <AlertDialog open={isTaskWarningOpen} onOpenChange={setTaskWarningOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Case Has Open Tasks</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This case has {openTasks.length} open task(s). All tasks should be completed before resolving the case.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                {isAdmin && <AlertDialogAction onClick={handleForceResolve}>Force Resolve</AlertDialogAction>}
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
-    
-    <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    This will permanently delete the case "{caseItem.subject}". This action cannot be undone.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={() => onDeleteCase(caseItem.id)}>Delete Case</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+      <AlertDialog open={isTaskWarningOpen} onOpenChange={setTaskWarningOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Case Has Open Tasks</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This case has {openTasks.length} open task(s). All tasks should be completed before resolving the case.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  {isAdmin && <AlertDialogAction onClick={handleForceResolve}>Force Resolve</AlertDialogAction>}
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+      
+      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      This will permanently delete the case "{caseItem.subject}". This action cannot be undone.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={() => onDeleteCase(caseItem.id)}>Delete Case</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -1042,3 +1042,4 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
 
 
     
+
