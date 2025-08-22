@@ -38,7 +38,7 @@ export const cases: Case[] = [
     priority: 'High', 
     type: 'Bug Report',
     status: 'New', 
-    assignedTo: 'Maria Garcia', 
+    assignedTo: ['user-2'], 
     createdAt: '2024-05-20',
     resolvedAt: '2024-05-21',
     description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', 
@@ -56,7 +56,7 @@ export const cases: Case[] = [
     priority: 'Medium', 
     type: 'Billing Inquiry',
     status: 'In Progress', 
-    assignedTo: 'James Smith', 
+    assignedTo: ['user-3'], 
     createdAt: '2024-05-19', 
     resolvedAt: undefined,
     description: 'Customer is asking for clarification on their last invoice, specifically the "Service Adjustment" line item.', 
@@ -72,7 +72,7 @@ export const cases: Case[] = [
     priority: 'Low', 
     type: 'Feature Request',
     status: 'Closed', 
-    assignedTo: 'Alex Johnson', 
+    assignedTo: ['user-1'], 
     createdAt: '2024-05-18', 
     resolvedAt: '2024-05-19',
     description: 'User loves the platform and would like to see a dark mode option for the UI.', 
@@ -90,7 +90,7 @@ export const cases: Case[] = [
     priority: 'High', 
     type: 'Bug Report',
     status: 'Investigated', 
-    assignedTo: 'James Smith', 
+    assignedTo: ['user-3'], 
     createdAt: '2024-05-20', 
     resolvedAt: undefined,
     description: 'The export to CSV feature is failing with a server error 500. This is blocking their monthly reporting.', 
@@ -108,7 +108,7 @@ export const cases: Case[] = [
     priority: 'Medium', 
     type: 'General Question',
     status: 'New', 
-    assignedTo: 'Unassigned', 
+    assignedTo: [], 
     createdAt: '2024-05-21', 
     resolvedAt: undefined,
     description: 'The main dashboard is taking over 10 seconds to load.', 
@@ -124,7 +124,7 @@ export const cases: Case[] = [
     priority: 'High', 
     type: 'Bug Report',
     status: 'Resolved', 
-    assignedTo: 'Maria Garcia', 
+    assignedTo: ['user-2'], 
     createdAt: '2024-05-22',
     resolvedAt: '2024-05-23',
     description: 'Customer is not receiving the password reset email.', 
@@ -139,7 +139,7 @@ export const cases: Case[] = [
     priority: 'Low',
     type: 'General Question', 
     status: 'Declined', 
-    assignedTo: 'Alex Johnson', 
+    assignedTo: ['user-1'], 
     createdAt: '2024-05-21',
     resolvedAt: '2024-05-21',
     description: 'Requesting API access for a custom integration, which is not supported on their current plan.', 
@@ -169,12 +169,11 @@ export const teams: Team[] = [
 ];
 
 export const documents: Document[] = [
-  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101' },
-  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2' },
-  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104' },
-  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png' },
-  // doc-5 (Meeting) omitted for now, as schema does not support meetingId
-  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2' }
+  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', linkedToType: 'Case', linkedToId: 'case-101' },
+  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', linkedToType: 'Account', linkedToId: 'acc-2' },
+  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', linkedToType: 'Case', linkedToId: 'case-104' },
+  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', linkedToType: 'Case', linkedToId: 'case-101', previewUrl: 'https://placehold.co/600x400.png' },
+  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', linkedToType: 'Account', linkedToId: 'acc-2' }
 ];
 
 export const meetings: Meeting[] = [

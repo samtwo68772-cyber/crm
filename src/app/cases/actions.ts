@@ -22,25 +22,27 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
         }
     });
 
-    const assignedUsers = await prisma.user.findMany({
-        where: {
-            OR: data.assignedTo.map(assignee => {
-                if (assignee.startsWith('user-')) {
-                    return { id: assignee.replace('user-', '') };
-                }
-                return { team: assignee.replace('team-', '') };
-            }).filter(Boolean) as any[]
-        }
-    });
-
-    for (const assignedUser of assignedUsers) {
-        await createNotification({
-            userId: assignedUser.id,
-            title: 'New Case Assigned',
-            description: `Case #${newCase.id}: "${newCase.subject}" assigned to you/your team.`,
-            link: `/cases?id=${newCase.id}`,
-            type: 'case'
+    if (data.assignedTo && data.assignedTo.length > 0) {
+        const assignedUsers = await prisma.user.findMany({
+            where: {
+                OR: data.assignedTo.map(assignee => {
+                    if (assignee.startsWith('user-')) {
+                        return { id: assignee.replace('user-', '') };
+                    }
+                    return { team: assignee.replace('team-', '') };
+                }).filter(Boolean) as any[]
+            }
         });
+
+        for (const assignedUser of assignedUsers) {
+            await createNotification({
+                userId: assignedUser.id,
+                title: 'New Case Assigned',
+                description: `Case #${newCase.id}: "${newCase.subject}" assigned to you/your team.`,
+                link: `/cases?id=${newCase.id}`,
+                type: 'case'
+            });
+        }
     }
 
     return newCase;
