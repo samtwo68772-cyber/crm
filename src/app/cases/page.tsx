@@ -18,16 +18,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose, SheetFooter } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings, ChevronsUpDown, Users as UsersIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { format, isWithinInterval, subDays, addDays } from 'date-fns';
+import { format, isWithinInterval, subDays, addDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -162,7 +162,9 @@ export default function CasesPage() {
             const matchesType = typeFilter === 'all' || c.type === typeFilter;
             const matchesAssignedTo = assignedToFilter === 'all' || (Array.isArray(c.assignedTo) && c.assignedTo.includes(assignedToFilter));
             const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
+            const from = dateRange?.from ? startOfDay(dateRange.from) : undefined;
+            const to = dateRange?.to ? endOfDay(dateRange.to) : undefined;
+            const matchesDate = !from || (isWithinInterval(new Date(c.createdAt), { start: from, end: to || new Date() }));
             return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
         });
     }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users, teams]);
@@ -189,11 +191,7 @@ export default function CasesPage() {
             if (id.startsWith('team-')) {
                 return teams.find(t => t.id === id.replace('team-', ''))?.name;
             }
-            // Fallback for old string data
-            const userByName = users.find(u => u.name === id);
-            if (userByName) return userByName.name;
-
-            return id;
+            return id; // Fallback for old string data
         }).filter(Boolean).join(', ');
     };
 
@@ -794,16 +792,6 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
     onCreate(caseData);
     setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New'); setAssignedTo([]);
   };
-
-  const getAssigneeLabel = (id: string) => {
-    if (id.startsWith('user-')) {
-        return users.find(u => u.id === id.replace('user-', ''))?.name;
-    }
-    if (id.startsWith('team-')) {
-        return teams.find(t => t.id === id.replace('team-', ''))?.name;
-    }
-    return id;
-  }
   
   return (
     <>

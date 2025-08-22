@@ -5,6 +5,11 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { Case, Communication } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
+import { randomBytes } from 'crypto';
+
+function generateShortId() {
+    return `CASE-${randomBytes(4).toString('hex').slice(0, 7).toUpperCase()}`;
+}
 
 export async function getCases() {
     return await prisma.case.findMany({
@@ -17,6 +22,7 @@ export async function getCases() {
 export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communications'>) {
     const newCase = await prisma.case.create({
         data: {
+            id: generateShortId(),
             ...data,
             assignedTo: data.assignedTo || [],
             createdAt: new Date().toISOString(),
