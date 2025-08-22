@@ -30,7 +30,10 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
                     if (assignee.startsWith('user-')) {
                         return { id: assignee.replace('user-', '') };
                     }
-                    return { team: assignee.replace('team-', '') };
+                    if (assignee.startsWith('team-')) {
+                         return { team: { name: assignee.replace('team-', '') } };
+                    }
+                    return undefined;
                 }).filter(Boolean) as any[]
             }
         });
@@ -65,7 +68,10 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id'>>) {
                     if (assignee.startsWith('user-')) {
                         return { id: assignee.replace('user-', '') };
                     }
-                    return { team: assignee.replace('team-', '') };
+                    if (assignee.startsWith('team-')) {
+                         return { team: { name: assignee.replace('team-', '') } };
+                    }
+                    return undefined;
                 }).filter(Boolean) as any[]
             }
         });
@@ -88,7 +94,10 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id'>>) {
                     if (assignee.startsWith('user-')) {
                         return { id: assignee.replace('user-', '') };
                     }
-                    return { team: assignee.replace('team-', '') };
+                    if (assignee.startsWith('team-')) {
+                        return { team: { name: assignee.replace('team-', '') } };
+                    }
+                    return undefined;
                 }).filter(Boolean) as any[]
             }
         });

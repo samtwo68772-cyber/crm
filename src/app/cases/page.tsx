@@ -176,7 +176,7 @@ export default function CasesPage() {
   
     const totalPages = Math.ceil((filteredCases?.length || 0) / ITEMS_PER_PAGE);
 
-    const getAssigneeNames = (assigneeIds: string[] | string) => {
+    const getAssigneeNames = (assigneeIds: string | string[]) => {
         if (!users || !teams || !assigneeIds) return 'Unassigned';
         
         const ids = Array.isArray(assigneeIds) ? assigneeIds : [assigneeIds];
@@ -845,7 +845,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
            <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="assignTo" className="text-right pt-2">Assign To</Label>
              <div className="col-span-3">
-                <div 
+                 <div 
                     className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input px-3 py-2 text-sm min-h-10 cursor-pointer"
                     onClick={() => setAssigneeDialogOpen(true)}
                 >
