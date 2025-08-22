@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose, SheetFooter } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings, ChevronsUpDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,7 +27,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { format, isWithinInterval, subDays, addDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -39,6 +39,7 @@ import { AssigneePicker } from '@/components/ui/assignee-picker';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { AssigneePickerDialog } from '@/components/ui/assignee-picker-dialog';
 
 
 function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
@@ -63,14 +64,14 @@ function getStatusVariant(status: Case['status']) {
 
 export default function CasesPage() {
     const queryClient = useQueryClient();
-    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: casesData, isLoading: casesLoading } = useQuery<any[]>({ queryKey: ['cases'], queryFn: getCases });
     const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
     const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
     const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
     const { data: workflows, isLoading: workflowsLoading } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows });
     const isLoading = casesLoading || usersLoading || tasksLoading || workflowsLoading || teamsLoading;
 
-    const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+    const [selectedCase, setSelectedCase] = useState<any | null>(null);
     const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
     const { user } = useAuth();
     const { toast } = useToast();
@@ -86,6 +87,11 @@ export default function CasesPage() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
+    
+    const cases = useMemo(() => casesData?.map(c => ({
+        ...c,
+        assignedTo: c.assignments.map((a: any) => `user-${a.userId}`)
+    })) || [], [casesData]);
 
     useEffect(() => {
         const status = searchParams.get('status');
@@ -107,7 +113,7 @@ export default function CasesPage() {
     });
 
     const updateCaseMutation = useMutation({
-        mutationFn: (data: { id: string; data: Partial<Case> }) => updateCase(data.id, data.data),
+        mutationFn: (data: { id: string; data: Partial<Case> }) => updateCase(data.id, data.data as any),
         onSuccess: (updatedCase) => {
             queryClient.invalidateQueries({ queryKey: ['cases'] });
             setSelectedCase(updatedCase);
@@ -137,7 +143,7 @@ export default function CasesPage() {
     }
 
     const handleCreateCase = async (newCaseData: Omit<Case, 'id' | 'createdAt' | 'communications'>) => {
-        createCaseMutation.mutate(newCaseData);
+        createCaseMutation.mutate(newCaseData as any);
     };
   
     const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
@@ -308,7 +314,7 @@ export default function CasesPage() {
                 <TableCell className="hidden lg:table-cell"><Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge></TableCell>
                 <TableCell><Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge></TableCell>
                 <TableCell className="hidden lg:table-cell">{getAssigneeNames(caseItem.assignedTo)}</TableCell>
-                <TableCell className="hidden lg:table-cell">{caseItem.createdAt}</TableCell>
+                <TableCell className="hidden lg:table-cell">{format(new Date(caseItem.createdAt), 'yyyy-MM-dd')}</TableCell>
                 <TableCell>
                   <Button variant="ghost" size="sm" onClick={() => setSelectedCase(caseItem)}>View</Button>
                 </TableCell>
@@ -330,7 +336,7 @@ export default function CasesPage() {
                   <p>ID: <span className="font-mono text-xs">{caseItem.id}</span></p>
                   <div>Priority: <Badge variant={getPriorityVariant(caseItem.priority)} className="text-xs">{caseItem.priority}</Badge></div>
                   <p>Assigned: {getAssigneeNames(caseItem.assignedTo)}</p>
-                  <p>Created: {caseItem.createdAt}</p>
+                  <p>Created: {format(new Date(caseItem.createdAt), 'yyyy-MM-dd')}</p>
               </div>
             </CardContent>
           </Card>
@@ -487,7 +493,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     {isMobile && <Button variant="ghost" size="icon" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button>}
                     <div className="flex-1">
                         <SheetTitle className="font-headline text-lg md:text-2xl">{caseItem.subject}</SheetTitle>
-                        <SheetDescription className="text-xs md:text-sm">From {caseItem.customer} ({caseItem.email}) | Created on {caseItem.createdAt}</SheetDescription>
+                        <SheetDescription className="text-xs md:text-sm">From {caseItem.customer} ({caseItem.email}) | Created on {format(new Date(caseItem.createdAt), 'yyyy-MM-dd')}</SheetDescription>
                     </div>
                 </div>
             </div>
@@ -751,6 +757,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [caseTypes, setCaseTypes] = useState(defaultCaseTypes);
   const [isManageTypesOpen, setManageTypesOpen] = useState(false);
+  const [isAssigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const { toast } = useToast();
   
   const staffUsers = useMemo(() => users.filter(u => u.role === 'staff' || u.role === 'admin'), [users]);
@@ -780,7 +787,10 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
         if (conditionMet) {
             // Team Assignment Action
             if (workflow.action === 'assign-team-t2') {
-                caseData.assignedTo.push('team-team-2'); // Assign to Tier 2 team
+                const team2 = teams.find(t => t.name === 'Support Tier 2');
+                if (team2) {
+                    caseData.assignedTo.push(`team-${team2.id}`);
+                }
                  toast({
                     title: "Workflow Triggered",
                     description: `Case automatically assigned to Tier 2 Support.`,
@@ -792,6 +802,19 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
     onCreate(caseData);
     setSubject(''); setCustomer(''); setEmail(''); setDescription(''); setPriority('Medium'); setType('General Question'); setStatus('New'); setAssignedTo([]);
   };
+
+  const getAssigneeLabel = () => {
+      if (assignedTo.length === 0) return "Select assignees...";
+      if (assignedTo.length > 2) return `${assignedTo.length} assignees selected`;
+      const labels = assignedTo.map(id => {
+          const user = users.find(u => `user-${u.id}` === id);
+          if (user) return user.name;
+          const team = teams.find(t => `team-${t.id}` === id);
+          if (team) return team.name;
+          return '';
+      }).filter(Boolean);
+      return labels.join(', ');
+  }
   
   return (
     <>
@@ -831,20 +854,26 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
             </Select>
           </div>
            <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="assignTo" className="text-right pt-2">Assign To</Label>
-             <div className="col-span-3">
-                <AssigneePicker
-                    users={staffUsers}
-                    teams={teams}
-                    selectedAssignees={assignedTo}
-                    onChange={setAssignedTo}
-                />
-             </div>
-          </div>
+                <Label className="text-right pt-2">Assign To</Label>
+                <div className="col-span-3">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal" onClick={() => setAssigneePickerOpen(true)}>
+                         <span className="truncate">{getAssigneeLabel()}</span>
+                    </Button>
+                </div>
+            </div>
         </div>
         <DialogFooter><Button type="submit" onClick={handleSubmit}>Create Case</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AssigneePickerDialog
+        open={isAssigneePickerOpen}
+        onOpenChange={setAssigneePickerOpen}
+        users={users}
+        teams={teams}
+        selectedAssignees={assignedTo}
+        onApply={setAssignedTo}
+    />
 
     <ManageCaseTypesDialog
         open={isManageTypesOpen}
@@ -912,3 +941,4 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
     );
 }
     
+

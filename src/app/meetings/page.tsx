@@ -61,7 +61,7 @@ const safeFormat = (date: string | Date, formatString: string) => {
     }
 }
 
-function AllMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], onMeetingClick: (meeting: Meeting) => void }) {
+function AllMeetingsView({ meetings, onMeetingClick }: { meetings: any[], onMeetingClick: (meeting: any) => void }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
@@ -119,7 +119,7 @@ function AllMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], on
     );
 }
 
-function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], onMeetingClick: (meeting: Meeting) => void }) {
+function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: any[], onMeetingClick: (meeting: any) => void }) {
     return (
         <Card className="mt-6">
             <CardHeader>
@@ -154,12 +154,12 @@ function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[
 
 export default function MeetingsPage() {
   const queryClient = useQueryClient();
-  const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+  const { data: meetingsData, isLoading: meetingsLoading } = useQuery<any[]>({ queryKey: ['meetings'], queryFn: getMeetings });
   const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
   const isLoading = meetingsLoading || casesLoading || usersLoading;
 
-  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [selectedMeeting, setSelectedMeeting] = useState<any | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
@@ -172,6 +172,11 @@ export default function MeetingsPage() {
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
 
+  const meetings = useMemo(() => meetingsData?.map(m => ({
+      ...m,
+      participants: m.participants.map((p: any) => p.userId)
+  })) || [], [meetingsData]);
+
   useEffect(() => {
     if (searchParams.get('filter') === 'upcoming') {
         setActiveTab('upcoming');
@@ -179,7 +184,7 @@ export default function MeetingsPage() {
   }, [searchParams]);
 
   const updateMeetingMutation = useMutation({
-      mutationFn: (data: Partial<Meeting> & { id: string }) => updateMeeting(data.id, data),
+      mutationFn: (data: Partial<Meeting> & { id: string }) => updateMeeting(data.id, data as any),
       onSuccess: (updatedMeeting) => {
           queryClient.invalidateQueries({ queryKey: ['meetings'] });
           setSelectedMeeting(updatedMeeting);
@@ -226,7 +231,7 @@ export default function MeetingsPage() {
   };
 
   const handleCreateMeeting = async (newMeetingData: Omit<Meeting, 'id'>) => {
-    createMeetingMutation.mutate(newMeetingData);
+    createMeetingMutation.mutate(newMeetingData as any);
   };
 
   const userMeetings = useMemo(() => {
@@ -369,7 +374,7 @@ export default function MeetingsPage() {
   );
 }
 
-function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void, cases: Case[], users: User[] }) {
+function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: any, onEdit: () => void, cases: Case[], users: User[] }) {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
@@ -395,7 +400,7 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users 
                     }
                     <div>
                         <h4 className="font-semibold mb-2">Participants</h4>
-                        <div className="flex flex-wrap gap-2">{meeting.participants.map(pId => {
+                        <div className="flex flex-wrap gap-2">{meeting.participants.map((pId: string) => {
                             const participant = users.find(u => u.id === pId);
                             return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
                         })}</div>
@@ -410,13 +415,13 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users 
 }
 
 
-function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Partial<Meeting> & {id: string}) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
+function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: any, onUpdate: (m: Partial<Meeting> & {id: string}) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
   
-  const [editedMeeting, setEditedMeeting] = useState<Meeting>(meeting);
+  const [editedMeeting, setEditedMeeting] = useState<any>(meeting);
 
   const handleFieldChange = (field: keyof Meeting, value: any) => {
-    setEditedMeeting(prev => ({ ...prev, [field]: value }));
+    setEditedMeeting((prev: any) => ({ ...prev, [field]: value }));
   };
   
   const handleSave = () => onUpdate(editedMeeting);

@@ -16,37 +16,39 @@ export async function getCases() {
         orderBy: {
             createdAt: 'desc',
         },
+        include: {
+            assignments: {
+                select: {
+                    userId: true
+                }
+            }
+        }
     });
 }
 
-export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communications'>) {
+export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communications' | 'assignedTo'> & { assignedTo: string[] }) {
+    const { assignedTo, ...caseData } = data;
+    
     const newCase = await prisma.case.create({
         data: {
+            ...caseData,
             id: generateShortId(),
-            ...data,
-            assignedTo: data.assignedTo || [],
             createdAt: new Date().toISOString(),
+            assignments: {
+                create: assignedTo.map(assigneeId => ({
+                    userId: assigneeId.replace(/^(user-|team-)/, '')
+                }))
+            }
+        },
+        include: {
+            assignments: true
         }
     });
 
-    if (data.assignedTo && data.assignedTo.length > 0) {
-        const assignedUsers = await prisma.user.findMany({
-            where: {
-                OR: data.assignedTo.map(assignee => {
-                    if (assignee.startsWith('user-')) {
-                        return { id: assignee.replace('user-', '') };
-                    }
-                    if (assignee.startsWith('team-')) {
-                         return { team: { name: assignee.replace('team-', '') } };
-                    }
-                    return undefined;
-                }).filter(Boolean) as any[]
-            }
-        });
-
-        for (const assignedUser of assignedUsers) {
+    if (assignedTo && assignedTo.length > 0) {
+        for (const assigneeId of assignedTo) {
             await createNotification({
-                userId: assignedUser.id,
+                userId: assigneeId.replace(/^(user-|team-)/, ''),
                 title: 'New Case Assigned',
                 description: `Case #${newCase.id}: "${newCase.subject}" assigned to you/your team.`,
                 link: `/cases?id=${newCase.id}`,
@@ -58,32 +60,29 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
     return newCase;
 }
 
-export async function updateCase(id: string, data: Partial<Omit<Case, 'id'>>) {
-    const originalCase = await prisma.case.findUnique({ where: { id } });
+export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'assignedTo'>> & { assignedTo?: string[] }) {
+    const { assignedTo, ...caseData } = data;
 
     const updatedCase = await prisma.case.update({
         where: { id },
-        data,
+        data: {
+            ...caseData,
+            assignments: assignedTo ? {
+                deleteMany: {},
+                create: assignedTo.map(assigneeId => ({
+                    userId: assigneeId.replace(/^(user-|team-)/, '')
+                }))
+            } : undefined
+        },
+        include: {
+            assignments: true
+        }
     });
-
-    // Simplified notification logic for updates
-    if (data.assignedTo && originalCase?.assignedTo.join(',') !== data.assignedTo.join(',')) {
-        const assignedUsers = await prisma.user.findMany({
-            where: {
-                OR: data.assignedTo.map(assignee => {
-                    if (assignee.startsWith('user-')) {
-                        return { id: assignee.replace('user-', '') };
-                    }
-                    if (assignee.startsWith('team-')) {
-                         return { team: { name: assignee.replace('team-', '') } };
-                    }
-                    return undefined;
-                }).filter(Boolean) as any[]
-            }
-        });
-        for (const assignedUser of assignedUsers) {
+    
+    if (assignedTo) {
+        for (const assigneeId of assignedTo) {
             await createNotification({
-                userId: assignedUser.id,
+                userId: assigneeId.replace(/^(user-|team-)/, ''),
                 title: 'Case Reassigned',
                 description: `Case #${updatedCase.id}: "${updatedCase.subject}" has been assigned to you/your team.`,
                 link: `/cases?id=${updatedCase.id}`,
@@ -92,24 +91,12 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id'>>) {
         }
     }
     
-    if (originalCase?.status !== updatedCase.status) {
-        // Notify all current assignees about status change
-        const currentAssignees = await prisma.user.findMany({
-             where: {
-                OR: updatedCase.assignedTo.map(assignee => {
-                    if (assignee.startsWith('user-')) {
-                        return { id: assignee.replace('user-', '') };
-                    }
-                    if (assignee.startsWith('team-')) {
-                        return { team: { name: assignee.replace('team-', '') } };
-                    }
-                    return undefined;
-                }).filter(Boolean) as any[]
-            }
-        });
-         for (const assignedUser of currentAssignees) {
+    // Simplified status change notification
+    if (caseData.status) {
+        const currentAssignees = await prisma.caseAssignment.findMany({ where: { caseId: id } });
+         for (const assignment of currentAssignees) {
             await createNotification({
-                userId: assignedUser.id,
+                userId: assignment.userId,
                 title: 'Case Status Updated',
                 description: `Case #${updatedCase.id} status changed to ${updatedCase.status}.`,
                 link: `/cases?id=${updatedCase.id}`,
@@ -134,8 +121,10 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
 }
 
 export async function deleteCase(id: string) {
+    await prisma.caseAssignment.deleteMany({ where: { caseId: id } });
     const deletedCase = await prisma.case.delete({
         where: { id },
     });
     return deletedCase;
 }
+

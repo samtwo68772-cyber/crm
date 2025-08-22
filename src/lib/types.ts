@@ -9,7 +9,27 @@ export type User = {
   team: string;
   avatar: string;
   passwordHash?: string;
+  assignments?: CaseAssignment[];
+  meetings?: MeetingParticipant[];
 };
+
+export type CaseAssignment = {
+    id: string;
+    case: Case;
+    caseId: string;
+    user: User;
+    userId: string;
+    assignedAt: string;
+}
+
+export type MeetingParticipant = {
+    id: string;
+    meeting: Meeting;
+    meetingId: string;
+    user: User;
+    userId: string;
+}
+
 
 export type Case = {
   id: string;
