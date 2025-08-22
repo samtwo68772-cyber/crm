@@ -182,7 +182,12 @@ export default function CasesPage() {
     const userCases = useMemo(() => {
         if (!cases) return [];
         const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => Array.isArray(c.assignedTo) && c.assignedTo.includes(`user-${user?.id}`));
+        if (user?.role === 'admin') {
+            return sortedCases;
+        }
+        return sortedCases.filter(c => 
+            Array.isArray(c.assignments) && c.assignments.some((a: any) => a.userId === user?.id)
+        );
     }, [cases, user]);
 
     const filteredCases = useMemo(() => {
@@ -563,7 +568,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
   return (
     <>
-      <div className="flex flex-col h-full max-h-[100vh]">
+    <div className="flex flex-col h-full max-h-[100vh]">
         <SheetHeader className="p-4 md:p-6 border-b flex-shrink-0">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -1011,5 +1016,6 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
     
 
     
+
 
 
