@@ -11,6 +11,7 @@ import {
   documents,
   emails,
   workflows,
+  auditLogs,
 } from '../src/lib/data';
 
 const prisma = new PrismaClient();
@@ -20,21 +21,17 @@ async function main() {
 
   // Seed Users and their Notification Preferences
   for (const user of users) {
-    const { id, status, team, ...rest } = user;
+    const { id, ...rest } = user;
     await prisma.user.upsert({
       where: { id },
       update: {
         ...rest,
         passwordHash: user.name, // In a real app, this would be a proper hash
-        status,
-        team,
       },
       create: {
         id,
         ...rest,
         passwordHash: user.name,
-        status,
-        team,
         notificationPreferences: {
           create: {
             cases: {
@@ -92,12 +89,24 @@ async function main() {
   
   // Seed Cases
   for (const caseItem of cases) {
-    const { communications, ...rest } = caseItem;
-     await prisma.case.upsert({
+    const { communications, assignedTo, ...rest } = caseItem;
+     const newCase = await prisma.case.upsert({
         where: { id: caseItem.id },
         update: rest,
         create: rest
     });
+    // Now create assignments
+    if (assignedTo && assignedTo.length > 0) {
+      for (const userId of assignedTo) {
+        await prisma.caseAssignment.create({
+          data: {
+            caseId: newCase.id,
+            userId: userId,
+            assignedBy: 'user-1' // default to admin
+          }
+        })
+      }
+    }
   }
    console.log('Cases seeded.');
 
@@ -113,11 +122,23 @@ async function main() {
 
   // Seed Meetings
   for (const meeting of meetings) {
-    await prisma.meeting.upsert({
+    const { participants, ...meetingData } = meeting;
+    const newMeeting = await prisma.meeting.upsert({
       where: { id: meeting.id },
-      update: meeting,
-      create: meeting,
+      update: meetingData,
+      create: meetingData,
     });
+    // Create meeting participants
+    if (participants && participants.length > 0) {
+      for (const userId of participants) {
+        await prisma.meetingParticipant.create({
+          data: {
+            meetingId: newMeeting.id,
+            userId: userId
+          }
+        })
+      }
+    }
   }
   console.log('Meetings seeded.');
   
@@ -150,6 +171,16 @@ async function main() {
       })
   }
   console.log('Workflows seeded.');
+  
+  // Seed Audit Logs
+  for (const log of auditLogs) {
+    await prisma.auditLog.upsert({
+      where: { id: log.id },
+      update: log,
+      create: log
+    })
+  }
+  console.log('Audit Logs seeded.');
   
   // Seed General & Global Notification Settings
   await prisma.generalSettings.upsert({
