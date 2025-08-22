@@ -13,24 +13,6 @@ export type User = {
   meetings?: MeetingParticipant[];
 };
 
-export type CaseAssignment = {
-    id: string;
-    case: Case;
-    caseId: string;
-    user: User;
-    userId: string;
-    assignedAt: string;
-}
-
-export type MeetingParticipant = {
-    id: string;
-    meeting: Meeting;
-    meetingId: string;
-    user: User;
-    userId: string;
-}
-
-
 export type Case = {
   id: string;
   subject: string;
@@ -39,13 +21,22 @@ export type Case = {
   priority: 'High' | 'Medium' | 'Low';
   type: 'Bug Report' | 'Feature Request' | 'Billing Inquiry' | 'General Question';
   status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
-  assignedTo: string[];
   createdAt: string;
   resolvedAt?: string;
   description: string;
   communications?: Communication[];
   contactId?: string;
   satisfactionRating?: number; // 1-5
+  assignments: CaseAssignment[];
+};
+
+export type CaseAssignment = {
+  id: string;
+  caseId: string;
+  userId: string;
+  user: User;
+  assignedAt: Date;
+  assignedBy: string;
 };
 
 export type Communication = {
@@ -73,7 +64,7 @@ export type Contact = {
   id: string;
   name: string;
   email: string;
-  phone?: string;
+  phone: string;
   company: string;
   accountId: string;
   role: string;
@@ -125,12 +116,21 @@ export type Meeting = {
   description: string;
   date: string;
   status: 'Upcoming' | 'Completed' | 'Canceled';
-  participants: string[]; // array of user IDs
   linkedRecord?: string; // case or task ID
   notes?: { authorId: string; content: string; timestamp: string }[];
   attachments?: { name: string; url: string }[];
   contactId?: string;
+  participants: MeetingParticipant[];
 }
+
+export type MeetingParticipant = {
+  id: string;
+  meetingId: string;
+  userId: string;
+  user: User;
+  joinedAt: Date;
+};
+
 
 export type AuditLog = {
     id: string;

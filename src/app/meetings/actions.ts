@@ -13,26 +13,36 @@ export async function getMeetings() {
     },
     include: {
         participants: {
-            select: {
-                userId: true
+            include: {
+                user: true
             }
         }
     }
   });
 }
 
-export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> & { participants: string[] }) {
-  const { participants, ...meetingData } = data;
+export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> & { participantIds: string[]}) {
+  const { participantIds, ...meetingData } = data;
+  
   const newMeeting = await prisma.meeting.create({
     data: {
-        ...meetingData,
-        participants: {
-            create: participants.map(userId => ({ userId }))
-        }
+      ...meetingData,
+      participants: {
+        create: participantIds.map(userId => ({
+          user: { connect: { id: userId } }
+        }))
+      }
     },
+     include: {
+        participants: {
+            include: {
+                user: true
+            }
+        }
+    }
   });
 
-  for (const userId of participants) {
+  for (const userId of participantIds) {
       await createNotification({
           userId,
           title: 'New Meeting Scheduled',
@@ -45,24 +55,37 @@ export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> &
   return newMeeting;
 }
 
-export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id' | 'participants'>> & { participants?: string[] }) {
-  const { participants, ...meetingData } = data;
-  const updatedMeeting = await prisma.meeting.update({
-    where: { id },
-    data: {
-        ...meetingData,
-        participants: participants ? {
-            deleteMany: {},
-            create: participants.map(userId => ({ userId }))
-        } : undefined
-    },
+export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id' | 'participants'>> & { participantIds?: string[] }) {
+    const { participantIds, ...meetingData } = data;
+  
+    const updatedMeeting = await prisma.meeting.update({
+        where: { id },
+        data: {
+            ...meetingData,
+            participants: participantIds ? {
+                deleteMany: {},
+                create: participantIds.map(userId => ({
+                    user: { connect: { id: userId } }
+                }))
+            } : undefined,
+        },
+        include: {
+            participants: {
+                include: {
+                    user: true
+                }
+            }
+        }
   });
 
   return updatedMeeting;
 }
 
 export async function deleteMeeting(id: string) {
-  await prisma.meetingParticipant.deleteMany({ where: { meetingId: id } });
+    await prisma.meetingParticipant.deleteMany({
+        where: { meetingId: id }
+    });
+
   const deleted = await prisma.meeting.delete({
     where: { id },
   });

@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ParticipantsPicker } from '@/components/ui/participants-picker';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
-import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear, parseISO } from 'date-fns';
+import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -51,7 +51,7 @@ function getStatusColor(status: Meeting['status']) {
 
 const safeFormat = (date: string | Date, formatString: string) => {
     try {
-        const d = date instanceof Date ? date : parseISO(date);
+        const d = new Date(date);
         if (!isValid(d)) {
             throw new Error('Invalid Date');
         }
@@ -61,7 +61,7 @@ const safeFormat = (date: string | Date, formatString: string) => {
     }
 }
 
-function AllMeetingsView({ meetings, onMeetingClick }: { meetings: any[], onMeetingClick: (meeting: any) => void }) {
+function AllMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], onMeetingClick: (meeting: Meeting) => void }) {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
 
@@ -119,7 +119,7 @@ function AllMeetingsView({ meetings, onMeetingClick }: { meetings: any[], onMeet
     );
 }
 
-function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: any[], onMeetingClick: (meeting: any) => void }) {
+function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[], onMeetingClick: (meeting: Meeting) => void }) {
     return (
         <Card className="mt-6">
             <CardHeader>
@@ -154,12 +154,12 @@ function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: any[], o
 
 export default function MeetingsPage() {
   const queryClient = useQueryClient();
-  const { data: meetingsData, isLoading: meetingsLoading } = useQuery<any[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+  const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
   const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
   const isLoading = meetingsLoading || casesLoading || usersLoading;
 
-  const [selectedMeeting, setSelectedMeeting] = useState<any | null>(null);
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
@@ -171,11 +171,6 @@ export default function MeetingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const isAdmin = user?.role === 'admin';
-
-  const meetings = useMemo(() => meetingsData?.map(m => ({
-      ...m,
-      participants: m.participants.map((p: any) => p.userId)
-  })) || [], [meetingsData]);
 
   useEffect(() => {
     if (searchParams.get('filter') === 'upcoming') {
@@ -230,14 +225,14 @@ export default function MeetingsPage() {
     deleteMeetingMutation.mutate(meetingId);
   };
 
-  const handleCreateMeeting = async (newMeetingData: Omit<Meeting, 'id'>) => {
-    createMeetingMutation.mutate(newMeetingData as any);
+  const handleCreateMeeting = async (newMeetingData: Omit<Meeting, 'id' | 'participants'> & { participantIds: string[] }) => {
+    createMeetingMutation.mutate(newMeetingData);
   };
 
   const userMeetings = useMemo(() => {
     if (!user || !meetings) return [];
     if (isAdmin) return meetings;
-    return meetings.filter(m => m.participants.includes(user.id));
+    return meetings.filter(m => m.participants.some(p => p.userId === user.id));
   }, [meetings, user, isAdmin]);
   
   const upcomingMeetings = useMemo(() => {
@@ -297,7 +292,7 @@ export default function MeetingsPage() {
                                 className="w-full meeting-calendar-wrapper"
                                 components={{
                                     DayContent: ({ date, ...props }) => {
-                                        const dayMeetings = userMeetings.filter(m => isSameDay(parseISO(m.date), date));
+                                        const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
                                         return (
                                             <div className="h-full w-full">
                                                 <div className="w-full text-right p-1 text-sm">{format(date, 'd')}</div>
@@ -350,7 +345,6 @@ export default function MeetingsPage() {
                 meeting={selectedMeeting} 
                 onEdit={() => { setIsSheetOpen(false); setTimeout(() => setEditDialogOpen(true), 150); }} 
                 cases={cases || []}
-                users={users || []}
             />
             <EditMeetingDialog 
                 open={isEditDialogOpen} 
@@ -374,7 +368,7 @@ export default function MeetingsPage() {
   );
 }
 
-function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: any, onEdit: () => void, cases: Case[], users: User[] }) {
+function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void, cases: Case[] }) {
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
     const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
@@ -400,9 +394,8 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users 
                     }
                     <div>
                         <h4 className="font-semibold mb-2">Participants</h4>
-                        <div className="flex flex-wrap gap-2">{meeting.participants.map((pId: string) => {
-                            const participant = users.find(u => u.id === pId);
-                            return participant ? <Badge key={pId} variant="secondary">{participant.name}</Badge> : null;
+                        <div className="flex flex-wrap gap-2">{meeting.participants.map(p => {
+                            return <Badge key={p.userId} variant="secondary">{p.user.name}</Badge>;
                         })}</div>
                     </div>
                 </div>
@@ -415,20 +408,28 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases, users 
 }
 
 
-function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: any, onUpdate: (m: Partial<Meeting> & {id: string}) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
+function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Partial<Meeting> & {id: string, participantIds: string[]}) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
   
-  const [editedMeeting, setEditedMeeting] = useState<any>(meeting);
+  const [editedMeeting, setEditedMeeting] = useState<Omit<Meeting, 'participants'> & { participantIds: string[] }>({ ...meeting, participantIds: meeting.participants.map(p => p.userId) });
 
-  const handleFieldChange = (field: keyof Meeting, value: any) => {
-    setEditedMeeting((prev: any) => ({ ...prev, [field]: value }));
+  const handleFieldChange = (field: keyof typeof editedMeeting, value: any) => {
+    setEditedMeeting(prev => ({ ...prev, [field]: value }));
   };
   
-  const handleSave = () => onUpdate(editedMeeting);
+  const handleSave = () => onUpdate({
+      id: editedMeeting.id,
+      title: editedMeeting.title,
+      description: editedMeeting.description,
+      date: editedMeeting.date,
+      status: editedMeeting.status,
+      linkedRecord: editedMeeting.linkedRecord,
+      participantIds: editedMeeting.participantIds
+  });
   
   useEffect(() => {
     if (open) {
-      setEditedMeeting(meeting);
+      setEditedMeeting({ ...meeting, participantIds: meeting.participants.map(p => p.userId) });
     }
   }, [meeting, open]);
 
@@ -445,7 +446,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={editedMeeting.description} onChange={(e) => handleFieldChange('description', e.target.value)} className="col-span-3" /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date</Label><Input id="date" type="datetime-local" value={safeFormat(editedMeeting.date, "yyyy-MM-dd'T'HH:mm")} onChange={(e) => handleFieldChange('date', e.target.value)} className="col-span-3" /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="status" className="text-right">Status</Label>
-                    <Select onValueChange={(v: Meeting['status']) => handleFieldChange('status', v)} defaultValue={editedMeeting.status}>
+                    <Select onValueChange={(v: Meeting['status']) => handleFieldChange('status', v)} value={editedMeeting.status}>
                         <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
                         <SelectContent><SelectItem value="Upcoming">Upcoming</SelectItem><SelectItem value="Completed">Completed</SelectItem><SelectItem value="Canceled">Canceled</SelectItem></SelectContent>
                     </Select>
@@ -455,8 +456,8 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                     <div className="col-span-3">
                         <ParticipantsPicker
                             allUsers={users}
-                            selectedUserIds={editedMeeting.participants}
-                            onChange={(ids) => handleFieldChange('participants', ids)}
+                            selectedUserIds={editedMeeting.participantIds}
+                            onChange={(ids) => handleFieldChange('participantIds', ids)}
                         />
                     </div>
                 </div>
@@ -493,7 +494,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
-  const [participants, setParticipants] = useState<string[]>([]);
+  const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [linkedRecord, setLinkedRecord] = useState('');
   const [errors, setErrors] = useState<{ title?: string; date?: string; participants?: string }>({});
 
@@ -508,7 +509,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     if (!date) {
       newErrors.date = 'Please select a date and time.';
     }
-    if (participants.length === 0) {
+    if (participantIds.length === 0) {
       newErrors.participants = 'Select at least one participant.';
     }
     setErrors(newErrors);
@@ -520,8 +521,8 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     if (!validate()) {
         return;
     }
-    onCreate({ title, description, date, participants, linkedRecord, status: 'Upcoming' });
-    setTitle(''); setDescription(''); setDate(''); setParticipants([]); setLinkedRecord(''); setErrors({});
+    onCreate({ title, description, date, participantIds, linkedRecord, status: 'Upcoming' });
+    setTitle(''); setDescription(''); setDate(''); setParticipantIds([]); setLinkedRecord(''); setErrors({});
   };
 
   return (
@@ -529,7 +530,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
         onOpenChange(isOpen);
         if (!isOpen) {
             setErrors({});
-            setTitle(''); setDescription(''); setDate(''); setParticipants([]); setLinkedRecord('');
+            setTitle(''); setDescription(''); setDate(''); setParticipantIds([]); setLinkedRecord('');
         }
     }}>
       <DialogContent>
@@ -555,8 +556,8 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
                 <div className="col-span-3">
                     <ParticipantsPicker
                         allUsers={users}
-                        selectedUserIds={participants}
-                        onChange={setParticipants}
+                        selectedUserIds={participantIds}
+                        onChange={setParticipantIds}
                     />
                      {errors.participants && <p className="text-sm text-destructive mt-1">{errors.participants}</p>}
                 </div>
