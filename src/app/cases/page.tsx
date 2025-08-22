@@ -114,16 +114,40 @@ export default function CasesPage() {
 
     const updateCaseMutation = useMutation({
         mutationFn: (data: { id: string; data: Partial<Case> }) => updateCase(data.id, data.data as any),
-        onSuccess: (updatedCase) => {
+        onMutate: async (newCaseData) => {
+            await queryClient.cancelQueries({ queryKey: ['cases'] });
+            const previousCases = queryClient.getQueryData(['cases']);
+            const previousSelectedCase = selectedCase;
+
+            // Optimistically update to the new value
+             queryClient.setQueryData(['cases'], (old: any[] | undefined) => 
+                old ? old.map(c => c.id === newCaseData.id ? {...c, ...newCaseData.data} : c) : []
+            );
+            
+            if (selectedCase && selectedCase.id === newCaseData.id) {
+                setSelectedCase((prev: any) => ({...prev, ...newCaseData.data}));
+            }
+
+            return { previousCases, previousSelectedCase };
+        },
+        onError: (err, newCaseData, context) => {
+            // Rollback on error
+            queryClient.setQueryData(['cases'], context?.previousCases);
+            if (context?.previousSelectedCase) {
+                 setSelectedCase(context.previousSelectedCase);
+            }
+            toast({ variant: "destructive", title: "Error", description: "Failed to update case." });
+        },
+        onSettled: () => {
             queryClient.invalidateQueries({ queryKey: ['cases'] });
-            setSelectedCase(updatedCase);
+        },
+        onSuccess: (updatedCase) => {
             if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
                 toast({ title: `Case ${updatedCase.status}`, description: `Case "${updatedCase.subject}" has been marked as ${updatedCase.status.toLowerCase()}.` });
+            } else {
+                 toast({ title: "Case Updated", description: "The case has been successfully updated." });
             }
         },
-        onError: (error) => {
-            toast({ variant: "destructive", title: "Error", description: error.message });
-        }
     });
     
     const deleteCaseMutation = useMutation({
