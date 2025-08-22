@@ -1,5 +1,4 @@
 
-
 import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email, Notification, Workflow } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
@@ -376,3 +375,5 @@ export const workflows: Workflow[] = [
     { id: 'wf-4', name: 'Manager Follow-up for Overdue Task', trigger: 'task-status-changed', condition: 'task-overdue', action: 'assign-to-manager' },
 
 ];
+
+    

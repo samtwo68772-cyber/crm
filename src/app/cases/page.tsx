@@ -173,7 +173,7 @@ export default function CasesPage() {
     const totalPages = Math.ceil((filteredCases?.length || 0) / ITEMS_PER_PAGE);
 
     const getAssigneeNames = (assigneeIds: string[]) => {
-        if (!users || !teams) return 'Unassigned';
+        if (!users || !teams || !Array.isArray(assigneeIds)) return 'Unassigned';
         if (assigneeIds.length === 0) return 'Unassigned';
 
         return assigneeIds.map(id => {
@@ -798,18 +798,21 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="type" className="text-right">Case Type</Label>
-            <Select onValueChange={(v: Case['type'] | 'manage-types') => {
-                if (v === 'manage-types') {
-                    setManageTypesOpen(true);
-                } else {
-                    setType(v);
-                }
-            }} value={type}>
+             <Select
+                value={type}
+                onValueChange={(value) => {
+                    if (value === "manage-types") {
+                        setManageTypesOpen(true);
+                    } else {
+                        setType(value as Case['type']);
+                    }
+                }}
+            >
                 <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
                 <SelectContent>
                     {caseTypes.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
                     <DropdownMenuSeparator />
-                     <SelectItem value="manage-types" onSelect={(e) => e.preventDefault()} className="flex items-center gap-2 cursor-pointer focus:bg-accent focus:text-accent-foreground">
+                    <SelectItem value="manage-types" onSelect={(e) => e.preventDefault()} className="flex items-center gap-2 cursor-pointer focus:bg-accent focus:text-accent-foreground">
                         <Settings className="mr-2 h-4 w-4" />
                         Manage Types
                     </SelectItem>
@@ -895,3 +898,5 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
         </Dialog>
     );
 }
+
+    

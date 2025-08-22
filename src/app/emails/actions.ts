@@ -42,7 +42,7 @@ export async function processIncomingEmails() {
                 priority: 'Medium',
                 type: 'General Question',
                 status: 'New',
-                assignedTo: 'Unassigned',
+                assignedTo: [],
                 createdAt: new Date().toISOString(),
                 description: email.body,
                 contactId: contact.id,
@@ -102,7 +102,7 @@ export async function createCaseFromEmail(emailId: string) {
             priority: 'Medium',
             type: 'General Question',
             status: 'New',
-            assignedTo: 'Unassigned',
+            assignedTo: [],
             createdAt: new Date().toISOString(),
             description: email.body,
             contactId: contact.id,
@@ -118,3 +118,5 @@ export async function createCaseFromEmail(emailId: string) {
     revalidatePath('/cases');
     return newCase;
 }
+
+    
