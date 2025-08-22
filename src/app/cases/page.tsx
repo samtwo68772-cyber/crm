@@ -27,7 +27,7 @@ import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { format, isWithinInterval, subDays, addDays } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -284,6 +284,7 @@ export default function CasesPage() {
                 selectedAssignees={assignedToFilter === 'all' ? [] : [assignedToFilter]}
                 onChange={(assignees) => setAssignedToFilter(assignees.length > 0 ? assignees[0] : 'all')}
                 className="w-full sm:w-[180px]"
+                mode="single"
             />
           )}
         </div>
@@ -752,7 +753,6 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
   const [caseTypes, setCaseTypes] = useState(defaultCaseTypes);
   const [isManageTypesOpen, setManageTypesOpen] = useState(false);
-  const [isAssigneeDialogOpen, setAssigneeDialogOpen] = useState(false);
   const { toast } = useToast();
   
   const staffUsers = useMemo(() => users.filter(u => u.role === 'staff' || u.role === 'admin'), [users]);
@@ -845,41 +845,18 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
            <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="assignTo" className="text-right pt-2">Assign To</Label>
              <div className="col-span-3">
-                 <div 
-                    className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input px-3 py-2 text-sm min-h-10 cursor-pointer"
-                    onClick={() => setAssigneeDialogOpen(true)}
-                >
-                    {assignedTo.length > 0 ? (
-                        assignedTo.map(id => (
-                            <Badge key={id} variant="secondary">
-                                {getAssigneeLabel(id)}
-                                <button type="button" className="ml-1 rounded-full outline-none" onClick={(e) => {
-                                    e.stopPropagation();
-                                    setAssignedTo(current => current.filter(item => item !== id));
-                                }}>
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))
-                    ) : (
-                        <span className="text-muted-foreground">Select assignees...</span>
-                    )}
-                </div>
+                <AssigneePicker
+                    users={staffUsers}
+                    teams={teams}
+                    selectedAssignees={assignedTo}
+                    onChange={setAssignedTo}
+                />
              </div>
           </div>
         </div>
         <DialogFooter><Button type="submit" onClick={handleSubmit}>Create Case</Button></DialogFooter>
       </DialogContent>
     </Dialog>
-
-    <AssigneePickerDialog 
-        open={isAssigneeDialogOpen}
-        onOpenChange={setAssigneeDialogOpen}
-        allUsers={staffUsers}
-        allTeams={teams}
-        selectedAssignees={assignedTo}
-        onApply={setAssignedTo}
-    />
 
     <ManageCaseTypesDialog
         open={isManageTypesOpen}
@@ -945,97 +922,5 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
             </DialogContent>
         </Dialog>
     );
-}
-
-function AssigneePickerDialog({ open, onOpenChange, allUsers, allTeams, selectedAssignees, onApply }: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    allUsers: User[];
-    allTeams: Team[];
-    selectedAssignees: string[];
-    onApply: (selected: string[]) => void;
-}) {
-    const [tempSelected, setTempSelected] = useState(selectedAssignees);
-    const [searchQuery, setSearchQuery] = useState('');
-
-    useEffect(() => {
-        if(open) {
-            setTempSelected(selectedAssignees);
-        }
-    }, [open, selectedAssignees]);
-    
-    const filteredUsers = useMemo(() => allUsers.filter(u => u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.email.toLowerCase().includes(searchQuery.toLowerCase())), [allUsers, searchQuery]);
-    const filteredTeams = useMemo(() => allTeams.filter(t => t.name.toLowerCase().includes(searchQuery.toLowerCase())), [allTeams, searchQuery]);
-
-    const handleToggle = (id: string) => {
-        setTempSelected(current => current.includes(id) ? current.filter(i => i !== id) : [...current, id]);
-    };
-
-    const handleApplyClick = () => {
-        onApply(tempSelected);
-        onOpenChange(false);
-    };
-    
-    const handleClear = () => {
-        setTempSelected([]);
-    }
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl h-[80vh] flex flex-col">
-                <DialogHeader>
-                    <DialogTitle>Assign Staff &amp; Teams</DialogTitle>
-                    <DialogDescription>Select one or more staff members or teams to assign this case to.</DialogDescription>
-                </DialogHeader>
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search by name or email..." className="pl-9" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
-                </div>
-                <ScrollArea className="flex-1 -mx-6 px-6">
-                    <div className="space-y-4">
-                        <h4 className="font-semibold text-lg">Teams</h4>
-                        {filteredTeams.map(team => (
-                            <div key={team.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer" onClick={() => handleToggle(`team-${team.id}`)}>
-                                <Checkbox checked={tempSelected.includes(`team-${team.id}`)} onCheckedChange={() => handleToggle(`team-${team.id}`)} onClick={(e) => e.stopPropagation()}/>
-                                <UsersIcon className="h-8 w-8 text-muted-foreground"/>
-                                <div className="flex-1">
-                                    <p className="font-medium">{team.name}</p>
-                                    <p className="text-sm text-muted-foreground">{team.memberIds.length} members</p>
-                                </div>
-                            </div>
-                        ))}
-
-                         <h4 className="font-semibold text-lg pt-4">Staff</h4>
-                         {filteredUsers.map(user => (
-                            <div key={user.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer" onClick={() => handleToggle(`user-${user.id}`)}>
-                                <Checkbox checked={tempSelected.includes(`user-${user.id}`)} onCheckedChange={() => handleToggle(`user-${user.id}`)} onClick={(e) => e.stopPropagation()}/>
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src={user.avatar} />
-                                    <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex-1">
-                                    <p className="font-medium">{user.name}</p>
-                                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                                </div>
-                                <Badge variant="outline">{user.role}</Badge>
-                            </div>
-                        ))}
-                    </div>
-                </ScrollArea>
-                 <DialogFooter className="mt-auto pt-4 border-t !justify-between">
-                     <div>
-                        <Badge variant="secondary">{tempSelected.length} selected</Badge>
-                        <Button variant="link" onClick={handleClear}>Clear</Button>
-                    </div>
-                    <div className="flex gap-2">
-                        <DialogClose asChild>
-                            <Button type="button" variant="ghost">Cancel</Button>
-                        </DialogClose>
-                        <Button type="button" onClick={handleApplyClick}>Apply</Button>
-                    </div>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    )
 }
     

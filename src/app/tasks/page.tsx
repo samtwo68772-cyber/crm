@@ -5,7 +5,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getTasks, createTask, updateTask, deleteTask } from './actions';
 import { getUsers } from '../admin/actions';
 import { getCases } from '../cases/actions';
-import type { Task, User, Case } from '@/lib/types';
+import type { Task, User, Case, Team } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,10 +22,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getTeams } from '../admin/actions';
+import { AssigneePicker } from '@/components/ui/assignee-picker';
 
 type TaskStatusFilter = 'To Do' | 'In Progress' | 'Done' | 'Canceled' | 'all' | 'pending';
 type TaskPriorityFilter = 'High' | 'Medium' | 'Low' | 'all';
@@ -53,8 +55,9 @@ export default function TasksPage() {
   const queryClient = useQueryClient();
   const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+  const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
   const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
-  const isLoading = tasksLoading || usersLoading || casesLoading;
+  const isLoading = tasksLoading || usersLoading || casesLoading || teamsLoading;
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -286,6 +289,7 @@ export default function TasksPage() {
             }
           }}
           users={users || []}
+          teams={teams || []}
           cases={cases || []}
        />
     </div>
@@ -359,10 +363,11 @@ interface TaskDialogProps {
   task: Task | null;
   onSave: (data: any, isEdit: boolean) => void;
   users: User[];
+  teams: Team[];
   cases: Case[];
 }
 
-function TaskDialog({ open, onOpenChange, task, onSave, users, cases }: TaskDialogProps) {
+function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: TaskDialogProps) {
     const isEditMode = task !== null;
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -372,7 +377,6 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, cases }: TaskDial
     const [assignedTo, setAssignedTo] = useState<string | undefined>();
     const [linkedCase, setLinkedCase] = useState<string | undefined>();
     
-    const staffOptions = useMemo(() => users.filter(u => u.role === 'staff' || u.role === 'admin').map(u => ({ label: u.name, value: u.id })), [users]);
     const caseOptions = useMemo(() => cases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id, disabled: ['Resolved', 'Closed', 'Completed'].includes(c.status) })), [cases]);
 
     useEffect(() => {
@@ -486,12 +490,13 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, cases }: TaskDial
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="assignedTo">Assigned Staff</Label>
-                  <Select onValueChange={setAssignedTo} value={assignedTo}>
-                    <SelectTrigger><SelectValue placeholder="Select staff..." /></SelectTrigger>
-                    <SelectContent>
-                      {staffOptions.map(u => <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <AssigneePicker
+                    users={users}
+                    teams={teams}
+                    selectedAssignees={assignedTo ? [assignedTo] : []}
+                    onChange={(assignees) => setAssignedTo(assignees.length > 0 ? assignees[0] : undefined)}
+                    mode="single"
+                   />
                 </div>
               </div>
               <div className="grid gap-2">
