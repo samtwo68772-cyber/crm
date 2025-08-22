@@ -131,7 +131,7 @@ function RecentCases({ allUsers }: { allUsers: User[] | undefined }) {
                                         <div className="flex-1">
                                             <p className="font-semibold text-sm">{caseItem.subject}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                {caseItem.id} &bull; Assigned to {allUsers.find(u => caseItem.assignedTo.includes(`user-${u.id}`))?.name || 'Unassigned'}
+                                                {caseItem.id} &bull; Assigned to {allUsers.find(u => Array.isArray(caseItem.assignedTo) && caseItem.assignedTo.includes(`user-${u.id}`))?.name || 'Unassigned'}
                                             </p>
                                         </div>
                                         <div className="text-right">
@@ -175,7 +175,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
                 type: 'case',
                 description: `New case created: "${c.subject}"`,
                 timestamp: c.createdAt,
-                user: allUsers.find(u => c.assignedTo.includes(`user-${u.id}`)) || { name: 'Unassigned' }
+                user: allUsers.find(u => Array.isArray(c.assignedTo) && c.assignedTo.includes(`user-${u.id}`)) || { name: 'Unassigned' }
             }));
 
         const taskActivities = tasksData
