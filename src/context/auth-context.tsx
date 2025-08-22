@@ -5,17 +5,6 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useCa
 import { useRouter, usePathname } from 'next/navigation';
 import type { User } from '@/lib/types';
 import { login as loginAction, logout as logoutAction, getSession, getUserById } from './actions';
-
-// Import all server actions for data fetching
-import { getAccounts, getContacts } from '@/app/accounts/actions';
-import { getUsers, getTeams } from '@/app/admin/actions';
-import { getCases } from '@/app/cases/actions';
-import { getDocuments } from '@/app/documents/actions';
-import { getEmails } from '@/app/emails/actions';
-import { getMeetings } from '@/app/meetings/actions';
-import { getNotifications } from '@/app/notifications/actions';
-import { getGeneralSettings, getEmailSettings, getGlobalNotificationPreferences, getWorkflows, getAuditLogs } from '@/app/settings/actions';
-import { getTasks } from '@/app/tasks/actions';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
@@ -34,33 +23,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const queryClient = useQueryClient();
 
-
-  const prefetchData = useCallback((userId: string) => {
-    // This function is now non-blocking. It kicks off the fetches but doesn't wait for them.
-    // Prioritize core data for the dashboard
-    Promise.all([
-        queryClient.prefetchQuery({ queryKey: ['cases'], queryFn: getCases }),
-        queryClient.prefetchQuery({ queryKey: ['tasks'], queryFn: getTasks }),
-        queryClient.prefetchQuery({ queryKey: ['meetings'], queryFn: getMeetings }),
-        queryClient.prefetchQuery({ queryKey: ['users'], queryFn: getUsers }),
-        queryClient.prefetchQuery({ queryKey: ['accounts'], queryFn: getAccounts }),
-        queryClient.prefetchQuery({ queryKey: ['contacts'], queryFn: getContacts }),
-        queryClient.prefetchQuery({ queryKey: ['notifications', userId], queryFn: () => getNotifications(userId) }),
-    ]).then(() => {
-        // Pre-fetch less critical data in the background after the essentials are done
-        queryClient.prefetchQuery({ queryKey: ['documents'], queryFn: getDocuments });
-        queryClient.prefetchQuery({ queryKey: ['emails'], queryFn: getEmails });
-        queryClient.prefetchQuery({ queryKey: ['generalSettings'], queryFn: getGeneralSettings });
-        queryClient.prefetchQuery({ queryKey: ['emailSettings'], queryFn: getEmailSettings });
-        queryClient.prefetchQuery({ queryKey: ['teams'], queryFn: getTeams });
-        queryClient.prefetchQuery({ queryKey: ['globalNotificationPreferences'], queryFn: getGlobalNotificationPreferences });
-        queryClient.prefetchQuery({ queryKey: ['workflows'], queryFn: getWorkflows });
-        queryClient.prefetchQuery({ queryKey: ['auditLogs'], queryFn: getAuditLogs });
-    }).catch(error => {
-        console.error("Failed to prefetch initial data in the background", error);
-    });
-  }, [queryClient]);
-
   useEffect(() => {
     const checkSession = async () => {
       setIsLoading(true);
@@ -69,7 +31,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (session?.userId) {
           const currentUser = await getUserById(session.userId);
           setUser(currentUser);
-          prefetchData(currentUser.id); // Prefetch in the background
         } else {
            if (pathname !== '/login') {
               router.push('/login');
@@ -87,12 +48,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if(!user) {
         checkSession();
     }
-  }, [pathname, router, prefetchData, user]);
+  }, [pathname, router, user]);
 
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginAction(email, password);
     setUser(loggedInUser);
-    prefetchData(loggedInUser.id); // Prefetch in the background, don't await
+    router.push('/');
   };
 
   const logout = async () => {

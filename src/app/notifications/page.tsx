@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { getNotifications, markAsRead } from './actions';
+import { getNotifications, markAsRead, markAllAsRead } from './actions';
 import type { Notification } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,8 @@ import { Bell, Briefcase, ListTodo, Mail, Calendar, CheckCheck, EyeOff } from 'l
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const getNotificationIcon = (type: Notification['type']) => {
     switch (type) {
@@ -26,56 +28,72 @@ const getNotificationIcon = (type: Notification['type']) => {
 
 export default function NotificationsPage() {
     const { user } = useAuth();
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-    const fetchData = async () => {
-        if (!user) return;
-        setIsLoading(true);
-        try {
-            const notifs = await getNotifications(user.id);
-            setNotifications(notifs);
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsLoading(false);
+    const { data: notifications = [], isLoading } = useQuery<Notification[]>({
+        queryKey: ['notifications', user?.id],
+        queryFn: () => getNotifications(user!.id),
+        enabled: !!user,
+    });
+
+    const markAsReadMutation = useMutation({
+        mutationFn: markAsRead,
+        onSuccess: (updatedNotification) => {
+            queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) => 
+                oldData ? oldData.map(n => n.id === updatedNotification.id ? { ...n, read: true } : n) : []
+            );
         }
-    }
+    });
 
-    useEffect(() => {
-        fetchData();
-    }, [user]);
-
-    const userNotifications = useMemo(() => {
-        if (!user) return [];
-        return notifications
-            .filter(n => user.role === 'admin' || !n.userId || n.userId === user.id)
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    }, [notifications, user]);
+    const markAllAsReadMutation = useMutation({
+        mutationFn: () => markAllAsRead(user!.id),
+        onSuccess: () => {
+            queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) =>
+                oldData ? oldData.map(n => ({ ...n, read: true })) : []
+            );
+        }
+    });
 
     const filteredNotifications = useMemo(() => {
         if (filter === 'unread') {
-            return userNotifications.filter(n => !n.read);
+            return notifications.filter(n => !n.read);
         }
-        return userNotifications;
-    }, [userNotifications, filter]);
+        return notifications;
+    }, [notifications, filter]);
 
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.read) {
-            await markAsRead(notification.id);
-            fetchData();
+            markAsReadMutation.mutate(notification.id);
         }
         router.push(notification.link);
     };
 
-    const handleMarkAllAsRead = async () => {
-        // This should be a server action in a real app
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    };
-
-    if(isLoading) return <div>Loading notifications...</div>;
+    if(isLoading) return (
+        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <Skeleton className="h-12 w-1/3" />
+                <Skeleton className="h-10 w-64" />
+            </div>
+            <Card>
+                <CardContent className="p-0">
+                    <div className="space-y-0">
+                         {[...Array(5)].map((_, i) => (
+                             <div key={i} className="flex items-start gap-4 p-4 border-b">
+                                <Skeleton className="h-8 w-8 rounded-full" />
+                                <div className="flex-1 space-y-2">
+                                     <Skeleton className="h-5 w-1/4" />
+                                     <Skeleton className="h-4 w-3/4" />
+                                     <Skeleton className="h-3 w-1/5" />
+                                </div>
+                             </div>
+                         ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    );
 
     return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -94,7 +112,7 @@ export default function NotificationsPage() {
                             <SelectItem value="unread">Unread Only</SelectItem>
                         </SelectContent>
                     </Select>
-                    <Button variant="outline" onClick={handleMarkAllAsRead}>
+                    <Button variant="outline" onClick={() => markAllAsReadMutation.mutate()} disabled={markAllAsReadMutation.isPending}>
                         <CheckCheck className="mr-2 h-4 w-4" /> Mark All as Read
                     </Button>
                 </div>

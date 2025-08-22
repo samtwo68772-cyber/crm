@@ -56,7 +56,7 @@ function KpiCard({ title, value, change, icon: Icon, onClick, isLoading }: { tit
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                    <Icon className="h-4 w-4 text-muted-foreground" />
+                    <Skeleton className="h-4 w-4" />
                 </CardHeader>
                 <CardContent>
                     <Skeleton className="h-8 w-1/2" />
@@ -83,9 +83,9 @@ function KpiCard({ title, value, change, icon: Icon, onClick, isLoading }: { tit
     );
 }
 
-function RecentCases({ allUsers }: { allUsers: User[] }) {
+function RecentCases({ allUsers }: { allUsers: User[] | undefined }) {
     const router = useRouter();
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(true);
     
     const { data: initialCases, isLoading } = useQuery<Case[]>({
         queryKey: ['cases'],
@@ -117,7 +117,7 @@ function RecentCases({ allUsers }: { allUsers: User[] }) {
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                     <CardContent>
-                        {isLoading ? (
+                        {isLoading || !allUsers ? (
                             <div className="space-y-4">
                                 {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
                             </div>
@@ -131,7 +131,7 @@ function RecentCases({ allUsers }: { allUsers: User[] }) {
                                         <div className="flex-1">
                                             <p className="font-semibold text-sm">{caseItem.subject}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                {caseItem.id} &bull; Assigned to {allUsers.find(u => u.name === caseItem.assignedTo)?.name || 'Unassigned'}
+                                                {caseItem.id} &bull; Assigned to {allUsers.find(u => caseItem.assignedTo.includes(`user-${u.id}`))?.name || 'Unassigned'}
                                             </p>
                                         </div>
                                         <div className="text-right">
@@ -154,9 +154,9 @@ function RecentCases({ allUsers }: { allUsers: User[] }) {
     );
 }
 
-function RecentActivity({ allUsers }: { allUsers: User[] }) {
+function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
     const router = useRouter();
-    const [isOpen, setIsOpen] = useState(false);
+    const [isOpen, setIsOpen] = useState(true);
     
     const { data: casesData, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
     const { data: tasksData, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
@@ -165,7 +165,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] }) {
 
 
     const activities = useMemo(() => {
-        if (!casesData || !tasksData || !meetingsData || !auditLogsData) return [];
+        if (!casesData || !tasksData || !meetingsData || !auditLogsData || !allUsers) return [];
         const twoWeeksAgo = subDays(new Date(), 14);
 
         const caseActivities = casesData
@@ -175,7 +175,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] }) {
                 type: 'case',
                 description: `New case created: "${c.subject}"`,
                 timestamp: c.createdAt,
-                user: allUsers.find(u => u.name === c.assignedTo) || { name: c.assignedTo }
+                user: allUsers.find(u => c.assignedTo.includes(`user-${u.id}`)) || { name: 'Unassigned' }
             }));
 
         const taskActivities = tasksData
@@ -214,7 +214,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] }) {
 
     }, [casesData, tasksData, meetingsData, allUsers, auditLogsData]);
     
-    const isLoading = casesLoading || tasksLoading || meetingsLoading || auditLogsLoading;
+    const isLoading = casesLoading || tasksLoading || meetingsLoading || auditLogsLoading || !allUsers;
 
     const getActivityDot = (type: string) => {
         switch (type) {
@@ -341,10 +341,10 @@ export default function DashboardPage() {
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3">
-                    <RecentCases allUsers={users || []} />
+                    <RecentCases allUsers={users} />
                 </div>
                 <div className="lg:col-span-2">
-                    <RecentActivity allUsers={users || []} />
+                    <RecentActivity allUsers={users} />
                 </div>
             </div>
         </div>

@@ -28,6 +28,8 @@ import { formatDistanceToNow, parseISO } from 'date-fns';
 import { getNotifications, markAllAsRead, markAsRead } from '@/app/notifications/actions';
 import { getGeneralSettings } from '@/app/settings/actions';
 import { useIsClient } from '@/hooks/use-is-client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
 
 const navItemsAdmin = [
     { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -70,25 +72,41 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const isClient = useIsClient();
     const [isSidebarOpen, setSidebarOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+    const queryClient = useQueryClient();
 
-    const [notifications, setNotifications] = useState<Notification[]>([]);
-    const [generalSettings, setGeneralSettings] = useState({ systemName: 'MinT CRM', logoUrl: '' });
+    const { data: notifications = [] } = useQuery<Notification[]>({
+      queryKey: ['notifications', user?.id],
+      queryFn: () => getNotifications(user!.id),
+      enabled: !!user,
+    });
 
-
-     useEffect(() => {
-        if (user) {
-            getNotifications(user.id).then(setNotifications);
-            getGeneralSettings().then(setGeneralSettings);
-        }
-    }, [user]);
-
-    const unreadNotifications = useMemo(() => {
-        return notifications.filter(n => !n.read);
-    }, [notifications]);
+    const { data: generalSettings = { systemName: 'MinT CRM', logoUrl: '' } } = useQuery({
+      queryKey: ['generalSettings'],
+      queryFn: getGeneralSettings,
+      enabled: !!user,
+    });
 
     const unreadCount = useMemo(() => {
-        return unreadNotifications.length;
-    }, [unreadNotifications]);
+        return notifications.filter(n => !n.read).length;
+    }, [notifications]);
+
+    const markAsReadMutation = useMutation({
+        mutationFn: markAsRead,
+        onSuccess: (updatedNotification) => {
+             queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) =>
+                oldData ? oldData.map(n => n.id === updatedNotification.id ? { ...n, read: true } : n) : []
+            );
+        }
+    })
+
+    const markAllAsReadMutation = useMutation({
+        mutationFn: () => markAllAsRead(user!.id),
+        onSuccess: () => {
+             queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) =>
+                oldData ? oldData.map(n => ({ ...n, read: true })) : []
+            );
+        }
+    })
     
     const handleLinkClick = () => {
         if (isMobile) {
@@ -98,16 +116,14 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.read) {
-            await markAsRead(notification.id);
-            setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
+            markAsReadMutation.mutate(notification.id);
         }
         router.push(notification.link);
     };
 
     const handleMarkAllAsRead = async () => {
          if (user) {
-            await markAllAsRead(user.id);
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            markAllAsReadMutation.mutate();
         }
     };
 
@@ -214,8 +230,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                             {unreadCount > 0 && <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllAsRead}><CheckCheck className="mr-1 h-4 w-4" />Mark all as read</Button>}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {unreadNotifications.length > 0 ? (
-                            unreadNotifications.slice(0, 10).map(notification => (
+                        {notifications.filter(n => !n.read).length > 0 ? (
+                            notifications.filter(n => !n.read).slice(0, 10).map(notification => (
                                  <DropdownMenuItem key={notification.id} className="flex items-start gap-3" onClick={() => handleNotificationClick(notification)}>
                                     {getNotificationIcon(notification.type)}
                                     <div className="flex-1">
