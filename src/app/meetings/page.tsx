@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ParticipantsPicker } from '@/components/ui/participants-picker';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
-import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear } from 'date-fns';
+import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear, parseISO } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -51,7 +51,7 @@ function getStatusColor(status: Meeting['status']) {
 
 const safeFormat = (date: string | Date, formatString: string) => {
     try {
-        const d = new Date(date);
+        const d = date instanceof Date ? date : parseISO(date);
         if (!isValid(d)) {
             throw new Error('Invalid Date');
         }
@@ -297,7 +297,7 @@ export default function MeetingsPage() {
                                 className="w-full meeting-calendar-wrapper"
                                 components={{
                                     DayContent: ({ date, ...props }) => {
-                                        const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
+                                        const dayMeetings = userMeetings.filter(m => isSameDay(parseISO(m.date), date));
                                         return (
                                             <div className="h-full w-full">
                                                 <div className="w-full text-right p-1 text-sm">{format(date, 'd')}</div>

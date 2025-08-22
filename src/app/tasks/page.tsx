@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -20,9 +21,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-is-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -330,7 +331,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Ta
                     </Badge>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarIcon className="h-4 w-4" />
-                        <span>{task.dueDate}</span>
+                        <span>{format(parseISO(task.dueDate), "PPP")}</span>
                     </div>
                 </div>
                  <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -385,7 +386,7 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
             setDescription(task.description || '');
             setPriority(task.priority);
             setStatus(task.status);
-            setDueDate(task.dueDate ? new Date(task.dueDate) : undefined);
+            setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
             setAssignedTo(task.assignedTo || undefined);
             setLinkedCase(task.linkedCase || undefined);
         } else {
@@ -493,8 +494,8 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
                   <AssigneePicker
                     users={users}
                     teams={teams}
-                    selectedAssignees={assignedTo ? [assignedTo] : []}
-                    onChange={(assignees) => setAssignedTo(assignees.length > 0 ? assignees[0] : undefined)}
+                    selectedAssignees={assignedTo ? [`user-${assignedTo}`] : []}
+                    onChange={(assignees) => setAssignedTo(assignees.length > 0 ? assignees[0].replace('user-','') : undefined)}
                     mode="single"
                    />
                 </div>

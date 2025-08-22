@@ -73,7 +73,7 @@ export type Contact = {
   id: string;
   name: string;
   email: string;
-  phone: string;
+  phone?: string;
   company: string;
   accountId: string;
   role: string;
