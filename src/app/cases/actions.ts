@@ -32,6 +32,26 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
     if (!session?.userId) throw new Error("Authentication required");
 
     const { assignedTo, ...caseData } = data;
+    
+    let userIdsToAssign: string[] = [];
+
+    for (const assignee of assignedTo) {
+        if (assignee.startsWith('user-')) {
+            userIdsToAssign.push(assignee.replace('user-', ''));
+        } else if (assignee.startsWith('team-')) {
+            const teamId = assignee.replace('team-', '');
+            const team = await prisma.team.findUnique({
+                where: { id: teamId },
+                select: { memberIds: true }
+            });
+            if (team) {
+                userIdsToAssign.push(...team.memberIds);
+            }
+        }
+    }
+    
+    // Remove duplicates
+    userIdsToAssign = [...new Set(userIdsToAssign)];
 
     const newCase = await prisma.case.create({
         data: {
@@ -39,8 +59,8 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
             ...caseData,
             createdAt: new Date().toISOString(),
             assignments: {
-                create: assignedTo.map(id => ({
-                    user: { connect: { id: id.replace('user-', '') } },
+                create: userIdsToAssign.map(id => ({
+                    user: { connect: { id } },
                     assignedBy: session.userId,
                 }))
             }
@@ -50,17 +70,15 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
         }
     });
 
-    if (assignedTo && assignedTo.length > 0) {
-        for (const assigneeId of assignedTo) {
-             if (assigneeId.startsWith('user-')) {
-                await createNotification({
-                    userId: assigneeId.replace('user-', ''),
-                    title: 'New Case Assigned',
-                    description: `Case #${newCase.id}: "${newCase.subject}" assigned to you.`,
-                    link: `/cases?id=${newCase.id}`,
-                    type: 'case'
-                });
-             }
+    if (userIdsToAssign.length > 0) {
+        for (const assigneeId of userIdsToAssign) {
+            await createNotification({
+                userId: assigneeId,
+                title: 'New Case Assigned',
+                description: `Case #${newCase.id}: "${newCase.subject}" assigned to you.`,
+                link: `/cases?id=${newCase.id}`,
+                type: 'case'
+            });
         }
     }
 
@@ -73,15 +91,35 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
     
     const { assignedTo, ...caseData } = data;
     const originalCase = await prisma.case.findUnique({ where: { id }, include: { assignments: true } });
+    
+    let userIdsToAssign: string[] | undefined = undefined;
+    if (assignedTo) {
+        userIdsToAssign = [];
+        for (const assignee of assignedTo) {
+            if (assignee.startsWith('user-')) {
+                userIdsToAssign.push(assignee.replace('user-', ''));
+            } else if (assignee.startsWith('team-')) {
+                const teamId = assignee.replace('team-', '');
+                const team = await prisma.team.findUnique({
+                    where: { id: teamId },
+                    select: { memberIds: true }
+                });
+                if (team) {
+                    userIdsToAssign.push(...team.memberIds);
+                }
+            }
+        }
+        userIdsToAssign = [...new Set(userIdsToAssign)];
+    }
 
     const updatedCase = await prisma.case.update({
         where: { id },
         data: {
             ...caseData,
-            assignments: assignedTo ? {
+            assignments: userIdsToAssign ? {
                 deleteMany: {}, // Clear existing assignments
-                create: assignedTo.map(id => ({ // Create new ones
-                    user: { connect: { id: id.replace('user-', '') } },
+                create: userIdsToAssign.map(uid => ({ // Create new ones
+                    user: { connect: { id: uid } },
                     assignedBy: session.userId,
                 }))
             } : undefined,
@@ -92,22 +130,20 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
     });
 
     // Simplified notification logic for updates
-    if (data.assignedTo) {
-        const originalAssigneeIds = originalCase?.assignments.map(a => `user-${a.userId}`) || [];
-        const newAssigneeIds = data.assignedTo;
+    if (userIdsToAssign) {
+        const originalAssigneeIds = originalCase?.assignments.map(a => a.userId) || [];
+        const newAssigneeIds = userIdsToAssign;
 
-        const addedAssignees = newAssigneeIds.filter(id => !originalAssigneeIds.includes(id));
+        const addedAssignees = newAssigneeIds.filter(uid => !originalAssigneeIds.includes(uid));
         
         for (const assigneeId of addedAssignees) {
-            if (assigneeId.startsWith('user-')) {
-                await createNotification({
-                    userId: assigneeId.replace('user-', ''),
-                    title: 'Case Reassigned',
-                    description: `Case #${updatedCase.id}: "${updatedCase.subject}" has been assigned to you.`,
-                    link: `/cases?id=${updatedCase.id}`,
-                    type: 'case'
-                });
-            }
+            await createNotification({
+                userId: assigneeId,
+                title: 'Case Reassigned',
+                description: `Case #${updatedCase.id}: "${updatedCase.subject}" has been assigned to you.`,
+                link: `/cases?id=${updatedCase.id}`,
+                type: 'case'
+            });
         }
     }
     

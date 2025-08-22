@@ -190,7 +190,7 @@ export default function CasesPage() {
         const ids = Array.isArray(assigneeIds) ? assigneeIds : [assigneeIds];
         if (ids.length === 0) return 'Unassigned';
 
-        return ids.map(id => {
+        const names = ids.map(id => {
             if (id.startsWith('user-')) {
                 return users.find(u => u.id === id.replace('user-', ''))?.name;
             }
@@ -198,7 +198,13 @@ export default function CasesPage() {
                 return teams.find(t => t.id === id.replace('team-', ''))?.name;
             }
             return id; // Fallback for old string data
-        }).filter(Boolean).join(', ');
+        }).filter(Boolean);
+        
+        if (names.length > 2) {
+            return `${names.slice(0, 2).join(', ')} +${names.length - 2} more`;
+        }
+
+        return names.join(', ') || 'Unassigned';
     };
 
     const PaginationControls = () => (
@@ -764,7 +770,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
 
 
   const handleSubmit = () => {
-    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> = { 
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications'> & { assignedTo: string[] } = { 
         subject, 
         customer, 
         email, 
@@ -941,5 +947,3 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
     );
 }
     
-
-
