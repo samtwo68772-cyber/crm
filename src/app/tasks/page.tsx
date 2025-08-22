@@ -21,7 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -302,6 +302,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Ta
     const assignedUser = users.find(u => u.id === task.assignedTo);
     const linkedCase = cases.find(c => c.id === task.linkedCase);
     const isAdmin = user?.role === 'admin';
+    const dueDate = task.dueDate ? parseISO(task.dueDate) : null;
 
     const handleStatusChange = (newStatus: Task['status']) => {
         onUpdate({ id: task.id, status: newStatus }, task.status);
@@ -331,7 +332,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Ta
                     </Badge>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarIcon className="h-4 w-4" />
-                        <span>{format(parseISO(task.dueDate), "PPP")}</span>
+                        <span>{dueDate && isValid(dueDate) ? format(dueDate, "PPP") : 'No due date'}</span>
                     </div>
                 </div>
                  <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -386,7 +387,7 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
             setDescription(task.description || '');
             setPriority(task.priority);
             setStatus(task.status);
-            setDueDate(task.dueDate ? parseISO(task.dueDate) : undefined);
+            setDueDate(task.dueDate && isValid(parseISO(task.dueDate)) ? parseISO(task.dueDate) : undefined);
             setAssignedTo(task.assignedTo || undefined);
             setLinkedCase(task.linkedCase || undefined);
         } else {

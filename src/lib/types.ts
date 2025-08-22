@@ -66,7 +66,7 @@ export type Contact = {
   email: string;
   phone: string;
   company: string;
-  accountId: string;
+  accountId?: string;
   role: string;
   notes?: string;
   avatar: string;

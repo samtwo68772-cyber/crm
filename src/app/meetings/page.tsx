@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ParticipantsPicker } from '@/components/ui/participants-picker';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
-import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear } from 'date-fns';
+import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear, parseISO } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -51,7 +51,7 @@ function getStatusColor(status: Meeting['status']) {
 
 const safeFormat = (date: string | Date, formatString: string) => {
     try {
-        const d = new Date(date);
+        const d = (typeof date === 'string' && date.includes('T')) ? parseISO(date) : new Date(date);
         if (!isValid(d)) {
             throw new Error('Invalid Date');
         }
@@ -443,7 +443,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
             </DialogHeader>
              <div className="grid gap-4 py-4">
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="title" className="text-right">Title</Label><Input id="title" value={editedMeeting.title} onChange={(e) => handleFieldChange('title', e.target.value)} className="col-span-3" /></div>
-                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={editedMeeting.description} onChange={(e) => handleFieldChange('description', e.target.value)} className="col-span-3" /></div>
+                <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="description" className="text-right">Description</Label><Textarea id="description" value={editedMeeting.description || ''} onChange={(e) => handleFieldChange('description', e.target.value)} className="col-span-3" /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="date" className="text-right">Date</Label><Input id="date" type="datetime-local" value={safeFormat(editedMeeting.date, "yyyy-MM-dd'T'HH:mm")} onChange={(e) => handleFieldChange('date', e.target.value)} className="col-span-3" /></div>
                 <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="status" className="text-right">Status</Label>
                     <Select onValueChange={(v: Meeting['status']) => handleFieldChange('status', v)} value={editedMeeting.status}>

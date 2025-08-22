@@ -23,7 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import {
   Search,
   Inbox,
@@ -74,6 +74,11 @@ function EmailClientView() {
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
 
+    const safeParseDate = (dateString: string) => {
+        const date = parseISO(dateString);
+        return isValid(date) ? date : new Date(0);
+    }
+    
     useEffect(() => {
         if (searchParams.get('filter') === 'unread') {
             setShowUnread(true);
@@ -109,7 +114,7 @@ function EmailClientView() {
         if (!emails) return [];
         let sortedEmails = emails
             .filter(email => email.type === mailbox)
-            .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+            .sort((a, b) => safeParseDate(b.date).getTime() - safeParseDate(a.date).getTime());
             
         if (showUnread) {
             sortedEmails = sortedEmails.filter(e => !e.read && e.type === 'inbox');
@@ -229,7 +234,7 @@ function EmailClientView() {
                     >
                         <div className="flex justify-between items-start">
                             <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
-                            <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
+                            <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(safeParseDate(email.date), 'MMM d')}</p>
                         </div>
                         <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
                         <p className="text-xs text-muted-foreground truncate">{email.body}</p>
@@ -257,7 +262,7 @@ function EmailClientView() {
                         <CardContent className="p-4">
                             <div className="flex justify-between items-start">
                                 <p className={cn("truncate text-sm font-semibold", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
-                                <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(parseISO(email.date), 'MMM d')}</p>
+                                <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(safeParseDate(email.date), 'MMM d')}</p>
                             </div>
                             <p className={cn("text-sm font-medium truncate", !email.read && "text-foreground")}>{email.subject}</p>
                             <div className="flex justify-between items-center mt-2">
@@ -346,6 +351,12 @@ function EmailClientView() {
 }
 
 function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: boolean, onOpenChange: (open: boolean) => void, email: Email, onCreateCase: (email: Email) => void }) {
+    
+    const safeParseDate = (dateString: string) => {
+        const date = parseISO(dateString);
+        return isValid(date) ? date : new Date(0);
+    }
+    
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent className="w-full sm:max-w-[45%] p-0 flex flex-col">
@@ -386,7 +397,7 @@ function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: b
                                 <p className="font-semibold">{email.from.name} <span className="text-muted-foreground font-normal text-sm">&lt;{email.from.email}&gt;</span></p>
                                 <p className="text-sm text-muted-foreground">To: {email.to.name}</p>
                             </div>
-                            <p className="text-sm text-muted-foreground ml-auto shrink-0">{format(parseISO(email.date), 'PPpp')}</p>
+                            <p className="text-sm text-muted-foreground ml-auto shrink-0">{format(safeParseDate(email.date), 'PPpp')}</p>
                         </div>
                     </div>
                     <div className="p-6 whitespace-pre-wrap font-serif text-base/relaxed">
