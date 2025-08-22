@@ -61,6 +61,10 @@ function getStatusVariant(status: Case['status']) {
     }
 }
 
+// Define Admin and Staff status options outside of the component
+const adminStatusOptions: Case['status'][] = ['New', 'Under Review', 'In Progress', 'Investigated', 'Resolved', 'Completed', 'Declined', 'Closed'];
+const staffStatusOptions: Case['status'][] = ['New', 'In Progress', 'Investigated'];
+
 
 export default function CasesPage() {
     const queryClient = useQueryClient();
@@ -559,7 +563,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
   return (
     <>
-    <div className="flex flex-col h-full max-h-[100vh]">
+      <div className="flex flex-col h-full max-h-[100vh]">
         <SheetHeader className="p-4 md:p-6 border-b flex-shrink-0">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -642,7 +646,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     <TabsContent value="communication">
                         <div className="space-y-4">
                             <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
-                                {caseItem.communications?.map((comm) => (
+                                {(caseItem.communications || []).map((comm) => (
                                   <div key={comm.id} className="flex items-start gap-4 group">
                                     <div className="mt-1 shrink-0">
                                       {comm.type === 'Finding' && <FileText className="h-5 w-5 text-muted-foreground" />}
@@ -725,7 +729,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                                 </div>
                                             </div>
                                         ))}
-                                    </ul>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -1007,4 +1011,5 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
     
 
     
+
 
