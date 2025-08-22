@@ -178,6 +178,24 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
     return updatedCase;
 }
 
+export async function deleteCommunicationFromCase(caseId: string, communicationId: string) {
+    const targetCase = await prisma.case.findUnique({ where: { id: caseId } });
+    if (!targetCase) throw new Error('Case not found');
+
+    const updatedCommunications = (targetCase.communications as Communication[] || []).filter(c => c.id !== communicationId);
+    
+    const updatedCase = await prisma.case.update({
+        where: { id: caseId },
+        data: {
+            communications: updatedCommunications,
+        },
+        include: {
+            assignments: { include: { user: true } }
+        }
+    });
+    return updatedCase;
+}
+
 export async function deleteCase(id: string) {
     // Need to delete assignments first due to relation
     await prisma.caseAssignment.deleteMany({

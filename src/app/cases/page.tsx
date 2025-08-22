@@ -1,13 +1,13 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { DateRange } from "react-day-picker"
-import { getCases, createCase, updateCase, addCommunicationToCase, deleteCase } from './actions';
+import { getCases, createCase, updateCase, addCommunicationToCase, deleteCase, deleteCommunicationFromCase } from './actions';
 import { getTasks, updateTask as updateTaskAction } from '../tasks/actions';
 import { getUsers, getTeams } from '../admin/actions';
 import { getWorkflows } from '../settings/actions';
-import type { Case, User, Communication, Task, Notification, Workflow, Team } from '@/lib/types';
+import type { Case, User, Communication, Task, Notification, Workflow, Team, Document } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -18,14 +18,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose, SheetFooter } from '@/components/ui/sheet';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings, ChevronsUpDown } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, FileText, Clock, User as UserIcon, MessageSquare, Upload, Send, CheckCircle, XCircle, Undo, Check, ShieldQuestion, PenSquare, Shield, AlertTriangle, ListTodo, Paperclip, Search, X, ArrowLeft, ArrowRight, Trash2, Settings, ChevronsUpDown, Download, Image as ImageIcon, File } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { format, isWithinInterval, subDays, addDays, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, isWithinInterval, subDays, addDays, parseISO, startOfDay, endOfDay, formatDistanceToNow } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -402,117 +402,160 @@ export default function CasesPage() {
 }
 
 function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
-  const queryClient = useQueryClient();
-  const [finding, setFinding] = useState('');
-  const [note, setNote] = useState('');
-  const [description, setDescription] = useState(caseItem.description);
-  const [communications, setCommunications] = useState(caseItem.communications || []);
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [replyMessage, setReplyMessage] = useState('');
-  const [isResolveDialogOpen, setResolveDialogOpen] = useState(false);
-  const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [isTaskWarningOpen, setTaskWarningOpen] = useState(false);
-  const [resolutionNote, setResolutionNote] = useState('');
-  
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isAdmin = user?.role === 'admin';
-  const isMobile = useIsMobile();
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const { toast } = useToast();
+    const [note, setNote] = useState('');
+    const [editingNote, setEditingNote] = useState<Communication | null>(null);
+    const [description, setDescription] = useState(caseItem.description);
+    const [attachments, setAttachments] = useState<Document[]>([]); // This would be fetched
+    const [isResolveDialogOpen, setResolveDialogOpen] = useState(false);
+    const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [isTaskWarningOpen, setTaskWarningOpen] = useState(false);
+    const [resolutionNote, setResolutionNote] = useState('');
+    const isAdmin = user?.role === 'admin';
+    const isMobile = useIsMobile();
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
-  const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
+    const linkedTasks = useMemo(() => tasks.filter(t => t.linkedCase === caseItem.id), [tasks, caseItem.id]);
+    const openTasks = useMemo(() => linkedTasks.filter(t => t.status === 'To Do' || t.status === 'In Progress'), [linkedTasks]);
 
-  const hasDescriptionChanged = description !== caseItem.description;
+    const hasDescriptionChanged = description !== caseItem.description;
 
-  const addCommunicationMutation = useMutation({
-      mutationFn: (data: { caseId: string, comm: Omit<Communication, 'id'> }) => addCommunicationToCase(data.caseId, data.comm),
-      onSuccess: (updatedCase) => {
-          queryClient.invalidateQueries({ queryKey: ['cases', caseItem.id] });
-          queryClient.invalidateQueries({ queryKey: ['cases'] });
-          setCommunications(updatedCase.communications || []);
-      },
-      onError: (error) => {
-           toast({ variant: "destructive", title: "Error", description: "Failed to add communication." });
-      }
-  })
+    const addCommunicationMutation = useMutation({
+        mutationFn: (data: { caseId: string, comm: Omit<Communication, 'id'> }) => addCommunicationToCase(data.caseId, data.comm),
+        onSuccess: (updatedCase) => {
+            queryClient.setQueryData(['cases', caseItem.id], updatedCase);
+            queryClient.invalidateQueries({ queryKey: ['cases'] });
+        },
+        onError: () => {
+            toast({ variant: "destructive", title: "Error", description: "Failed to add communication." });
+        }
+    });
+    
+    const deleteCommunicationMutation = useMutation({
+        mutationFn: (data: { caseId: string; communicationId: string }) => deleteCommunicationFromCase(data.caseId, data.communicationId),
+        onSuccess: (updatedCase) => {
+            queryClient.setQueryData(['cases', caseItem.id], updatedCase);
+            queryClient.invalidateQueries({ queryKey: ['cases']});
+            toast({ title: 'Note Deleted' });
+        }
+    });
 
-  const handleAddCommunication = async (type: 'Finding' | 'Note' | 'Email' | 'Resolution', content: string) => {
-    if (content.trim()) {
-      const newComm: Omit<Communication, 'id'> = { type, content, author: user?.name || 'System', authorRole: user?.role || 'staff', timestamp: new Date().toLocaleString() };
-      addCommunicationMutation.mutate({ caseId: caseItem.id, comm: newComm });
-      if (type === 'Finding') setFinding('');
-      if (type === 'Note') setNote('');
+    const handleAddNote = async () => {
+        if (note.trim() && user) {
+            const newComm: Omit<Communication, 'id'> = { type: 'Note', content: note, author: user.name, authorId: user.id, authorRole: user.role, timestamp: new Date().toISOString() };
+            addCommunicationMutation.mutate({ caseId: caseItem.id, comm: newComm });
+            setNote('');
+        }
+    };
+    
+    const handleDeleteNote = (communicationId: string) => {
+        deleteCommunicationMutation.mutate({ caseId: caseItem.id, communicationId });
     }
-  };
-  
-  const handleAttemptResolve = () => {
-      if (openTasks.length > 0) {
-          setTaskWarningOpen(true);
-      } else {
-          setResolveDialogOpen(true);
-      }
-  };
 
-  const handleForceResolve = () => {
-    setTaskWarningOpen(false);
-    setResolveDialogOpen(true);
-  };
-  
-  const handleConfirmResolve = async () => {
-      if (!resolutionNote.trim()) {
-          toast({ variant: 'destructive', title: 'Resolution note is required.' });
-          return;
-      }
-      
-      const resolutionTimestamp = new Date();
-      const resolutionContent = `Case resolved with note: "${resolutionNote}"`;
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files && files.length > 0 && user) {
+            const newAttachments: Document[] = Array.from(files).map(file => ({
+                id: `doc-${Date.now()}-${Math.random()}`,
+                name: file.name,
+                type: 'Document', // Simplified
+                size: `${(file.size / 1024).toFixed(2)} KB`,
+                uploadedAt: new Date().toISOString(),
+                uploadedBy: user.name,
+                authorId: user.id,
+                category: 'Case File',
+                caseId: caseItem.id,
+            }));
+            setAttachments(prev => [...prev, ...newAttachments]);
+            toast({ title: `${files.length} file(s) ready to upload.`, description: "Note: This is a simulation. Files are not actually uploaded."})
+        }
+    };
 
-      await handleAddCommunication('Resolution', resolutionContent);
-      
-      await onUpdateCase({ 
-        id: caseItem.id,
-        status: 'Resolved',
-        resolvedAt: resolutionTimestamp.toISOString().split('T')[0],
-      });
-      
-      const taskUpdatePromises = openTasks.map(task => 
-          updateTaskAction(task.id, { status: 'Canceled' })
-      );
-
-      await Promise.all(taskUpdatePromises);
-
-      if (openTasks.length > 0) {
-        const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
-        await handleAddCommunication('Note', taskNote);
-        queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      }
-
-      setResolutionNote('');
-      setResolveDialogOpen(false);
-  };
-  
-  const handleStatusChange = (newStatus: Case['status']) => {
-    if ((newStatus === 'Resolved' || newStatus === 'Completed') && !isAdmin) {
-        handleAttemptResolve();
-    } else {
-        onUpdateCase({ id: caseItem.id, status: newStatus });
+    const handleDeleteAttachment = (docId: string) => {
+        setAttachments(prev => prev.filter(doc => doc.id !== docId));
+        toast({ title: "Attachment Removed" });
     }
-  };
 
-  const handleAssigneeChange = (newAssignees: string[]) => {
-      onUpdateCase({ id: caseItem.id, assignedTo: newAssignees });
-  };
-  
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.files) setAttachments(prev => [...prev, ...Array.from(event.target.files as FileList)]);
-  };
+    const handleAttemptResolve = () => {
+        if (openTasks.length > 0) {
+            setTaskWarningOpen(true);
+        } else {
+            setResolveDialogOpen(true);
+        }
+    };
 
-  const handleSendReply = () => {
-    if(replyMessage.trim()){ handleAddCommunication('Email', replyMessage); setReplyMessage(''); }
-  };
+    const handleForceResolve = () => {
+        setTaskWarningOpen(false);
+        setResolveDialogOpen(true);
+    };
   
-  const staffStatusOptions: Case['status'][] = ['In Progress', 'Investigated', 'Completed'];
-  const adminStatusOptions: Case['status'][] = ['New', 'Under Review', 'In Progress', 'Investigated', 'Resolved', 'Completed', 'Declined', 'Closed'];
+    const handleConfirmResolve = async () => {
+        if (!resolutionNote.trim()) {
+            toast({ variant: 'destructive', title: 'Resolution note is required.' });
+            return;
+        }
+        
+        const resolutionTimestamp = new Date();
+        const resolutionContent = `Case resolved with note: "${resolutionNote}"`;
+
+        if (user) {
+            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Resolution', content: resolutionContent, author: user.name, authorId: user.id, authorRole: user.role, timestamp: resolutionTimestamp.toISOString() } });
+        }
+        
+        await onUpdateCase({ 
+            id: caseItem.id,
+            status: 'Resolved',
+            resolvedAt: resolutionTimestamp.toISOString().split('T')[0],
+        });
+        
+        const taskUpdatePromises = openTasks.map(task => 
+            updateTaskAction(task.id, { status: 'Canceled' })
+        );
+
+        await Promise.all(taskUpdatePromises);
+
+        if (openTasks.length > 0 && user) {
+            const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
+            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Note', content: taskNote, author: user.name, authorId: user.id, authorRole: user.role, timestamp: new Date().toISOString() }});
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        }
+
+        setResolutionNote('');
+        setResolveDialogOpen(false);
+    };
+    
+    const handleStatusChange = (newStatus: Case['status']) => {
+        if ((newStatus === 'Resolved' || newStatus === 'Completed') && !isAdmin) {
+            handleAttemptResolve();
+        } else {
+            onUpdateCase({ id: caseItem.id, status: newStatus });
+        }
+    };
+
+    const handleAssigneeChange = (newAssignees: string[]) => {
+        onUpdateCase({ id: caseItem.id, assignedTo: newAssignees || [] });
+    };
+
+    const isCaseMember = caseItem.assignments?.some((a: any) => a.userId === user?.id) || isAdmin;
+
+    const fileTypeIcons: { [key: string]: React.ReactNode } = {
+        'pdf': <FileText className="h-6 w-6 text-red-500" />,
+        'doc': <File className="h-6 w-6 text-blue-500" />,
+        'docx': <File className="h-6 w-6 text-blue-500" />,
+        'xls': <FileText className="h-6 w-6 text-green-500" />,
+        'xlsx': <FileText className="h-6 w-6 text-green-500" />,
+        'png': <ImageIcon className="h-6 w-6 text-orange-500" />,
+        'jpg': <ImageIcon className="h-6 w-6 text-orange-500" />,
+        'jpeg': <ImageIcon className="h-6 w-6 text-orange-500" />,
+        'default': <File className="h-6 w-6 text-muted-foreground" />,
+    };
+
+    const getFileIcon = (fileName: string) => {
+        const extension = fileName.split('.').pop()?.toLowerCase();
+        return extension && fileTypeIcons[extension] ? fileTypeIcons[extension] : fileTypeIcons['default'];
+    }
 
   return (
     <>
@@ -577,7 +620,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     {caseItem.status === 'Investigated' && (
                         <div className="flex gap-2">
                              <Button className="w-full" onClick={() => handleStatusChange('Resolved')}><Check className="mr-2 h-4 w-4" /> Approve Resolution</Button>
-                             <Button className="w-full" variant="outline" onClick={() => handleAddCommunication('Note', 'Admin requested more work.')}><ShieldQuestion className="mr-2 h-4 w-4" /> Request More Work</Button>
+                             <Button className="w-full" variant="outline" onClick={() => { if(user) addCommunicationMutation.mutate({ caseId: caseItem.id, comm: {type: 'Note', author: user.name, authorId: user.id, authorRole: user.role, content: 'Admin requested more work.', timestamp: new Date().toISOString() } })}}><ShieldQuestion className="mr-2 h-4 w-4" /> Request More Work</Button>
                         </div>
                     )}
                     {(caseItem.status === 'Resolved' || caseItem.status === 'Completed') && (
@@ -593,15 +636,14 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                 <Tabs defaultValue="communication">
                     <TabsList className="mb-4">
                         <TabsTrigger value="communication">Internal Communications</TabsTrigger>
-                        <TabsTrigger value="tasks">Linked Tasks ({linkedTasks.length})</TabsTrigger>
+                        {isCaseMember && <TabsTrigger value="tasks">Linked Tasks ({linkedTasks.length})</TabsTrigger>}
                         <TabsTrigger value="attachments">Attachments</TabsTrigger>
-                        <TabsTrigger value="customer">Customer Communication</TabsTrigger>
                     </TabsList>
                     <TabsContent value="communication">
                         <div className="space-y-4">
                             <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
-                                {communications.map((comm) => (
-                                  <div key={comm.id} className="flex items-start gap-4">
+                                {caseItem.communications?.map((comm) => (
+                                  <div key={comm.id} className="flex items-start gap-4 group">
                                     <div className="mt-1 shrink-0">
                                       {comm.type === 'Finding' && <FileText className="h-5 w-5 text-muted-foreground" />}
                                       {comm.type === 'Resolution' && <CheckCircle className="h-5 w-5 text-green-500" />}
@@ -610,7 +652,16 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                     </div>
                                     <div className="w-full">
                                       <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{comm.content}</p>
-                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{comm.author} at {comm.timestamp}</p>
+                                      <div className="flex items-center justify-between">
+                                        <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{comm.author} at {formatDistanceToNow(new Date(comm.timestamp), { addSuffix: true })}</p>
+                                        {(comm.authorId === user?.id) && (
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDeleteNote(comm.id)}>
+                                                    <Trash2 className="h-4 w-4 text-destructive"/>
+                                                </Button>
+                                            </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -619,18 +670,9 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                 <MessageSquare className="h-5 w-5 text-muted-foreground mt-1" />
                                 <div className="w-full">
                                     <Textarea placeholder="Add an internal note..." value={note} onChange={(e) => setNote(e.target.value)} />
-                                    <Button className="mt-2" onClick={() => handleAddCommunication('Note', note)}>Add Note</Button>
+                                    <Button className="mt-2" onClick={handleAddNote} disabled={!note.trim()}>Add Note</Button>
                                 </div>
                             </div>
-                            {user?.role === 'staff' && (
-                            <div className="flex items-start gap-4 pt-4 border-t">
-                                <FileText className="h-5 w-5 text-muted-foreground mt-1" />
-                                <div className="w-full">
-                                    <Textarea placeholder="Add a key finding..." value={finding} onChange={(e) => setFinding(e.target.value)} />
-                                    <Button className="mt-2" onClick={() => handleAddCommunication('Finding', finding)}>Add Finding</Button>
-                                </div>
-                            </div>
-                            )}
                         </div>
                     </TabsContent>
                     <TabsContent value="tasks">
@@ -656,44 +698,36 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                         <div className="space-y-4">
                              <div className="p-6 border-2 border-dashed rounded-lg text-center">
                                 <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-                                <Label htmlFor="file-upload" className="relative cursor-pointer rounded-md font-medium text-primary hover:text-primary/80">
-                                    <span>Upload a file</span>
-                                    <input id="file-upload" name="file-upload" type="file" className="sr-only" multiple onChange={handleFileChange} />
-                                </Label>
+                                <Button variant="link" onClick={() => fileInputRef.current?.click()}>
+                                    Upload a file
+                                </Button>
+                                <input ref={fileInputRef} type="file" className="sr-only" multiple onChange={handleFileChange} />
                                 <p className="text-xs text-muted-foreground">or drag and drop</p>
                             </div>
                              {attachments.length > 0 && (
                                 <div>
-                                    <h4 className="font-semibold text-sm mb-2">Selected files:</h4>
-                                    <ul className="list-disc list-inside space-y-1">
-                                        {attachments.map((file, i) => (
-                                            <li key={i} className="text-sm text-muted-foreground">{file.name} ({ (file.size / 1024).toFixed(2) } KB)</li>
+                                    <h4 className="font-semibold text-sm mb-2">Attachments:</h4>
+                                    <div className="space-y-2">
+                                        {attachments.map((file) => (
+                                            <div key={file.id} className="flex items-center justify-between p-2 border rounded-md group">
+                                                <div className="flex items-center gap-3">
+                                                    {getFileIcon(file.name)}
+                                                    <div>
+                                                        <p className="font-medium text-sm">{file.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{file.size} - Uploaded by {file.uploadedBy} {formatDistanceToNow(new Date(file.uploadedAt), {addSuffix: true})}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7"><Download className="h-4 w-4"/></Button>
+                                                    {(isAdmin || file.authorId === user?.id) && 
+                                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteAttachment(file.id)}><Trash2 className="h-4 w-4"/></Button>
+                                                    }
+                                                </div>
+                                            </div>
                                         ))}
                                     </ul>
                                 </div>
                             )}
-                        </div>
-                    </TabsContent>
-                    <TabsContent value="customer">
-                         <div className="space-y-4">
-                            <div className="max-h-96 overflow-y-auto space-y-4 pr-4">
-                                {communications.filter(c => c.type === 'Email').map((n, i) => (
-                                  <div key={i} className="flex items-start gap-4">
-                                    <Send className="h-5 w-5 text-muted-foreground mt-1 shrink-0" />
-                                    <div className="w-full">
-                                      <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{n.content}</p>
-                                      <p className="text-xs text-muted-foreground/70 pl-4 pt-1">{n.author} at {n.timestamp}</p>
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                            <div className="flex items-start gap-4 pt-4 border-t">
-                                <Send className="h-5 w-5 text-muted-foreground mt-1" />
-                                <div className="w-full">
-                                    <Textarea placeholder={`Reply to ${caseItem.customer}...`} value={replyMessage} onChange={(e) => setReplyMessage(e.target.value)} disabled={user?.role !== 'staff'} />
-                                    <Button className="mt-2" onClick={handleSendReply} disabled={user?.role !== 'staff'}>Send Email</Button>
-                                </div>
-                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>
@@ -717,7 +751,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                         </>
                     )}
                      <SheetClose asChild>
-                        <Button variant="ghost"><X className="h-4 w-4 mr-2" /> Close</Button>
+                        <Button variant="ghost"><X className="mr-2 h-4 w-4" /> Close</Button>
                     </SheetClose>
                 </div>
             </div>
@@ -834,7 +868,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   };
 
   const getAssigneeLabel = () => {
-      if (assignedTo.length === 0) return "Select assignees...";
+      if (!assignedTo || assignedTo.length === 0) return "Select assignees...";
       if (assignedTo.length > 2) return `${assignedTo.length} assignees selected`;
       const labels = assignedTo.map(id => {
           const user = users.find(u => `user-${u.id}` === id);
@@ -973,3 +1007,4 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
     
 
     
+

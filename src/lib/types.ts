@@ -44,6 +44,7 @@ export type Communication = {
   type: 'Finding' | 'Note' | 'Email' | 'Resolution';
   content: string;
   author: string;
+  authorId: string;
   authorRole: 'admin' | 'staff';
   timestamp: string;
 };
@@ -103,6 +104,7 @@ export type Document = {
   size: string;
   uploadedAt: string;
   uploadedBy: string;
+  authorId: string;
   category: 'Case File' | 'Contract' | 'Report' | 'Meeting Notes' | 'Other';
   description?: string;
   accountId?: string;
