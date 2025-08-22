@@ -18,6 +18,7 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
     const newCase = await prisma.case.create({
         data: {
             ...data,
+            assignedTo: data.assignedTo || [],
             createdAt: new Date().toISOString(),
         }
     });

@@ -148,7 +148,7 @@ export default function CasesPage() {
     const userCases = useMemo(() => {
         if (!cases) return [];
         const sortedCases = [...cases].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-        return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => c.assignedTo.includes(`user-${user?.id}`));
+        return user?.role === 'admin' ? sortedCases : sortedCases.filter(c => Array.isArray(c.assignedTo) && c.assignedTo.includes(`user-${user?.id}`));
     }, [cases, user]);
 
     const filteredCases = useMemo(() => {
@@ -160,7 +160,7 @@ export default function CasesPage() {
                 c.status === statusFilter;
             const matchesPriority = priorityFilter === 'all' || c.priority === priorityFilter;
             const matchesType = typeFilter === 'all' || c.type === typeFilter;
-            const matchesAssignedTo = assignedToFilter === 'all' || c.assignedTo.includes(assignedToFilter);
+            const matchesAssignedTo = assignedToFilter === 'all' || (Array.isArray(c.assignedTo) && c.assignedTo.includes(assignedToFilter));
             const matchesSearch = c.subject.toLowerCase().includes(searchQuery.toLowerCase()) || c.customer.toLowerCase().includes(searchQuery.toLowerCase());
             const matchesDate = !dateRange?.from || (isWithinInterval(new Date(c.createdAt), { start: dateRange.from, end: dateRange.to || new Date() }));
             return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
@@ -176,17 +176,23 @@ export default function CasesPage() {
   
     const totalPages = Math.ceil((filteredCases?.length || 0) / ITEMS_PER_PAGE);
 
-    const getAssigneeNames = (assigneeIds: string[]) => {
-        if (!users || !teams || !Array.isArray(assigneeIds)) return 'Unassigned';
-        if (assigneeIds.length === 0) return 'Unassigned';
+    const getAssigneeNames = (assigneeIds: string[] | string) => {
+        if (!users || !teams || !assigneeIds) return 'Unassigned';
+        
+        const ids = Array.isArray(assigneeIds) ? assigneeIds : [assigneeIds];
+        if (ids.length === 0) return 'Unassigned';
 
-        return assigneeIds.map(id => {
+        return ids.map(id => {
             if (id.startsWith('user-')) {
                 return users.find(u => u.id === id.replace('user-', ''))?.name;
             }
             if (id.startsWith('team-')) {
                 return teams.find(t => t.id === id.replace('team-', ''))?.name;
             }
+            // Fallback for old string data
+            const userByName = users.find(u => u.name === id);
+            if (userByName) return userByName.name;
+
             return id;
         }).filter(Boolean).join(', ');
     };
@@ -760,7 +766,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
         priority, 
         type, 
         status, 
-        assignedTo,
+        assignedTo: assignedTo || [],
         description: description,
     };
     
@@ -839,12 +845,18 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
            <div className="grid grid-cols-4 items-start gap-4">
             <Label htmlFor="assignTo" className="text-right pt-2">Assign To</Label>
              <div className="col-span-3">
-                <div className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input px-3 py-2 text-sm min-h-10">
+                <div 
+                    className="flex flex-wrap items-center gap-2 w-full rounded-md border border-input px-3 py-2 text-sm min-h-10 cursor-pointer"
+                    onClick={() => setAssigneeDialogOpen(true)}
+                >
                     {assignedTo.length > 0 ? (
                         assignedTo.map(id => (
                             <Badge key={id} variant="secondary">
                                 {getAssigneeLabel(id)}
-                                <button type="button" className="ml-1 rounded-full outline-none" onClick={() => setAssignedTo(current => current.filter(item => item !== id))}>
+                                <button type="button" className="ml-1 rounded-full outline-none" onClick={(e) => {
+                                    e.stopPropagation();
+                                    setAssignedTo(current => current.filter(item => item !== id));
+                                }}>
                                     <X className="h-3 w-3" />
                                 </button>
                             </Badge>
@@ -852,7 +864,6 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
                     ) : (
                         <span className="text-muted-foreground">Select assignees...</span>
                     )}
-                     <Button type="button" variant="outline" size="sm" className="ml-auto" onClick={() => setAssigneeDialogOpen(true)}>Manage</Button>
                 </div>
              </div>
           </div>
