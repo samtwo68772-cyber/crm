@@ -68,7 +68,7 @@ const staffStatusOptions: Case['status'][] = ['New', 'In Progress', 'Investigate
 
 export default function CasesPage() {
     const queryClient = useQueryClient();
-    const { data: casesData, isLoading: casesLoading } = useQuery<any[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: cases, isLoading: casesLoading } = useQuery<any[]>({ queryKey: ['cases'], queryFn: getCases });
     const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
     const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
     const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
@@ -92,18 +92,6 @@ export default function CasesPage() {
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 10;
     
-    const cases = useMemo(() => casesData?.map(c => ({
-        ...c,
-        assignedTo: c.assignments.map((a: any) => {
-            const team = teams?.find(t => t.memberIds.includes(a.userId));
-            // This is imperfect, as a user could be on multiple teams.
-            // A better solution would involve checking assignments against teams directly.
-            // For now, we simplify. If a team is assigned, all its members are considered assigned.
-            const teamAssignment = teams?.find(t => t.memberIds.includes(a.userId));
-            return teamAssignment ? `team-${teamAssignment.id}` : `user-${a.userId}`;
-        })
-    })) || [], [casesData, teams]);
-
     useEffect(() => {
         const status = searchParams.get('status');
         if (status === 'active') {
@@ -137,7 +125,7 @@ export default function CasesPage() {
             
             if (selectedCase && selectedCase.id === newCaseData.id) {
                  const newAssignments = newCaseData.data.assignedTo ? 
-                    newCaseData.data.assignedTo.map(id => ({ userId: id.replace(/user-|team-/g,'') }))
+                    newCaseData.data.assignedTo.map(id => ({ userId: id.replace(/user-|team-/g,''), user: users?.find(u => u.id === id.replace('user-', '')) }))
                     : selectedCase.assignments;
                 
                 setSelectedCase((prev: any) => ({
@@ -195,23 +183,30 @@ export default function CasesPage() {
     };
   
      const userCases = useMemo(() => {
-        if (!casesData || !user || !teams) return [];
+        if (!cases || !user || !teams) return [];
         if (user.role === 'admin') {
-            return casesData.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         }
 
-        const userTeams = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.id);
+        const userTeamIds = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.id);
 
-        return casesData.filter(c => {
+        return cases.filter(c => {
+            // Is user directly assigned?
             const isDirectlyAssigned = c.assignments.some((a: any) => a.userId === user.id);
             if (isDirectlyAssigned) return true;
             
-            const isTeamAssigned = c.assignments.some((a: any) => {
-                 return userTeams.some(teamId => teams.find(t => t.id === teamId)?.memberIds.includes(a.userId));
-            });
-            return isTeamAssigned;
+            // Is one of the user's teams assigned?
+            const assignedUserIds = c.assignments.map((a: any) => a.userId);
+            const isTeamAssigned = teams.some(team => 
+                userTeamIds.includes(team.id) && team.memberIds.some(memberId => assignedUserIds.includes(memberId))
+            );
+            if (isTeamAssigned) return true;
+
+            // TODO: Implement "shared with" logic when that feature exists
+            
+            return false;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [casesData, user, teams]);
+    }, [cases, user, teams]);
 
     const filteredCases = useMemo(() => {
         if (!userCases || !users || !teams) return [];
@@ -473,8 +468,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
     const handleAddNote = async () => {
         if (note.trim() && user) {
-            const newComm: Omit<Communication, 'id'> = { type: 'Note', content: note, author: user.name, authorId: user.id, authorRole: user.role, timestamp: new Date().toISOString() };
-            addCommunicationMutation.mutate({ caseId: caseItem.id, comm: newComm });
+            const newComm: Omit<Communication, 'id' | 'authorId'> = { type: 'Note', content: note, author: user.name, authorRole: user.role, timestamp: new Date().toISOString() };
+            addCommunicationMutation.mutate({ caseId: caseItem.id, comm: newComm as any });
             setNote('');
         }
     };
@@ -530,7 +525,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
         const resolutionContent = `Case resolved with note: "${resolutionNote}"`;
 
         if (user) {
-            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Resolution', content: resolutionContent, author: user.name, authorId: user.id, authorRole: user.role, timestamp: resolutionTimestamp.toISOString() } });
+            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Resolution', content: resolutionContent, author: user.name, authorId: user.id, authorRole: user.role, timestamp: resolutionTimestamp.toISOString() } as any });
         }
         
         await onUpdateCase({ 
@@ -547,7 +542,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
         if (openTasks.length > 0 && user) {
             const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
-            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Note', content: taskNote, author: user.name, authorId: user.id, authorRole: user.role, timestamp: new Date().toISOString() }});
+            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Note', content: taskNote, author: user.name, authorId: user.id, authorRole: user.role, timestamp: new Date().toISOString() } as any});
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }
 
@@ -588,7 +583,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
   return (
     <>
-      <div className="flex flex-col h-full max-h-[100vh]">
+    <div className="flex flex-col h-full max-h-[100vh]">
         <SheetHeader className="p-4 md:p-6 border-b flex-shrink-0">
             <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -649,7 +644,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     {caseItem.status === 'Investigated' && (
                         <div className="flex gap-2">
                              <Button className="w-full" onClick={() => handleStatusChange('Resolved')}><Check className="mr-2 h-4 w-4" /> Approve Resolution</Button>
-                             <Button className="w-full" variant="outline" onClick={() => { if(user) addCommunicationMutation.mutate({ caseId: caseItem.id, comm: {type: 'Note', author: user.name, authorId: user.id, authorRole: user.role, content: 'Admin requested more work.', timestamp: new Date().toISOString() } })}}><ShieldQuestion className="mr-2 h-4 w-4" /> Request More Work</Button>
+                             <Button className="w-full" variant="outline" onClick={() => { if(user) addCommunicationMutation.mutate({ caseId: caseItem.id, comm: {type: 'Note', author: user.name, authorId: user.id, authorRole: user.role, content: 'Admin requested more work.', timestamp: new Date().toISOString() } as any })}}><ShieldQuestion className="mr-2 h-4 w-4" /> Request More Work</Button>
                         </div>
                     )}
                     {(caseItem.status === 'Resolved' || caseItem.status === 'Completed') && (
@@ -833,7 +828,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-    </>
+      </>
   );
 }
 

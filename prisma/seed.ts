@@ -98,13 +98,22 @@ async function main() {
     // Now create assignments
     if (assignedTo && assignedTo.length > 0) {
       for (const userId of assignedTo) {
-        await prisma.caseAssignment.create({
-          data: {
-            caseId: newCase.id,
-            userId: userId,
-            assignedByUserId: 'user-1' // default to admin
-          }
-        })
+        // Ensure assignment does not already exist to avoid errors on re-seeding
+        const existingAssignment = await prisma.caseAssignment.findFirst({
+            where: {
+                caseId: newCase.id,
+                userId: userId,
+            }
+        });
+        if (!existingAssignment) {
+             await prisma.caseAssignment.create({
+                data: {
+                    caseId: newCase.id,
+                    userId: userId,
+                    assignedByUserId: 'user-1' // default to admin
+                }
+            })
+        }
       }
     }
   }
@@ -131,12 +140,20 @@ async function main() {
     // Create meeting participants
     if (participants && participants.length > 0) {
       for (const userId of participants) {
-        await prisma.meetingParticipant.create({
-          data: {
-            meetingId: newMeeting.id,
-            userId: userId
-          }
-        })
+        const existingParticipant = await prisma.meetingParticipant.findFirst({
+            where: {
+                meetingId: newMeeting.id,
+                userId: userId,
+            }
+        });
+        if (!existingParticipant) {
+            await prisma.meetingParticipant.create({
+                data: {
+                    meetingId: newMeeting.id,
+                    userId: userId
+                }
+            });
+        }
       }
     }
   }
