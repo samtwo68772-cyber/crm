@@ -61,7 +61,7 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
             assignments: {
                 create: userIdsToAssign.map(id => ({
                     user: { connect: { id } },
-                    assignedBy: session.userId,
+                    assignedByUserId: session.userId,
                 }))
             }
         },
@@ -120,7 +120,7 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
                 deleteMany: {}, // Clear existing assignments
                 create: userIdsToAssign.map(uid => ({ // Create new ones
                     user: { connect: { id: uid } },
-                    assignedBy: session.userId,
+                    assignedByUserId: session.userId,
                 }))
             } : undefined,
         },
@@ -164,11 +164,17 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
 }
 
 export async function addCommunicationToCase(caseId: string, comm: Omit<Communication, 'id'>) {
+    const session = await getSession();
+    if (!session?.userId) throw new Error("Authentication required");
+
+    const user = await prisma.user.findUnique({ where: { id: session.userId }});
+    if (!user) throw new Error("User not found");
+
     const updatedCase = await prisma.case.update({
         where: { id: caseId },
         data: {
             communications: {
-                push: { ...comm, id: `comm-${Date.now()}` }
+                push: { ...comm, id: `comm-${Date.now()}`, authorId: user.id, author: user.name, authorRole: user.role }
             }
         },
          include: {
