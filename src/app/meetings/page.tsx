@@ -213,8 +213,8 @@ export default function MeetingsPage() {
           setCreateDialogOpen(false);
           toast({ title: 'Meeting Scheduled', description: `Meeting "${newMeeting.title}" has been scheduled.` });
       },
-      onError: () => {
-          toast({ variant: "destructive", title: "Error", description: "Failed to create meeting." });
+      onError: (error) => {
+          toast({ variant: "destructive", title: "Error creating meeting", description: (error as Error).message });
       }
   });
 
@@ -293,7 +293,7 @@ export default function MeetingsPage() {
                                 className="w-full meeting-calendar-wrapper"
                                 components={{
                                     DayContent: ({ date, ...props }) => {
-                                        const dayMeetings = userMeetings.filter(m => isSameDay(m.date, date));
+                                        const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
                                         return (
                                             <div className="h-full w-full">
                                                 <div className="w-full text-right p-1 text-sm">{format(date, 'd')}</div>
@@ -422,7 +422,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
       id: editedMeeting.id,
       title: editedMeeting.title,
       description: editedMeeting.description,
-      date: editedMeeting.date,
+      date: new Date(editedMeeting.date),
       status: editedMeeting.status,
       linkedRecord: editedMeeting.linkedRecord,
       participantIds: editedMeeting.participantIds
@@ -528,7 +528,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     const dataToCreate = { 
         title, 
         description, 
-        date, 
+        date: new Date(date), 
         participantIds, 
         linkedRecord, 
         contactId: linkedCase?.contactId,

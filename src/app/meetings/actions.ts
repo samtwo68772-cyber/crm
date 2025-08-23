@@ -22,38 +22,49 @@ export async function getMeetings() {
 }
 
 export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> & { participantIds: string[]}) {
-  const { participantIds, contactId, ...meetingData } = data;
-  
-  const newMeeting = await prisma.meeting.create({
-    data: {
-      ...meetingData,
-      contactId: contactId,
-      participants: {
-        create: participantIds.map(userId => ({
-          user: { connect: { id: userId } }
-        }))
-      }
-    },
-     include: {
+  console.log('Received payload to create meeting:', JSON.stringify(data, null, 2));
+  try {
+    const { participantIds, contactId, ...meetingData } = data;
+    
+    const newMeeting = await prisma.meeting.create({
+      data: {
+        ...meetingData,
+        date: new Date(meetingData.date), // Ensure date is a Date object
+        contactId: contactId,
         participants: {
-            include: {
-                user: true
-            }
+          create: participantIds.map(userId => ({
+            user: { connect: { id: userId } }
+          }))
         }
+      },
+      include: {
+          participants: {
+              include: {
+                  user: true
+              }
+          }
+      }
+    });
+
+    for (const userId of participantIds) {
+        await createNotification({
+            userId,
+            title: 'New Meeting Scheduled',
+            description: `You have been invited to "${newMeeting.title}".`,
+            link: `/meetings?id=${newMeeting.id}`,
+            type: 'meeting'
+        })
     }
-  });
+    
+    revalidatePath('/meetings');
+    return newMeeting;
 
-  for (const userId of participantIds) {
-      await createNotification({
-          userId,
-          title: 'New Meeting Scheduled',
-          description: `You have been invited to "${newMeeting.title}".`,
-          link: `/meetings?id=${newMeeting.id}`,
-          type: 'meeting'
-      })
+  } catch (err) {
+      console.error("Error creating meeting:", err);
+      // Re-throwing the error is important so the client knows something went wrong.
+      // In a real production app, you might want to throw a more user-friendly error.
+      throw new Error('Failed to create meeting due to a server error.');
   }
-
-  return newMeeting;
 }
 
 export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id' | 'participants'>> & { participantIds?: string[] }) {
@@ -79,6 +90,7 @@ export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id'
         }
   });
 
+  revalidatePath('/meetings');
   return updatedMeeting;
 }
 
@@ -90,5 +102,7 @@ export async function deleteMeeting(id: string) {
   const deleted = await prisma.meeting.delete({
     where: { id },
   });
+
+  revalidatePath('/meetings');
   return deleted;
 }
