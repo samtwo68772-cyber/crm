@@ -24,7 +24,8 @@ export async function createAccount(data: { name: string; industry: string; addr
   const newAccount = await prisma.account.create({
     data: {
         ...data,
-        owner: "Admin" // Placeholder for owner
+        owner: "Admin", // Placeholder for owner
+        createdAt: new Date().toISOString(),
     },
   });
   // revalidatePath('/accounts');

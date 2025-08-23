@@ -1,6 +1,9 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,23 +11,85 @@ generator client {
 datasource db {
   provider = "postgresql"
   url = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
+
 
 model User {
   id                      String                    @id @default(cuid())
   name                    String
   email                   String                    @unique
   passwordHash            String
-  role                    String // "admin" or "staff"
+  role                    String
   status                  String
   team                    String
   avatar                  String
   notificationPreferences NotificationPreferences?
-  caseAssignments         CaseAssignment[]
-  meetingParticipants     MeetingParticipant[]
-  documents               Document[]
-  auditLogs               AuditLog[]
+  assignments             CaseAssignment[]
+  meetings                MeetingParticipant[]
+  createdCases            Case[]                    @relation("CreatedBy")
+}
+
+model Case {
+  id                 String           @id @default(cuid())
+  subject            String
+  customer           String
+  email              String
+  priority           String
+  type               String
+  status             String           @default("New")
+  createdAt          DateTime         @default(now())
+  resolvedAt         DateTime?
+  description        String
+  communications     Json[]
+  satisfactionRating Int?
+  assignments        CaseAssignment[]
+  tasks              Task[]
+  documents          Document[]
+  contactId          String?
+  contact            Contact?         @relation(fields: [contactId], references: [id])
+  createdBy          User?            @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById        String?
+}
+
+model CaseAssignment {
+  id               String   @id @default(cuid())
+  case             Case     @relation(fields: [caseId], references: [id])
+  caseId           String
+  user             User     @relation(fields: [userId], references: [id])
+  userId           String
+  assignedAt       DateTime @default(now())
+  assignedByUserId String?
+
+  @@unique([caseId, userId])
+}
+
+model Task {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  status      String
+  dueDate     DateTime
+  priority    String
+  linkedCase  String?
+  assignedTo  String?
+  contactId   String?
+  case        Case?    @relation(fields: [linkedCase], references: [id])
+  contact     Contact? @relation(fields: [contactId], references: [id])
+}
+
+model Contact {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  phone     String?
+  company   String
+  role      String?
+  notes     String?
+  avatar    String
+  accountId String?
+  account   Account? @relation(fields: [accountId], references: [id])
+  cases     Case[]
+  tasks     Task[]
 }
 
 model Team {
@@ -33,12 +98,12 @@ model Team {
   description String
   leaderId    String
   memberIds   String[]
-  status      String // "Active" or "Archived"
+  status      String
 }
 
 model Account {
   id               String    @id @default(cuid())
-  name             String    @unique
+  name             String
   industry         String
   owner            String
   createdAt        DateTime  @default(now())
@@ -51,116 +116,61 @@ model Account {
   documents        Document[]
 }
 
-model Contact {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  phone     String
-  company   String
-  role      String
-  notes     String?
-  avatar    String
-  accountId String?
-  account   Account? @relation(fields: [accountId], references: [id])
-  cases     Case[]
-  meetings  Meeting[]
-}
-
-model Case {
-  id                 String           @id
-  subject            String
-  customer           String
-  email              String
-  priority           String
-  type               String
-  status             String
-  createdAt          String
-  resolvedAt         String?
-  description        String
-  communications     Json[]
-  contactId          String?
-  contact            Contact?         @relation(fields: [contactId], references: [id])
-  satisfactionRating Int?
-  assignments        CaseAssignment[]
-  tasks              Task[]
-  documents          Document[]
-}
-
-model CaseAssignment {
-  id             String @id @default(cuid())
-  caseId         String
-  case           Case   @relation(fields: [caseId], references: [id])
-  userId         String
-  user           User   @relation(fields: [userId], references: [id])
-  assignedByUserId String
-  assignedAt     DateTime @default(now())
-
-  @@unique([caseId, userId])
-}
-
-model Task {
-  id          String  @id @default(cuid())
-  title       String
-  description String?
-  status      String
-  dueDate     String
-  priority    String
-  linkedCase  String?
-  assignedTo  String?
-  case        Case?   @relation(fields: [linkedCase], references: [id])
-  contactId   String?
-  contact     Contact? @relation(fields: [contactId], references: [id])
-}
-
-model Meeting {
-  id           String               @id @default(cuid())
-  title        String
-  description  String
-  date         String
-  status       String
-  linkedRecord String?
-  contactId    String?
-  contact      Contact?             @relation(fields: [contactId], references: [id])
-  participants MeetingParticipant[]
-}
-
-model MeetingParticipant {
-  id        String   @id @default(cuid())
-  meetingId String
-  meeting   Meeting  @relation(fields: [meetingId], references: [id])
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  joinedAt  DateTime @default(now())
-
-  @@unique([meetingId, userId])
-}
-
 model Document {
   id          String   @id @default(cuid())
   name        String
   type        String
   size        String
-  uploadedAt  String
+  uploadedAt  DateTime @default(now())
   uploadedBy  String
   category    String
   description String?
   previewUrl  String?
-  caseId      String?
-  case        Case?    @relation(fields: [caseId], references: [id])
   accountId   String?
   account     Account? @relation(fields: [accountId], references: [id])
-  authorId    String   @default("user-1") // Default to admin user
-  author      User     @relation(fields: [authorId], references: [id])
+  caseId      String?
+  case        Case?    @relation(fields: [caseId], references: [id])
+  authorId    String   @default("user-1")
+}
+
+model Meeting {
+  id           String               @id @default(cuid())
+  title        String
+  description  String?
+  date         DateTime
+  status       String
+  linkedRecord String?
+  contactId    String?
+  participants MeetingParticipant[]
+}
+
+model MeetingParticipant {
+  id        String   @id @default(cuid())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  meetingId String
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  joinedAt  DateTime @default(now())
+
+  @@unique([meetingId, userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String
+  timestamp DateTime @default(now())
 }
 
 model Email {
-  id           String  @id @default(cuid())
+  id           String    @id @default(cuid())
   from         Json
   to           Json
   subject      String
   body         String
-  date         String
-  type         String // "inbox" or "sent"
+  date         DateTime
+  type         String
   read         Boolean
   linkedCaseId String?
   attachments  Json[]
@@ -172,15 +182,6 @@ model Workflow {
   trigger   String
   condition String
   action    String
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  action    String
-  details   String
-  timestamp String
 }
 
 model GeneralSettings {
@@ -204,7 +205,7 @@ model EmailSettings {
   imapUser       String
   imapPass       String
   imapEncryption String
-  configured     Boolean
+  configured     Boolean @default(false)
 }
 
 model NotificationPreferences {
@@ -217,8 +218,19 @@ model NotificationPreferences {
 }
 
 model GlobalNotificationPreferences {
-    id       String @id @default(cuid())
-    cases    Json
-    tasks    Json
-    meetings Json
+  id       String @id @default(cuid())
+  cases    Json
+  tasks    Json
+  meetings Json
+}
+
+model Notification {
+  id          String   @id @default(cuid())
+  type        String
+  title       String
+  description String
+  timestamp   DateTime @default(now())
+  read        Boolean
+  userId      String?
+  link        String
 }
