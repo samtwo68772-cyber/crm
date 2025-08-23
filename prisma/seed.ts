@@ -177,18 +177,15 @@ async function main() {
   
   // Seed Documents
   for (const doc of documents) {
-      const { authorId, ...docData } = doc as any; // authorId is handled by relation
       await prisma.document.upsert({
           where: {id: doc.id},
           update: {
-              ...docData,
+              ...doc,
               uploadedAt: new Date(doc.uploadedAt),
-              author: { connect: { id: 'user-1' } }
           },
           create: {
-              ...docData,
+              ...doc,
               uploadedAt: new Date(doc.uploadedAt),
-              author: { connect: { id: 'user-1' } }
           },
       })
   }

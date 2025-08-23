@@ -18,13 +18,13 @@ export const accounts: Account[] = [
     { id: 'acc-5', name: 'Globex Corporation', industry: 'Energy', owner: 'Maria Garcia', createdAt: '2023-05-22', address: '1 Globex Plaza, Cypress Creek, USA', phone: '800-GLOBEX-1', email: 'ceo@globex.com', website: 'https://globex.com' },
 ];
 
-export const contacts: Contact[] = [
-    { id: 'contact-1', name: 'John Doe', email: 'john.d@customer.com', phone: '123-456-7890', company: 'Acme Inc.', accountId: 'acc-1', role: 'IT Manager', avatar: '/avatars/05.png', notes: 'Primary technical contact. Prefers email communication.', tasks: [] },
-    { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', accountId: 'acc-2', role: 'Procurement Officer', avatar: '/avatars/06.png', notes: 'Handles all billing and contract renewals.', tasks: [] },
-    { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', accountId: 'acc-3', role: 'Lead Developer', avatar: '/avatars/07.png', tasks: [] },
-    { id: 'contact-4', name: 'Susan Miller', email: 'susan.m@customer.com', phone: '456-789-0123', company: 'Acme Inc.', accountId: 'acc-1', role: 'Project Manager', avatar: '/avatars/08.png', tasks: [] },
-    { id: 'contact-5', name: 'Miles Dyson', email: 'miles.d@cyberdyne.com', phone: '567-890-1234', company: 'Cyberdyne Systems', accountId: 'acc-4', role: 'Head of Research', avatar: '/avatars/09.png', tasks: [] },
-    { id: 'contact-6', name: 'Hank Scorpio', email: 'h.scorpio@globex.com', phone: '678-901-2345', company: 'Globex Corporation', accountId: 'acc-5', role: 'CEO', avatar: '/avatars/10.png', tasks: [] },
+export const contacts: Omit<Contact, 'tasks'>[] = [
+    { id: 'contact-1', name: 'John Doe', email: 'john.d@customer.com', phone: '123-456-7890', company: 'Acme Inc.', accountId: 'acc-1', role: 'IT Manager', avatar: '/avatars/05.png', notes: 'Primary technical contact. Prefers email communication.' },
+    { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', accountId: 'acc-2', role: 'Procurement Officer', avatar: '/avatars/06.png', notes: 'Handles all billing and contract renewals.' },
+    { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', accountId: 'acc-3', role: 'Lead Developer', avatar: '/avatars/07.png' },
+    { id: 'contact-4', name: 'Susan Miller', email: 'susan.m@customer.com', phone: '456-789-0123', company: 'Acme Inc.', accountId: 'acc-1', role: 'Project Manager', avatar: '/avatars/08.png' },
+    { id: 'contact-5', name: 'Miles Dyson', email: 'miles.d@cyberdyne.com', phone: '567-890-1234', company: 'Cyberdyne Systems', accountId: 'acc-4', role: 'Head of Research', avatar: '/avatars/09.png' },
+    { id: 'contact-6', name: 'Hank Scorpio', email: 'h.scorpio@globex.com', phone: '678-901-2345', company: 'Globex Corporation', accountId: 'acc-5', role: 'CEO', avatar: '/avatars/10.png' },
 ];
 
 
@@ -150,15 +150,16 @@ export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: st
 ];
 
 export const tasks: Task[] = [
-  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: '2024-05-22', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2', contactId: 'contact-1' },
-  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: '2024-05-21', priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3', contactId: 'contact-4' },
-  { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: '2024-05-30', priority: 'Medium', assignedTo: 'user-1' },
-  { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: '2024-06-05', priority: 'Low', assignedTo: 'user-1' },
-  { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: '2024-05-15', priority: 'Medium', assignedTo: 'user-1' },
-  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: '2024-05-23', priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3', contactId: 'contact-2' },
-  { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: '2024-05-24', priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
-  { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: '2024-05-18', priority: 'High', assignedTo: 'user-1' }
+  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: new Date(new Date().setDate(new Date().getDate() + 1)), priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2', contactId: 'contact-1' },
+  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: new Date(), priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3', contactId: 'contact-4' },
+  { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), priority: 'Medium', assignedTo: 'user-1' },
+  { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 14)), priority: 'Low', assignedTo: 'user-1' },
+  { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: new Date(new Date().setDate(new Date().getDate() - 7)), priority: 'Medium', assignedTo: 'user-1' },
+  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 2)), priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3', contactId: 'contact-2' },
+  { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 3)), priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
+  { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: new Date(new Date().setDate(new Date().getDate() - 4)), priority: 'High', assignedTo: 'user-1' }
 ];
+
 
 export const teams: Team[] = [
     { id: 'team-1', name: 'Support Tier 1', description: 'Handles frontline customer support and basic inquiries.', leaderId: 'user-2', memberIds: ['user-2', 'user-4'], status: 'Active' },
@@ -167,12 +168,12 @@ export const teams: Team[] = [
     { id: 'team-4', name: 'Sales (Archived)', description: 'Old sales team.', leaderId: 'user-1', memberIds: [], status: 'Archived' },
 ];
 
-export const documents: Omit<Document, 'authorId'>[] = [
-  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101' },
-  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2' },
-  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104' },
-  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2' }
+export const documents: Document[] = [
+  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: new Date('2024-05-18'), uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101', authorId: 'user-1' },
+  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: new Date('2024-05-19'), uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2', authorId: 'user-2' },
+  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: new Date('2024-05-20'), uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104', authorId: 'user-3' },
+  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: new Date('2024-05-20'), uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png', authorId: 'user-2' },
+  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: new Date('2023-02-20'), uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2', authorId: 'user-1' }
 ];
 
 export const meetings: Meeting[] = [
@@ -180,7 +181,7 @@ export const meetings: Meeting[] = [
     id: 'meet-1', 
     title: 'Q2 Review with Acme Inc.', 
     description: 'Quarterly business review and planning for next quarter.',
-    date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(), 
+    date: new Date(new Date().setDate(new Date().getDate() + 5)), 
     status: 'Upcoming', 
     participants: [],
     linkedRecord: 'case-101',
@@ -190,7 +191,7 @@ export const meetings: Meeting[] = [
     id: 'meet-2', 
     title: 'Internal Project Kickoff', 
     description: 'Kickoff meeting for the new mobile app redesign project.',
-    date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), 
+    date: new Date(new Date().setDate(new Date().getDate() - 2)), 
     status: 'Completed', 
     participants: [],
   },
@@ -198,7 +199,7 @@ export const meetings: Meeting[] = [
     id: 'meet-3', 
     title: 'Support Team Sync', 
     description: 'Weekly sync to discuss high-priority cases.',
-    date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), 
+    date: new Date(new Date().setDate(new Date().getDate() - 7)), 
     status: 'Completed', 
     participants: [],
   },
@@ -206,7 +207,7 @@ export const meetings: Meeting[] = [
     id: 'meet-4', 
     title: 'Client Demo', 
     description: 'Demo of the new features for Stark Industries.',
-    date: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString(), 
+    date: new Date(new Date().setDate(new Date().getDate() + 10)), 
     status: 'Upcoming', 
     participants: [],
     linkedRecord: 'case-102',
@@ -216,7 +217,7 @@ export const meetings: Meeting[] = [
     id: 'meet-5', 
     title: 'On-site Maintenance', 
     description: 'Scheduled maintenance at the client\'s office.',
-    date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), 
+    date: new Date(new Date().setDate(new Date().getDate() + 1)), 
     status: 'Canceled', 
     participants: [],
   },
@@ -281,12 +282,12 @@ export const adminStats: { title: string; value: string; change: string; icon: R
 ];
 
 export const auditLogs: AuditLog[] = [
-  { id: 'log-1', userId: 'user-1', action: 'User Login', details: 'Alex Johnson logged in.', timestamp: '2024-05-23T10:00:00Z' },
-  { id: 'log-2', userId: 'user-1', action: 'Update Settings', details: 'Updated General Settings: System Name to "MinT CRM Pro"', timestamp: '2024-05-23T10:05:00Z' },
-  { id: 'log-3', userId: 'user-2', action: 'Update Case', details: 'Updated status of Case #case-102 to "In Progress"', timestamp: '2024-05-23T11:20:00Z' },
-  { id: 'log-4', userId: 'user-1', action: 'Create User', details: 'Created new user: Patricia Williams (staff)', timestamp: '2024-05-22T14:15:00Z' },
-  { id: 'log-5', userId: 'user-3', action: 'Delete Task', details: 'Deleted task: "Review old tickets"', timestamp: '2024-05-22T09:45:00Z' },
-  { id: 'log-6', userId: 'user-1', action: 'Revoke API Key', details: 'Revoked API key "sk_...w456"', timestamp: '2024-05-21T18:00:00Z' },
+  { id: 'log-1', userId: 'user-1', action: 'User Login', details: 'Alex Johnson logged in.', timestamp: new Date('2024-05-23T10:00:00Z') },
+  { id: 'log-2', userId: 'user-1', action: 'Update Settings', details: 'Updated General Settings: System Name to "MinT CRM Pro"', timestamp: new Date('2024-05-23T10:05:00Z') },
+  { id: 'log-3', userId: 'user-2', action: 'Update Case', details: 'Updated status of Case #case-102 to "In Progress"', timestamp: new Date('2024-05-23T11:20:00Z') },
+  { id: 'log-4', userId: 'user-1', action: 'Create User', details: 'Created new user: Patricia Williams (staff)', timestamp: new Date('2024-05-22T14:15:00Z') },
+  { id: 'log-5', userId: 'user-3', action: 'Delete Task', details: 'Deleted task: "Review old tickets"', timestamp: new Date('2024-05-22T09:45:00Z') },
+  { id: 'log-6', userId: 'user-1', action: 'Revoke API Key', details: 'Revoked API key "sk_...w456"', timestamp: new Date('2024-05-21T18:00:00Z') },
 ];
 
 export const emails: Email[] = [
