@@ -21,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ParticipantsPicker } from '@/components/ui/participants-picker';
 import { Calendar as CalendarIcon, Clock, Users, Video, PlusCircle, Search, FileText, Link as LinkIcon, Edit, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast"
-import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear, parseISO } from 'date-fns';
+import { format, isValid, isSameDay, addMonths, subMonths, startOfMonth, getMonth, getYear } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -51,7 +51,7 @@ function getStatusColor(status: Meeting['status']) {
 
 const safeFormat = (date: string | Date, formatString: string) => {
     try {
-        const d = (typeof date === 'string' && date.includes('T')) ? parseISO(date) : new Date(date);
+        const d = (date instanceof Date) ? date : new Date(date);
         if (!isValid(d)) {
             throw new Error('Invalid Date');
         }
@@ -575,4 +575,3 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     </Dialog>
   )
 }
-

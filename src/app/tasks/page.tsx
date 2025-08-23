@@ -21,7 +21,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -302,7 +302,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Ta
     const assignedUser = users.find(u => u.id === task.assignedTo);
     const linkedCase = cases.find(c => c.id === task.linkedCase);
     const isAdmin = user?.role === 'admin';
-    const dueDate = task.dueDate ? parseISO(task.dueDate) : null;
+    const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 
     const handleStatusChange = (newStatus: Task['status']) => {
         onUpdate({ id: task.id, status: newStatus }, task.status);
@@ -387,7 +387,7 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
             setDescription(task.description || '');
             setPriority(task.priority);
             setStatus(task.status);
-            setDueDate(task.dueDate && isValid(parseISO(task.dueDate)) ? parseISO(task.dueDate) : undefined);
+            setDueDate(task.dueDate && isValid(new Date(task.dueDate)) ? new Date(task.dueDate) : undefined);
             setAssignedTo(task.assignedTo || undefined);
             setLinkedCase(task.linkedCase || undefined);
         } else {
@@ -415,7 +415,7 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
             description, 
             priority, 
             status,
-            dueDate: dueDate ? format(dueDate, 'yyyy-MM-dd') : '', 
+            dueDate: dueDate ? dueDate.toISOString() : null, 
             assignedTo, 
             linkedCase 
         }, isEditMode);

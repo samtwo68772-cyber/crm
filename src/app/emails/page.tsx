@@ -23,7 +23,7 @@ import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from "@/hooks/use-toast";
 import { cn } from '@/lib/utils';
-import { format, parseISO, isValid } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import {
   Search,
   Inbox,
@@ -74,8 +74,8 @@ function EmailClientView() {
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
 
-    const safeParseDate = (dateString: string) => {
-        const date = parseISO(dateString);
+    const safeParseDate = (dateString: string | Date) => {
+        const date = (dateString instanceof Date) ? dateString : new Date(dateString);
         return isValid(date) ? date : new Date(0);
     }
     
@@ -352,8 +352,8 @@ function EmailClientView() {
 
 function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: boolean, onOpenChange: (open: boolean) => void, email: Email, onCreateCase: (email: Email) => void }) {
     
-    const safeParseDate = (dateString: string) => {
-        const date = parseISO(dateString);
+    const safeParseDate = (dateString: string | Date) => {
+        const date = (dateString instanceof Date) ? dateString : new Date(dateString);
         return isValid(date) ? date : new Date(0);
     }
     

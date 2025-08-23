@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Briefcase, ListTodo, Mail, Calendar, CheckCheck, EyeOff } from 'lucide-react';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -136,7 +137,7 @@ export default function NotificationsPage() {
                                         <p className={cn("font-semibold text-sm", !notification.read && "text-primary")}>{notification.title}</p>
                                         <p className="text-sm text-muted-foreground">{notification.description}</p>
                                         <p className="text-xs text-muted-foreground mt-1">
-                                            {formatDistanceToNow(parseISO(notification.timestamp), { addSuffix: true })}
+                                            {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
                                         </p>
                                     </div>
                                     {!notification.read && (
