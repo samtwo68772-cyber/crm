@@ -37,7 +37,6 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
 
     for (const assignee of assignedTo) {
         if (assignee.startsWith('user-')) {
-            // Ensure we handle the user ID correctly by removing the prefix
             const userId = assignee.replace('user-', '');
             if (!userIdsToAssign.includes(userId)) {
                  userIdsToAssign.push(userId);
