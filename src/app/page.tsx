@@ -123,23 +123,26 @@ function RecentCases({ allUsers }: { allUsers: User[] | undefined }) {
                             </div>
                         ) : recentCases.length > 0 ? (
                             <div className="space-y-4">
-                                {recentCases.map(caseItem => (
-                                    <div key={caseItem.id} className="flex items-start gap-4">
-                                        <Avatar className="h-10 w-10">
-                                            <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex-1">
-                                            <p className="font-semibold text-sm">{caseItem.subject}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {caseItem.id} &bull; Assigned to {allUsers.find(u => Array.isArray(caseItem.assignedTo) && caseItem.assignedTo.includes(`user-${u.id}`))?.name || 'Unassigned'}
-                                            </p>
+                                {recentCases.map(caseItem => {
+                                    const assignee = allUsers.find(u => caseItem.assignments?.some(a => a.userId === u.id));
+                                    return (
+                                        <div key={caseItem.id} className="flex items-start gap-4">
+                                            <Avatar className="h-10 w-10">
+                                                <AvatarFallback>{caseItem.customer.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <div className="flex-1">
+                                                <p className="font-semibold text-sm">{caseItem.subject}</p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {caseItem.id} &bull; Assigned to {assignee?.name || 'Unassigned'}
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
+                                                <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
+                                            </div>
                                         </div>
-                                        <div className="text-right">
-                                            <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
-                                            <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         ) : (
                              <p className="text-center text-muted-foreground py-8">No recent cases</p>
@@ -175,7 +178,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
                 type: 'case',
                 description: `New case created: "${c.subject}"`,
                 timestamp: c.createdAt,
-                user: allUsers.find(u => Array.isArray(c.assignedTo) && c.assignedTo.includes(`user-${u.id}`)) || { name: 'Unassigned' }
+                user: allUsers.find(u => c.assignments?.some(a => a.userId === u.id)) || { name: 'Unassigned' }
             }));
 
         const taskActivities = tasksData
@@ -195,7 +198,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
                 type: 'meeting',
                 description: `${m.status === 'Upcoming' ? 'Meeting scheduled' : 'Meeting'}: "${m.title}"`,
                 timestamp: m.date,
-                user: allUsers.find(u => m.participants.includes(u.id))
+                user: allUsers.find(u => m.participants.some(p => p.userId === u.id))
             }));
         
         const auditActivities = (auditLogsData || [])

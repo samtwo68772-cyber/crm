@@ -102,7 +102,7 @@ async function main() {
           data: {
             caseId: newCase.id,
             userId: userId,
-            assignedBy: 'user-1' // default to admin
+            assignedByUserId: 'user-1' // default to admin
           }
         })
       }
