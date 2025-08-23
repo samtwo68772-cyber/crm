@@ -191,21 +191,19 @@ export default function CasesPage() {
         const userTeamNames = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.name);
         
         return cases.filter(c => {
-            // Is user directly assigned?
+            if (c.createdById === user.id) return true;
+
             const isDirectlyAssigned = c.assignments.some((a: any) => a.userId === user.id);
             if (isDirectlyAssigned) return true;
 
-            // Is the case created by the user?
-            if (c.createdById === user.id) return true;
-            
-            // Is one of the user's teams assigned?
-            // This part is a bit tricky as cases are assigned to users, not teams directly.
-            // We check if ANY assigned user belongs to one of the current user's teams.
-            const assignedUsersOnCase = c.assignments.map((a:any) => users?.find(u => u.id === a.userId)).filter(Boolean);
-            const isTeamAssigned = assignedUsersOnCase.some(au => au && userTeamNames.includes(au.team));
+            const isTeamAssigned = c.assignments.some((a: any) => {
+                const assignedUser = users?.find(u => u.id === a.userId);
+                return assignedUser && userTeamNames.includes(assignedUser.team);
+            });
+            if (isTeamAssigned) return true;
 
-            return isTeamAssigned;
-        }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return false;
+        });
     }, [cases, user, teams, users]);
 
     const filteredCases = useMemo(() => {
@@ -531,7 +529,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
         await onUpdateCase({ 
             id: caseItem.id,
             status: 'Resolved',
-            resolvedAt: resolutionTimestamp.toISOString().split('T')[0],
+            resolvedAt: new Date(),
         });
         
         const taskUpdatePromises = openTasks.map(task => 
@@ -705,7 +703,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                 <div key={task.id} className="flex items-center justify-between p-2 rounded-md border">
                                     <div>
                                         <p className="font-medium">{task.title}</p>
-                                        <p className="text-sm text-muted-foreground">Due: {task.dueDate ? format(new Date(task.dueDate), 'PPP') : 'N/A'}</p>
+                                        <p className="text-sm text-muted-foreground">Due: {task.dueDate ? format(task.dueDate, 'PPP') : 'N/A'}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Badge variant={getPriorityVariant(task.priority)}>{task.priority}</Badge>
@@ -1042,3 +1040,6 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
 
     
 
+
+
+    

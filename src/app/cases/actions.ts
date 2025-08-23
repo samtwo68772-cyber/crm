@@ -22,7 +22,8 @@ export async function getCases() {
                 include: {
                     user: true
                 }
-            }
+            },
+            createdBy: true
         }
     });
 }
@@ -64,7 +65,10 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
         data: {
             id: generateShortId(),
             ...caseData,
-            createdAt: new Date().toISOString(),
+            createdAt: new Date(),
+            createdBy: {
+              connect: { id: session.userId }
+            },
             assignments: {
                 create: userIdsToAssign.map(id => ({
                     user: { connect: { id } },
@@ -233,3 +237,5 @@ export async function deleteCase(id: string) {
     revalidatePath('/cases');
     return deletedCase;
 }
+
+    
