@@ -23,7 +23,7 @@ async function main() {
   for (const user of users) {
     const { id, ...rest } = user;
     await prisma.user.upsert({
-      where: { id },
+      where: { email: user.email },
       update: {
         ...rest,
         passwordHash: user.name, // In a real app, this would be a proper hash
@@ -59,7 +59,7 @@ async function main() {
   // Seed Teams
   for (const team of teams) {
     await prisma.team.upsert({
-      where: { id: team.id },
+      where: { name: team.name },
       update: team,
       create: team,
     });
@@ -70,7 +70,7 @@ async function main() {
   for (const account of accounts) {
     const { primaryContactId, createdAt, ...rest } = account;
     await prisma.account.upsert({
-      where: { id: account.id },
+      where: { name: account.name },
       update: { ...rest, createdAt: new Date(createdAt) },
       create: { ...rest, createdAt: new Date(createdAt) },
     });
@@ -80,7 +80,7 @@ async function main() {
   // Seed Contacts
   for (const contact of contacts) {
     await prisma.contact.upsert({
-      where: { id: contact.id },
+      where: { email: contact.email },
       update: contact,
       create: contact,
     });
@@ -92,8 +92,16 @@ async function main() {
     const { communications, assignedTo, ...rest } = caseItem;
      const newCase = await prisma.case.upsert({
         where: { id: caseItem.id },
-        update: rest,
-        create: rest
+        update: {
+            ...rest,
+            createdAt: new Date(caseItem.createdAt),
+            resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : undefined,
+        },
+        create: {
+            ...rest,
+            createdAt: new Date(caseItem.createdAt),
+            resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : undefined,
+        }
     });
     // Now create assignments
     if (assignedTo && assignedTo.length > 0) {
@@ -123,8 +131,14 @@ async function main() {
   for (const task of tasks) {
     await prisma.task.upsert({
       where: { id: task.id },
-      update: task,
-      create: task,
+      update: {
+          ...task,
+          dueDate: task.dueDate ? new Date(task.dueDate) : null
+      },
+      create: {
+          ...task,
+          dueDate: task.dueDate ? new Date(task.dueDate) : null
+      },
     });
   }
   console.log('Tasks seeded.');
@@ -134,8 +148,8 @@ async function main() {
     const { participants, ...meetingData } = meeting;
     const newMeeting = await prisma.meeting.upsert({
       where: { id: meeting.id },
-      update: meetingData,
-      create: meetingData,
+      update: {...meetingData, date: new Date(meeting.date)},
+      create: {...meetingData, date: new Date(meeting.date)},
     });
     // Create meeting participants
     if (participants && participants.length > 0) {
@@ -163,8 +177,8 @@ async function main() {
   for (const doc of documents) {
       await prisma.document.upsert({
           where: {id: doc.id},
-          update: doc,
-          create: doc,
+          update: {...doc, uploadedAt: new Date(doc.uploadedAt)},
+          create: {...doc, uploadedAt: new Date(doc.uploadedAt)},
       })
   }
   console.log('Documents seeded.');
@@ -173,8 +187,8 @@ async function main() {
   for (const email of emails) {
     await prisma.email.upsert({
         where: {id: email.id},
-        update: email,
-        create: email
+        update: {...email, date: new Date(email.date)},
+        create: {...email, date: new Date(email.date)}
     })
   }
   console.log('Emails seeded.');
@@ -193,18 +207,19 @@ async function main() {
   for (const log of auditLogs) {
     await prisma.auditLog.upsert({
       where: { id: log.id },
-      update: log,
-      create: log
+      update: {...log, timestamp: new Date(log.timestamp)},
+      create: {...log, timestamp: new Date(log.timestamp)}
     })
   }
   console.log('Audit Logs seeded.');
   
   // Seed General & Global Notification Settings
+  const generalSettingsId = 'clwyllpqs000008l41g18b6er';
   await prisma.generalSettings.upsert({
-      where: { id: 'clwyllpqs000008l41g18b6er' },
+      where: { id: generalSettingsId },
       update: {},
       create: {
-        id: 'clwyllpqs000008l41g18b6er',
+        id: generalSettingsId,
         systemName: 'MinT CRM',
         companyName: 'My Company',
         logoUrl: '',
@@ -212,22 +227,25 @@ async function main() {
         language: 'en-US',
       }
   })
+
+  const emailSettingsId = 'clwylpycw000208l46v1z44kf';
    await prisma.emailSettings.upsert({
-      where: { id: 'clwylpycw000208l46v1z44kf' },
+      where: { id: emailSettingsId },
       update: {},
       create: {
-        id: 'clwylpycw000208l46v1z44kf',
+        id: emailSettingsId,
         configured: false,
         smtpHost: '', smtpPort: 587, smtpUser: '', smtpPass: '', smtpEncryption: 'tls',
         imapHost: '', imapPort: 993, imapUser: '', imapPass: '', imapEncryption: 'ssl',
       }
    })
 
+  const globalNotificationId = 'clwylrfwu000408l4czj034pr';
   await prisma.globalNotificationPreferences.upsert({
-      where: { id: 'clwylrfwu000408l4czj034pr' },
+      where: { id: globalNotificationId },
       update: {},
       create: {
-          id: 'clwylrfwu000408l4czj034pr',
+          id: globalNotificationId,
           cases: {
             newAssignment: { inApp: true, email: true, mandatory: true },
             statusChange: { inApp: true, email: false, mandatory: false },
