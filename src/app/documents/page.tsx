@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -44,7 +45,7 @@ export default function DocumentsPage() {
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [expandedDocId, setExpandedDocId] = useState<string | null>(null);
     const [isUploadOpen, setUploadOpen] = useState(false);
-    const [editingDocument, setEditingDocument] = useState<Document | null>(null);
+    const [editingDoc, setEditingDoc] = useState<Document | null>(null);
   
     const { user } = useAuth();
     const isAdmin = user?.role === 'admin';
@@ -89,7 +90,7 @@ export default function DocumentsPage() {
     onSuccess: (updatedDoc) => {
         queryClient.invalidateQueries({ queryKey: ['documents'] });
         toast({ title: 'Document Updated', description: `"${updatedDoc.name}" has been updated.` });
-        setEditingDocument(null);
+        setEditingDoc(null);
         setExpandedDocId(updatedDoc.id);
     },
     onError: (error) => {
@@ -187,7 +188,7 @@ export default function DocumentsPage() {
             <h2 className="text-3xl font-bold tracking-tight font-headline">Documents</h2>
             <p className="text-muted-foreground">Browse, manage, and upload files.</p>
         </div>
-        <Button onClick={() => { setEditingDocument(null); setUploadOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" /> Upload Document</Button>
+        <Button onClick={() => { setEditingDoc(null); setUploadOpen(true); }}><PlusCircle className="mr-2 h-4 w-4" /> Upload Document</Button>
       </div>
 
        <Card>
@@ -254,7 +255,7 @@ export default function DocumentsPage() {
                                 </div>
                                 <div className="flex gap-2 mt-6">
                                     <Button size="sm" onClick={() => handleDownload(doc)}><Download className="mr-2 h-4 w-4"/> Download</Button>
-                                    <Button size="sm" variant="outline" onClick={() => setEditingDocument(doc)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
+                                    <Button size="sm" variant="outline" onClick={() => setEditingDoc(doc)}><Edit className="mr-2 h-4 w-4"/> Edit</Button>
                                     {isAdmin && <Button size="sm" variant="destructive" onClick={() => handleDeleteDocument(doc.id)}><Trash2 className="mr-2 h-4 w-4"/> Delete</Button>}
                                 </div>
                             </div>
@@ -272,18 +273,18 @@ export default function DocumentsPage() {
       )}
       
        <UploadDocumentDialog
-          key={editingDocument ? editingDocument.id : 'create'}
-          open={isUploadOpen || !!editingDocument}
+          key={editingDoc ? editingDoc.id : 'create'}
+          open={isUploadOpen || !!editingDoc}
           onOpenChange={(open) => {
             if (!open) {
               setUploadOpen(false);
-              setEditingDocument(null);
+              setEditingDoc(null);
             }
           }}
-          document={editingDocument}
+          editingDocument={editingDoc}
           onSave={(data, isEdit) => {
-            if (isEdit && editingDocument) {
-              handleUpdateDocument({ ...editingDocument, ...data });
+            if (isEdit && editingDoc) {
+              handleUpdateDocument({ ...editingDoc, ...data });
             } else {
               handleUploadDocument(data);
             }
@@ -295,8 +296,8 @@ export default function DocumentsPage() {
   );
 }
 
-function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, accounts }: { open: boolean, onOpenChange: (open: boolean) => void, document: Document | null, onSave: (data: any, isEdit: boolean) => void, cases: Case[], accounts: Account[] }) {
-    const isEditMode = !!document;
+function UploadDocumentDialog({ open, onOpenChange, editingDocument, onSave, cases, accounts }: { open: boolean, onOpenChange: (open: boolean) => void, editingDocument: Document | null, onSave: (data: any, isEdit: boolean) => void, cases: Case[], accounts: Account[] }) {
+    const isEditMode = !!editingDocument;
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [category, setCategory] = useState<Document['category']>('Other');
@@ -312,18 +313,18 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
     }, [linkedToType, cases, accounts]);
     
     React.useEffect(() => {
-        if(document) {
-            setName(document.name);
-            setDescription(document.description || '');
-            setCategory(document.category);
-            setType(document.type);
-            setLinkedToType(document.linkedToType);
-            setLinkedToId(document.linkedToId);
+        if(editingDocument) {
+            setName(editingDocument.name);
+            setDescription(editingDocument.description || '');
+            setCategory(editingDocument.category);
+            setType(editingDocument.type);
+            setLinkedToType(editingDocument.linkedToType);
+            setLinkedToId(editingDocument.linkedToId);
         } else {
              setName(''); setDescription(''); setCategory('Other'); setType('Document'); setLinkedToType(''); setLinkedToId('');
         }
         setSelectedFile(null);
-    }, [document, open]);
+    }, [editingDocument, open]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -336,8 +337,8 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
     };
 
     const handleSubmit = () => {
-        const size = selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : (document?.size || 'N/A');
-        const fileType = selectedFile ? selectedFile.type.split('/')[0].toLowerCase() : document?.type.toLowerCase();
+        const size = selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : (editingDocument?.size || 'N/A');
+        const fileType = selectedFile ? selectedFile.type.split('/')[0].toLowerCase() : editingDocument?.type.toLowerCase();
         
         let determinedType: Document['type'] = 'Document';
         if (fileType?.includes('image')) determinedType = 'Image';
@@ -353,7 +354,7 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
             linkedToId, 
             linkedToType, 
             size,
-            previewUrl: selectedFile && determinedType === 'Image' ? URL.createObjectURL(selectedFile) : document?.previewUrl
+            previewUrl: selectedFile && determinedType === 'Image' ? URL.createObjectURL(selectedFile) : editingDocument?.previewUrl
         }, isEditMode);
     };
 
@@ -384,7 +385,7 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label className="text-right">Actions</Label>
                             <div className="col-span-3">
-                                 <Button variant="outline" onClick={() => document.getElementById('replace-file-upload')?.click()}>
+                                 <Button variant="outline" onClick={() => (window.document.getElementById('replace-file-upload') as HTMLElement)?.click()}>
                                     <Upload className="mr-2 h-4 w-4" /> Replace File
                                  </Button>
                                  <Input id="replace-file-upload" type="file" onChange={handleFileChange} className="sr-only" />
@@ -417,4 +418,5 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
 }
 
 
+    
     
