@@ -1,3 +1,4 @@
+
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
@@ -11,22 +12,19 @@ datasource db {
 }
 
 model User {
-  id                      String                    @id @default(cuid())
-  name                    String
-  email                   String                    @unique
-  passwordHash            String
-  role                    String
-  team                    String
-  avatar                  String
-  status                  String
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  CaseAssignment          CaseAssignment[]
-  MeetingParticipant      MeetingParticipant[]
-  notificationPreferences NotificationPreferences?
-  tasks                   Task[]
-  auditLogs               AuditLog[]
-  documents               Document[]
+  id                        String                      @id @default(cuid())
+  name                      String
+  email                     String                      @unique
+  passwordHash              String
+  role                      String
+  status                    String
+  team                      String
+  avatar                    String
+  caseAssignments           CaseAssignment[]
+  meetingParticipants       MeetingParticipant[]
+  notificationPreferences   NotificationPreferences?
+  createdCases              Case[]                      @relation("CreatedBy")
+  auditLogEntries           AuditLog[]
 }
 
 model Case {
@@ -34,19 +32,20 @@ model Case {
   subject            String
   customer           String
   email              String
-  description        String
   priority           String
   type               String
-  status             String           @default("New")
+  status             String
   createdAt          DateTime         @default(now())
   resolvedAt         DateTime?
+  description        String
+  communications     Json[]
   contactId          String?
   satisfactionRating Int?
   assignments        CaseAssignment[]
-  communications     Json[]
-  contact            Contact?         @relation(fields: [contactId], references: [id])
   tasks              Task[]
   documents          Document[]
+  createdBy          User             @relation("CreatedBy", fields: [createdById], references: [id])
+  createdById        String
 }
 
 model CaseAssignment {
@@ -68,42 +67,24 @@ model Task {
   priority    String
   linkedCase  String?
   assignedTo  String?
-  contactId   String?
-  user        User?     @relation(fields: [assignedTo], references: [id])
   case        Case?     @relation(fields: [linkedCase], references: [id])
+  contactId   String?
   contact     Contact?  @relation(fields: [contactId], references: [id])
 }
 
 model Contact {
-  id        String  @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  email     String  @unique
+  email     String    @unique
   phone     String?
   company   String
+  accountId String?
   role      String?
   notes     String?
   avatar    String
-  accountId String?
-  account   Account? @relation(fields: [accountId], references: [id])
-  cases     Case[]
+  account   Account?  @relation(fields: [accountId], references: [id])
   tasks     Task[]
-}
-
-model Account {
-  id               String    @id @default(cuid())
-  name             String    @unique
-  industry         String
-  createdAt        DateTime  @default(now())
-  address          String?
-  phone            String?
-  email            String?
-  website          String?
-  primaryContactId String?
-  owner            String?
-  size             String?
-  location         String?
-  contacts         Contact[]
-  documents        Document[]
+  meetings  Meeting[]
 }
 
 model Team {
@@ -113,6 +94,21 @@ model Team {
   leaderId    String
   memberIds   String[]
   status      String
+}
+
+model Account {
+  id               String    @id @default(cuid())
+  name             String    @unique
+  industry         String
+  owner            String
+  createdAt        DateTime
+  address          String?
+  phone            String?
+  email            String?
+  website          String?
+  primaryContactId String?
+  contacts         Contact[]
+  documents        Document[]
 }
 
 model Document {
@@ -126,25 +122,23 @@ model Document {
   category     String
   description  String?
   previewUrl   String?
-  linkedToType String?
-  linkedToId   String?
-  caseId       String?
-  accountId    String?
-  user         User?    @relation(fields: [authorId], references: [id])
   case         Case?    @relation(fields: [caseId], references: [id])
+  caseId       String?
   account      Account? @relation(fields: [accountId], references: [id])
+  accountId    String?
 }
 
 model Meeting {
   id           String               @id @default(cuid())
   title        String
-  description  String?
+  description  String
   date         DateTime
   status       String
   linkedRecord String?
-  notes        Json[]
-  attachments  Json[]
+  notes        Json?
+  attachments  Json?
   contactId    String?
+  contact      Contact?             @relation(fields: [contactId], references: [id])
   participants MeetingParticipant[]
 }
 
@@ -157,6 +151,28 @@ model MeetingParticipant {
   joinedAt  DateTime @default(now())
 }
 
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   String
+  timestamp DateTime @default(now())
+}
+
+model Email {
+  id           String  @id @default(cuid())
+  from         Json
+  to           Json
+  subject      String
+  body         String
+  date         DateTime
+  type         String
+  read         Boolean
+  linkedCaseId String?
+  attachments  Json[]
+}
+
 model Notification {
   id          String   @id @default(cuid())
   type        String
@@ -166,15 +182,6 @@ model Notification {
   read        Boolean
   userId      String?
   link        String
-}
-
-model NotificationPreferences {
-  id       String @id @default(cuid())
-  user     User   @relation(fields: [userId], references: [id])
-  userId   String @unique
-  cases    Json
-  tasks    Json
-  meetings Json
 }
 
 model GeneralSettings {
@@ -201,33 +208,20 @@ model EmailSettings {
   configured     Boolean @default(false)
 }
 
-model GlobalNotificationPreferences {
+model NotificationPreferences {
   id       String @id @default(cuid())
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String @unique
   cases    Json
   tasks    Json
   meetings Json
 }
 
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  action    String
-  details   String
-  timestamp DateTime @default(now())
-}
-
-model Email {
-  id           String    @id @default(cuid())
-  from         Json
-  to           Json
-  subject      String
-  body         String
-  date         DateTime
-  type         String
-  read         Boolean
-  linkedCaseId String?
-  attachments  Json?
+model GlobalNotificationPreferences {
+  id       String @id @default(cuid())
+  cases    Json
+  tasks    Json
+  meetings Json
 }
 
 model Workflow {

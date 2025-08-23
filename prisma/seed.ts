@@ -90,19 +90,22 @@ async function main() {
   // Seed Cases
   for (const caseItem of cases) {
     const { communications, assignedTo, ...rest } = caseItem;
-     const newCase = await prisma.case.upsert({
+    const newCase = await prisma.case.upsert({
         where: { id: caseItem.id },
         update: {
             ...rest,
             createdAt: new Date(caseItem.createdAt),
             resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : undefined,
+            createdById: 'user-1', // Default creator
         },
         create: {
             ...rest,
             createdAt: new Date(caseItem.createdAt),
             resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : undefined,
+            createdById: 'user-1', // Default creator
         }
     });
+
     // Now create assignments
     if (assignedTo && assignedTo.length > 0) {
       for (const userId of assignedTo) {
