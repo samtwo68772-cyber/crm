@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import type { User, Team } from '@/lib/types';
+import type { User, Team, Case } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -22,6 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams } from './actions';
+import { getCases } from '../cases/actions';
 import { useIsClient } from '@/hooks/use-is-client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,7 +36,7 @@ function getRoleVariant(UserRole: User['role']) {
     return UserRole === 'admin' ? 'default' : 'outline';
 }
 
-function UserManagement({ users, teams }: { users: User[], teams: Team[] }) {
+function UserManagement({ users, teams, cases }: { users: User[], teams: Team[], cases: Case[] }) {
     const queryClient = useQueryClient();
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -166,37 +167,42 @@ function UserManagement({ users, teams }: { users: User[], teams: Team[] }) {
                             <TableHead>Role</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Team</TableHead>
+                            <TableHead>Assigned Cases</TableHead>
                             <TableHead><span className="sr-only">Actions</span></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
-                            <TableRow key={user.id}>
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <Avatar className="h-8 w-8">
-                                            <AvatarImage src={`https://placehold.co/40x40.png?text=${user.name.charAt(0)}`} data-ai-hint="person avatar" alt={user.name} />
-                                            <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                        <span className="font-medium">{user.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell>{user.email}</TableCell>
-                                <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role}</Badge></TableCell>
-                                <TableCell><Badge variant={getStatusVariant(user.status)}>{user.status}</Badge></TableCell>
-                                <TableCell>{user.team}</TableCell>
-                                <TableCell>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => openEditForm(user)}>Edit User</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        )) : (
+                        {paginatedUsers.length > 0 ? paginatedUsers.map((user) => {
+                            const assignedCaseCount = cases.filter(c => c.assignments.some(a => a.userId === user.id)).length;
+                            return (
+                                <TableRow key={user.id}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-3">
+                                            <Avatar className="h-8 w-8">
+                                                <AvatarImage src={`https://placehold.co/40x40.png?text=${user.name.charAt(0)}`} data-ai-hint="person avatar" alt={user.name} />
+                                                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                                            </Avatar>
+                                            <span className="font-medium">{user.name}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>{user.email}</TableCell>
+                                    <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role}</Badge></TableCell>
+                                    <TableCell><Badge variant={getStatusVariant(user.status)}>{user.status}</Badge></TableCell>
+                                    <TableCell>{user.team}</TableCell>
+                                    <TableCell>{assignedCaseCount}</TableCell>
+                                    <TableCell>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem onClick={() => openEditForm(user)}>Edit User</DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        }) : (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">
+                                <TableCell colSpan={7} className="h-24 text-center">
                                     No users found.
                                 </TableCell>
                             </TableRow>
@@ -630,6 +636,7 @@ export default function AdminPageLoader() {
     const router = useRouter();
     const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
     const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
 
     useEffect(() => {
         if (user && user.role !== 'admin') {
@@ -641,7 +648,7 @@ export default function AdminPageLoader() {
         return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
     }
 
-    if (usersLoading || teamsLoading) {
+    if (usersLoading || teamsLoading || casesLoading) {
         return (
              <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
                 <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>
@@ -660,7 +667,7 @@ export default function AdminPageLoader() {
                     <TabsTrigger value="teams">Team Management</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
-                    <UserManagement users={users || []} teams={teams || []} />
+                    <UserManagement users={users || []} teams={teams || []} cases={cases || []} />
                 </TabsContent>
                 <TabsContent value="teams" className="mt-6">
                     <TeamManagement teams={teams || []} users={users || []} />
