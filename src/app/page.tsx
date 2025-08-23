@@ -97,7 +97,7 @@ function RecentCases({ allUsers }: { allUsers: User[] | undefined }) {
         if (!initialCases) return [];
         const twoWeeksAgo = subDays(new Date(), 14);
         return initialCases
-            .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
+            .filter(c => isAfter(c.createdAt, twoWeeksAgo))
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [initialCases]);
 
@@ -138,7 +138,7 @@ function RecentCases({ allUsers }: { allUsers: User[] | undefined }) {
                                             </div>
                                             <div className="text-right">
                                                 <Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>
-                                                <p className="text-xs text-muted-foreground mt-1">{format(parseISO(caseItem.createdAt), 'MMM d, yyyy')}</p>
+                                                <p className="text-xs text-muted-foreground mt-1">{format(new Date(caseItem.createdAt), 'MMM d, yyyy')}</p>
                                             </div>
                                         </div>
                                     )
@@ -172,7 +172,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
         const twoWeeksAgo = subDays(new Date(), 14);
 
         const caseActivities = casesData
-            .filter(c => isAfter(parseISO(c.createdAt), twoWeeksAgo))
+            .filter(c => isAfter(c.createdAt, twoWeeksAgo))
             .map(c => ({
                 id: `case-${c.id}`,
                 type: 'case',
@@ -202,7 +202,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
             }));
         
         const auditActivities = (auditLogsData || [])
-            .filter((log: AuditLog) => isAfter(new Date(log.timestamp), twoWeeksAgo))
+            .filter((log: AuditLog) => isAfter(log.timestamp, twoWeeksAgo))
             .map((log: AuditLog) => ({
                 id: `audit-${log.id}`,
                 type: 'audit',

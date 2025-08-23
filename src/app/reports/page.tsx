@@ -137,11 +137,11 @@ export default function ReportsPage() {
         }
 
         const filteredCases = cases.filter(c => {
-            const assignedUser = users.find(u => u.name === c.assignedTo);
+            const assignedUser = users.find(u => c.assignments?.some(a => a.userId === u.id));
             const userMatch = userFilter === 'all' || (assignedUser && assignedUser.id === userFilter);
             const teamMatch = teamFilter === 'all' || (assignedUser && assignedUser.team === teamFilter);
 
-            return isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate }) &&
+            return isWithinInterval(c.createdAt, { start: fromDate, end: toDate }) &&
             (caseCategoryFilter === 'all' || c.type === caseCategoryFilter) &&
             (userFilter === 'all' ? teamMatch : userMatch)
         });
@@ -149,20 +149,20 @@ export default function ReportsPage() {
         const filteredTasks = tasks.filter(t => {
              const userMatch = userFilter === 'all' || t.assignedTo === userFilter;
              const teamMatch = teamFilter === 'all' || users.find(u => u.id === t.assignedTo)?.team === teamFilter;
-             return isWithinInterval(new Date(t.dueDate), { start: fromDate, end: toDate }) &&
+             return isWithinInterval(t.dueDate, { start: fromDate, end: toDate }) &&
              (userFilter === 'all' ? teamMatch : userMatch)
         });
 
         const filteredMeetings = meetings.filter(m => 
-            isWithinInterval(new Date(m.date), { start: fromDate, end: toDate }) &&
-            (userFilter === 'all' || m.participants.includes(userFilter)) &&
-            (teamFilter === 'all' || m.participants.some(pId => users.find(u => u.id === pId)?.team === teamFilter))
+            isWithinInterval(m.date, { start: fromDate, end: toDate }) &&
+            (userFilter === 'all' || m.participants.some(p => p.userId === userFilter)) &&
+            (teamFilter === 'all' || m.participants.some(p => users.find(u => u.id === p.userId)?.team === teamFilter))
         );
         
         const filteredLogs = auditLogs.filter(log => {
              const userMatch = userFilter === 'all' || log.userId === userFilter;
              const teamMatch = teamFilter === 'all' || users.find(u => u.id === log.userId)?.team === teamFilter;
-             return isWithinInterval(new Date(log.timestamp), { start: fromDate, end: toDate }) &&
+             return isWithinInterval(log.timestamp, { start: fromDate, end: toDate }) &&
              (userFilter === 'all' ? teamMatch : userMatch)
         });
 
@@ -177,7 +177,7 @@ export default function ReportsPage() {
             meetingsHeld: { value: '0', change: 'N/A', type: 'negative', data: [], positiveChange: false },
         };
         const resolvedCases = cases.filter(c => c.resolvedAt); // Use all cases for overall KPIs
-        const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
+        const resolutionTimes = resolvedCases.map(c => differenceInDays(c.resolvedAt!, c.createdAt));
         const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length).toFixed(1) : 'N/A';
         const trendData = [{value: 5}, {value: 7}, {value: 6}, {value: 8}, {value: 7}];
         const negTrendData = [{value: 8}, {value: 7}, {value: 6}, {value: 5}, {value: 4}];
@@ -204,13 +204,12 @@ export default function ReportsPage() {
         return teamsToDisplay.map(team => {
             const teamMembers = users.filter(u => u.team === team.name);
             const memberIds = teamMembers.map(u => u.id);
-            const memberNames = teamMembers.map(u => u.name);
 
-            const casesHandled = cases.filter(c => memberNames.includes(c.assignedTo));
+            const casesHandled = cases.filter(c => c.assignments.some(a => memberIds.includes(a.userId)));
             const tasksCompleted = tasks.filter(t => memberIds.includes(t.assignedTo || '') && t.status === 'Done');
 
             const resolvedCases = casesHandled.filter(c => c.resolvedAt);
-            const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
+            const resolutionTimes = resolvedCases.map(c => differenceInDays(c.resolvedAt!, c.createdAt));
             const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length) : 0;
             
             const ratedCases = casesHandled.filter(c => c.satisfactionRating);
@@ -239,9 +238,9 @@ export default function ReportsPage() {
        }
 
        const data = usersToList.map(user => {
-            const casesHandled = filteredData.cases.filter(c => c.assignedTo === user.name);
+            const casesHandled = filteredData.cases.filter(c => c.assignments.some(a => a.userId === user.id));
             const resolvedCases = casesHandled.filter(c => c.resolvedAt);
-            const resolutionTimes = resolvedCases.map(c => differenceInDays(new Date(c.resolvedAt!), new Date(c.createdAt)));
+            const resolutionTimes = resolvedCases.map(c => differenceInDays(c.resolvedAt!, c.createdAt));
             const avgResolutionTime = resolutionTimes.length > 0 ? (resolutionTimes.reduce((a, b) => a + b, 0) / resolutionTimes.length) : 0;
             
             const ratedCases = casesHandled.filter(c => c.satisfactionRating);
@@ -308,10 +307,10 @@ export default function ReportsPage() {
         const allCasesInRange = cases.filter(c => {
              const fromDate = dateRange?.from ? startOfDay(dateRange.from) : new Date(0);
              const toDate = dateRange?.to ? endOfDay(dateRange.to) : new Date();
-             const assignedUser = users.find(u => u.name === c.assignedTo);
+             const assignedUser = users.find(u => c.assignments.some(a => a.userId === u.id));
              const userMatch = userFilter === 'all' || (assignedUser && assignedUser.id === userFilter);
              const teamMatch = teamFilter === 'all' || (assignedUser && assignedUser.team === teamFilter);
-             return isWithinInterval(new Date(c.createdAt), { start: fromDate, end: toDate }) && userMatch && teamMatch;
+             return isWithinInterval(c.createdAt, { start: fromDate, end: toDate }) && userMatch && teamMatch;
         });
 
         if (allCasesInRange.length === 0) return [];
@@ -362,7 +361,7 @@ export default function ReportsPage() {
                 autoTable(doc, {
                     startY,
                     head: [['Case ID', 'Subject', 'Status', 'Priority', 'Assigned To', 'Created At']],
-                    body: filteredData.cases.map(c => [c.id, c.subject, c.status, c.priority, c.assignedTo, c.createdAt]),
+                    body: filteredData.cases.map(c => [c.id, c.subject, c.status, c.priority, c.assignments.map(a => a.user.name).join(', '), format(c.createdAt, 'yyyy-MM-dd')]),
                     headStyles: { fillColor: [38, 43, 60] },
                 });
             } else if (reportName === 'Performance') {
@@ -403,7 +402,7 @@ export default function ReportsPage() {
 
              if (reportName === 'Case Summary') {
                 if (filteredData.cases.length === 0) { alert("No data available for export."); return; }
-                const ws = XLSX.utils.json_to_sheet(filteredData.cases);
+                const ws = XLSX.utils.json_to_sheet(filteredData.cases.map(c => ({...c, assignments: c.assignments.map(a => a.user.name).join(', ')})));
                 XLSX.utils.book_append_sheet(wb, ws, "Case Summary");
              } else if (reportName === 'Performance') {
                 if (teamPerformanceData.length === 0 && individualPerformanceData.length === 0) { alert("No data available for export."); return; }
