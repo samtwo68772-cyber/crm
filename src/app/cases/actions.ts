@@ -37,7 +37,11 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
 
     for (const assignee of assignedTo) {
         if (assignee.startsWith('user-')) {
-            userIdsToAssign.push(assignee.replace('user-', ''));
+            // Ensure we handle the user ID correctly by removing the prefix
+            const userId = assignee.replace('user-', '');
+            if (!userIdsToAssign.includes(userId)) {
+                 userIdsToAssign.push(userId);
+            }
         } else if (assignee.startsWith('team-')) {
             const teamId = assignee.replace('team-', '');
             const team = await prisma.team.findUnique({
@@ -45,7 +49,11 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
                 select: { memberIds: true }
             });
             if (team) {
-                userIdsToAssign.push(...team.memberIds);
+                team.memberIds.forEach(memberId => {
+                    if (!userIdsToAssign.includes(memberId)) {
+                        userIdsToAssign.push(memberId);
+                    }
+                });
             }
         }
     }
@@ -81,7 +89,8 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
             });
         }
     }
-
+    
+    revalidatePath('/cases');
     return newCase;
 }
 
@@ -97,7 +106,10 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
         userIdsToAssign = [];
         for (const assignee of assignedTo) {
             if (assignee.startsWith('user-')) {
-                userIdsToAssign.push(assignee.replace('user-', ''));
+                const userId = assignee.replace('user-', '');
+                if (!userIdsToAssign.includes(userId)) {
+                    userIdsToAssign.push(userId);
+                }
             } else if (assignee.startsWith('team-')) {
                 const teamId = assignee.replace('team-', '');
                 const team = await prisma.team.findUnique({
@@ -105,7 +117,11 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
                     select: { memberIds: true }
                 });
                 if (team) {
-                    userIdsToAssign.push(...team.memberIds);
+                    team.memberIds.forEach(memberId => {
+                        if (!userIdsToAssign.includes(memberId)) {
+                            userIdsToAssign.push(memberId);
+                        }
+                    });
                 }
             }
         }
@@ -160,6 +176,7 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
         }
     }
 
+    revalidatePath('/cases');
     return updatedCase;
 }
 
@@ -181,6 +198,7 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
             assignments: { include: { user: true } }
         }
     });
+    revalidatePath('/cases');
     return updatedCase;
 }
 
@@ -199,6 +217,7 @@ export async function deleteCommunicationFromCase(caseId: string, communicationI
             assignments: { include: { user: true } }
         }
     });
+    revalidatePath('/cases');
     return updatedCase;
 }
 
@@ -211,5 +230,7 @@ export async function deleteCase(id: string) {
     const deletedCase = await prisma.case.delete({
         where: { id },
     });
+    
+    revalidatePath('/cases');
     return deletedCase;
 }
