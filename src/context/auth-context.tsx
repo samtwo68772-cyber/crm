@@ -23,32 +23,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const checkSession = async () => {
-      setIsLoading(true);
-      try {
-        const session = await getSession();
-        if (session?.userId) {
-          const currentUser = await getUserById(session.userId);
-          setUser(currentUser);
-        } else {
-           if (pathname !== '/login') {
-              router.push('/login');
-           }
-        }
-      } catch (error) {
-        console.error("Failed to fetch user from session", error);
+  const checkSession = useCallback(async () => {
+    try {
+      const session = await getSession();
+      if (session?.userId) {
+        const currentUser = await getUserById(session.userId);
+        setUser(currentUser);
+      } else {
         setUser(null);
-        if (pathname !== '/login') router.push('/login');
-      } finally {
-        setIsLoading(false);
+        if (pathname !== '/login') {
+          router.push('/login');
+        }
       }
-    };
-
-    if(!user) {
-        checkSession();
+    } catch (error) {
+      console.error("Failed to fetch user from session", error);
+      setUser(null);
+      if (pathname !== '/login') router.push('/login');
+    } finally {
+      setIsLoading(false);
     }
-  }, [pathname, router, user]);
+  }, [pathname, router]);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginAction(email, password);
@@ -57,13 +55,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    setUser(null); // Optimistically log out on the client
     await logoutAction();
-    setUser(null);
     queryClient.clear();
     router.push('/login');
   };
 
-  if (isLoading && pathname !== '/login') {
+  if (isLoading) {
       return (
           <div className="flex h-screen w-full items-center justify-center">
             <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
