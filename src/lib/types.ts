@@ -22,14 +22,15 @@ export type Case = {
   priority: 'High' | 'Medium' | 'Low';
   type: 'Bug Report' | 'Feature Request' | 'Billing Inquiry' | 'General Question';
   status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
-  createdAt: string;
-  resolvedAt?: string;
+  createdAt: Date;
+  resolvedAt?: Date;
   description: string;
   communications?: Communication[];
   contactId?: string;
   satisfactionRating?: number; // 1-5
   assignments: CaseAssignment[];
   createdById: string;
+  createdBy: User;
 };
 
 export type CaseAssignment = {
@@ -56,11 +57,12 @@ export type Task = {
   title: string;
   description?: string;
   status: 'To Do' | 'In Progress' | 'Done' | 'Canceled';
-  dueDate: string | null;
+  dueDate: Date | null;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
   assignedTo?: string;
   contactId?: string;
+  contact?: Contact;
 };
 
 export type Contact = {
@@ -89,7 +91,7 @@ export type Account = {
   id: string;
   name: string;
   industry: string;
-  createdAt: string;
+  createdAt: Date;
   address?: string;
   phone?: string;
   email?: string;
@@ -105,7 +107,7 @@ export type Document = {
   name: string;
   type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image' | 'Meeting';
   size: string;
-  uploadedAt: string;
+  uploadedAt: Date;
   uploadedBy: string;
   authorId: string;
   category: 'Case File' | 'Contract' | 'Report' | 'Meeting Notes' | 'Other';
@@ -119,7 +121,7 @@ export type Meeting = {
   id: string;
   title: string;
   description: string;
-  date: string;
+  date: Date;
   status: 'Upcoming' | 'Completed' | 'Canceled';
   linkedRecord?: string; // case or task ID
   notes?: { authorId: string; content: string; timestamp: string }[];
@@ -142,7 +144,7 @@ export type AuditLog = {
     userId: string;
     action: string;
     details: string;
-    timestamp: string;
+    timestamp: Date;
 };
 
 export type Email = {

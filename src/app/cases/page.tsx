@@ -25,7 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from "@/hooks/use-toast"
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { format, isWithinInterval, subDays, addDays, parseISO, startOfDay, endOfDay, formatDistanceToNow } from 'date-fns';
+import { format, isWithinInterval, subDays, addDays, startOfDay, endOfDay, formatDistanceToNow, isValid } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
@@ -185,28 +185,28 @@ export default function CasesPage() {
      const userCases = useMemo(() => {
         if (!cases || !user || !teams) return [];
         if (user.role === 'admin') {
-            return cases.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+            return cases;
         }
 
-        const userTeamIds = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.id);
-
+        const userTeamNames = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.name);
+        
         return cases.filter(c => {
             // Is user directly assigned?
             const isDirectlyAssigned = c.assignments.some((a: any) => a.userId === user.id);
             if (isDirectlyAssigned) return true;
+
+            // Is the case created by the user?
+            if (c.createdById === user.id) return true;
             
             // Is one of the user's teams assigned?
-            const assignedUserIds = c.assignments.map((a: any) => a.userId);
-            const isTeamAssigned = teams.some(team => 
-                userTeamIds.includes(team.id) && team.memberIds.some(memberId => assignedUserIds.includes(memberId))
-            );
-            if (isTeamAssigned) return true;
+            // This part is a bit tricky as cases are assigned to users, not teams directly.
+            // We check if ANY assigned user belongs to one of the current user's teams.
+            const assignedUsersOnCase = c.assignments.map((a:any) => users?.find(u => u.id === a.userId)).filter(Boolean);
+            const isTeamAssigned = assignedUsersOnCase.some(au => au && userTeamNames.includes(au.team));
 
-            // TODO: Implement "shared with" logic when that feature exists
-            
-            return false;
+            return isTeamAssigned;
         }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    }, [cases, user, teams]);
+    }, [cases, user, teams, users]);
 
     const filteredCases = useMemo(() => {
         if (!userCases || !users || !teams) return [];
@@ -486,7 +486,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                 name: file.name,
                 type: 'Document', // Simplified
                 size: `${(file.size / 1024).toFixed(2)} KB`,
-                uploadedAt: new Date().toISOString(),
+                uploadedAt: new Date(),
                 uploadedBy: user.name,
                 authorId: user.id,
                 category: 'Case File',
@@ -705,7 +705,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                 <div key={task.id} className="flex items-center justify-between p-2 rounded-md border">
                                     <div>
                                         <p className="font-medium">{task.title}</p>
-                                        <p className="text-sm text-muted-foreground">Due: {task.dueDate}</p>
+                                        <p className="text-sm text-muted-foreground">Due: {task.dueDate ? format(new Date(task.dueDate), 'PPP') : 'N/A'}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Badge variant={getPriorityVariant(task.priority)}>{task.priority}</Badge>
@@ -738,7 +738,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                                     {getFileIcon(file.name)}
                                                     <div>
                                                         <p className="font-medium text-sm">{file.name}</p>
-                                                        <p className="text-xs text-muted-foreground">{file.size} - Uploaded by {file.uploadedBy} {formatDistanceToNow(new Date(file.uploadedAt), {addSuffix: true})}</p>
+                                                        <p className="text-xs text-muted-foreground">{file.size} - Uploaded by {file.uploadedBy} {isValid(new Date(file.uploadedAt)) ? formatDistanceToNow(new Date(file.uploadedAt), {addSuffix: true}) : 'Invalid date'}</p>
                                                     </div>
                                                 </div>
                                                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -852,7 +852,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
 
 
   const handleSubmit = () => {
-    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications' | 'assignments'> & { assignedTo: string[] } = { 
+    const caseData: Omit<Case, 'id' | 'createdAt' | 'communications' | 'assignments' | 'createdById' | 'createdBy'> & { assignedTo: string[] } = { 
         subject, 
         customer, 
         email, 
@@ -1041,3 +1041,4 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
 
 
     
+
