@@ -36,6 +36,11 @@ export async function processIncomingEmails() {
         console.error("IMAP credentials are not fully set in .env file.");
         throw new Error("IMAP credentials not configured.");
     }
+    
+    const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
+    if (!defaultUser) {
+        throw new Error("No default admin user found to assign cases to.");
+    }
 
     try {
         const connection = await imaps.connect(config);
@@ -55,16 +60,22 @@ export async function processIncomingEmails() {
             if (all) {
                 const mail = await simpleParser(all.body);
                 console.log(`Processing email from: ${mail.from?.text}, Subject: ${mail.subject}`);
+                
+                const fromAddress = mail.from?.value[0].address;
+                if (!fromAddress) {
+                    console.log("Skipping email with no from address.");
+                    continue;
+                }
 
-                let contact = await prisma.contact.findUnique({ where: { email: mail.from?.value[0].address! } });
+                let contact = await prisma.contact.findUnique({ where: { email: fromAddress } });
                 if (!contact) {
                     contact = await prisma.contact.create({
                         data: {
-                            name: mail.from?.value[0].name || mail.from?.value[0].address!,
-                            email: mail.from?.value[0].address!,
+                            name: mail.from?.value[0].name || fromAddress,
+                            email: fromAddress,
                             company: 'Unknown',
                             role: 'Unknown',
-                            avatar: `https://placehold.co/40x40.png?text=${(mail.from?.value[0].name || mail.from?.value[0].address!).charAt(0)}`,
+                            avatar: `https://placehold.co/40x40.png?text=${(mail.from?.value[0].name || fromAddress).charAt(0)}`,
                         }
                     });
                      console.log(`Created new contact: ${contact.name}`);
@@ -78,7 +89,7 @@ export async function processIncomingEmails() {
                         priority: 'Medium',
                         type: 'General Question',
                         status: 'New',
-                        createdById: 'user-1', // Default to admin for system-created cases
+                        createdById: defaultUser.id,
                         description: mail.text || mail.html || '(No Content)',
                         contactId: contact.id,
                         communications: {
@@ -114,6 +125,11 @@ export async function markEmailAsRead(id: string) {
 export async function createCaseFromEmail(emailId: string) {
     const email = await prisma.email.findUnique({ where: { id: emailId } });
     if (!email) throw new Error('Email not found');
+    
+    const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
+    if (!defaultUser) {
+        throw new Error("No default admin user found to assign cases to.");
+    }
 
     let contact = await prisma.contact.findUnique({ where: { email: email.from.email } });
     if (!contact) {
@@ -136,7 +152,7 @@ export async function createCaseFromEmail(emailId: string) {
             priority: 'Medium',
             type: 'General Question',
             status: 'New',
-            createdById: 'user-1', // Default creator
+            createdById: defaultUser.id,
             description: email.body,
             contactId: contact.id,
         }
