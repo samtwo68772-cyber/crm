@@ -4,6 +4,8 @@
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { Email } from '@/lib/types';
+import imaps from 'imap-simple';
+import { simpleParser } from 'mailparser';
 
 export async function getEmails() {
     return await prisma.email.findMany({
@@ -14,60 +16,92 @@ export async function getEmails() {
 }
 
 export async function processIncomingEmails() {
-    // This is a placeholder for a real email processing job.
-    // In a real app, this would be a cron job or a webhook.
-    const emailsToProcess = await prisma.email.findMany({
-        where: { type: 'inbox', linkedCaseId: null }
-    });
+    console.log("Starting email processing...");
 
-    for (const email of emailsToProcess) {
-        let contact = await prisma.contact.findUnique({ where: { email: email.from.email } });
-        if (!contact) {
-            contact = await prisma.contact.create({
-                data: {
-                    name: email.from.name,
-                    email: email.from.email,
-                    company: 'Unknown',
-                    role: 'Unknown',
-                    avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
-                }
-            });
-        }
-
-        const newCase = await prisma.case.create({
-            data: {
-                subject: email.subject,
-                customer: contact.name,
-                email: contact.email,
-                priority: 'Medium',
-                type: 'General Question',
-                status: 'New',
-                assignedTo: [],
-                createdAt: new Date().toISOString(),
-                description: email.body,
-                contactId: contact.id,
-                communications: {
-                    create: {
-                        type: 'Email',
-                        content: `Original email from ${email.from.name}:\n\n${email.body}`,
-                        author: email.from.name,
-                        authorRole: 'staff', // assumption
-                        timestamp: new Date(email.date).toLocaleString(),
-                    }
-                }
+    const config = {
+        imap: {
+            user: process.env.IMAP_USER!,
+            password: process.env.IMAP_PASS!,
+            host: process.env.IMAP_HOST!,
+            port: parseInt(process.env.IMAP_PORT || '993', 10),
+            tls: true,
+            authTimeout: 3000,
+            tlsOptions: {
+                rejectUnauthorized: false
             }
-        });
-
-        await prisma.email.update({
-            where: { id: email.id },
-            data: { linkedCaseId: newCase.id }
-        });
+        }
+    };
+    
+    if (!config.imap.user || !config.imap.password) {
+        console.error("IMAP credentials are not set in .env file.");
+        throw new Error("IMAP credentials not configured.");
     }
 
-    revalidatePath('/emails');
-    revalidatePath('/cases');
-    revalidatePath('/accounts');
+    try {
+        const connection = await imaps.connect(config);
+        console.log("IMAP connection successful.");
+        await connection.openBox('INBOX');
+        const searchCriteria = ['UNSEEN'];
+        const fetchOptions = {
+            bodies: [''],
+            markSeen: true
+        };
+
+        const results = await connection.search(searchCriteria, fetchOptions);
+        console.log(`Found ${results.length} new emails.`);
+
+        for (const item of results) {
+            const all = item.parts.find(part => part.which === '');
+            if (all) {
+                const mail = await simpleParser(all.body);
+                console.log(`Processing email from: ${mail.from?.text}, Subject: ${mail.subject}`);
+
+                let contact = await prisma.contact.findUnique({ where: { email: mail.from?.value[0].address! } });
+                if (!contact) {
+                    contact = await prisma.contact.create({
+                        data: {
+                            name: mail.from?.value[0].name || mail.from?.value[0].address!,
+                            email: mail.from?.value[0].address!,
+                            company: 'Unknown',
+                            role: 'Unknown',
+                            avatar: `https://placehold.co/40x40.png?text=${(mail.from?.value[0].name || mail.from?.value[0].address!).charAt(0)}`,
+                        }
+                    });
+                     console.log(`Created new contact: ${contact.name}`);
+                }
+
+                const newCase = await prisma.case.create({
+                    data: {
+                        subject: mail.subject || '(No Subject)',
+                        customer: contact.name,
+                        email: contact.email,
+                        priority: 'Medium',
+                        type: 'General Question',
+                        status: 'New',
+                        createdById: 'user-1', // Default to admin for system-created cases
+                        description: mail.text || mail.html || '(No Content)',
+                        contactId: contact.id,
+                        communications: {
+                            push: { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: mail.date?.toISOString() || new Date().toISOString() }
+                        }
+                    }
+                });
+                console.log(`Created new case #${newCase.id} from email.`);
+            }
+        }
+
+        connection.end();
+        console.log("Email processing finished.");
+        revalidatePath('/emails');
+        revalidatePath('/cases');
+        revalidatePath('/accounts');
+
+    } catch (err) {
+        console.error('An error occurred while processing emails:', err);
+        throw new Error('Failed to process emails. Check server logs for details.');
+    }
 }
+
 
 export async function markEmailAsRead(id: string) {
     await prisma.email.update({
@@ -102,8 +136,7 @@ export async function createCaseFromEmail(emailId: string) {
             priority: 'Medium',
             type: 'General Question',
             status: 'New',
-            assignedTo: [],
-            createdAt: new Date().toISOString(),
+            createdById: 'user-1', // Default creator
             description: email.body,
             contactId: contact.id,
         }
@@ -118,5 +151,3 @@ export async function createCaseFromEmail(emailId: string) {
     revalidatePath('/cases');
     return newCase;
 }
-
-    

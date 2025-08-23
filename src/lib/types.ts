@@ -114,6 +114,8 @@ export type Document = {
   accountId?: string;
   caseId?: string;
   previewUrl?: string;
+  linkedToId?: string;
+  linkedToType?: 'Case' | 'Account' | '';
 };
 
 export type Meeting = {

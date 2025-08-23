@@ -361,6 +361,8 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
 
 function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType; }) {
     const [isDialogOpen, setDialogOpen] = useState(false);
+    const configured = process.env.NEXT_PUBLIC_IMAP_USER && process.env.NEXT_PUBLIC_IMAP_PASS;
+    const host = process.env.NEXT_PUBLIC_IMAP_HOST || initialSettings.imapHost;
     
     return (
         <>
@@ -370,7 +372,7 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                         <Mail className="h-6 w-6" />
                         <div>
                             <CardTitle>Email Configuration</CardTitle>
-                            <CardDescription>Set up SMTP (sending) and IMAP (receiving) email accounts.</CardDescription>
+                            <CardDescription>Set up SMTP (sending) and IMAP (receiving) email accounts via environment variables.</CardDescription>
                         </div>
                     </div>
                 </CardHeader>
@@ -378,16 +380,19 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                     <div className="border rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                             <h4 className="font-medium">Email Server</h4>
-                            <p className="text-sm text-muted-foreground">
-                                {initialSettings.configured ? `Connected to ${initialSettings.smtpHost} / ${initialSettings.imapHost}` : 'Not configured'}
+                             <p className="text-sm text-muted-foreground">
+                                {initialSettings.configured ? `Configuration loaded from environment variables for ${host}` : 'Not configured'}
                             </p>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                              <Badge variant={initialSettings.configured ? 'success' : 'secondary'} className="mr-auto sm:mr-0">
-                                {initialSettings.configured ? 'Connected' : 'Inactive'}
+                                {initialSettings.configured ? 'Active' : 'Inactive'}
                             </Badge>
-                            <Button variant="outline" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">Configure</Button>
+                            <Button variant="outline" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">View Config</Button>
                         </div>
+                    </div>
+                     <div className="text-sm text-muted-foreground p-4 border-l-4">
+                        To enable real email integration, set the `IMAP_USER`, `IMAP_PASS`, and other related variables in your `.env` file. You may need to generate an "App Password" from your email provider if you use two-factor authentication.
                     </div>
                 </CardContent>
             </Card>
@@ -401,51 +406,10 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
 }
 
 function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType }) {
-    const queryClient = useQueryClient();
     const { toast } = useToast();
-    const [localSettings, setLocalSettings] = useState<EmailSettingsType>(settings);
-    const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-
-    const isFormValid = localSettings.smtpHost && localSettings.smtpPort && localSettings.smtpUser && localSettings.smtpPass && localSettings.imapHost && localSettings.imapPort && localSettings.imapUser && localSettings.imapPass;
-
-    useEffect(() => {
-        if(open) {
-            setLocalSettings(settings);
-            setTestStatus('idle');
-        }
-    }, [settings, open]);
     
-    const handleFieldChange = (field: keyof EmailSettingsType, value: any) => {
-        setLocalSettings(prev => ({...prev, [field]: value}));
-    };
-
-    const mutation = useMutation({
-        mutationFn: updateEmailSettings,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['emailSettings'] });
-            toast({ title: 'Email Settings Saved', description: 'Your email configuration has been updated.' });
-            onOpenChange(false);
-        },
-        onError: () => {
-             toast({ variant: 'destructive', title: 'Error', description: 'Failed to save email settings.'})
-        }
-    });
-
     const handleTestConnection = () => {
-        setTestStatus('testing');
-        setTimeout(() => {
-            if (isFormValid) {
-                setTestStatus('success');
-                toast({ title: "Connection Successful", description: "SMTP and IMAP connections verified." });
-            } else {
-                setTestStatus('error');
-                 toast({ variant: 'destructive', title: "Connection Failed", description: "Please check all your settings and try again." });
-            }
-        }, 1500);
-    };
-
-    const handleSubmit = async () => {
-        mutation.mutate({ ...localSettings, configured: true });
+        toast({ title: "Test Connection", description: "This is a mock test. In a real app, this would verify server connectivity." });
     };
 
     return (
@@ -453,7 +417,9 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
             <DialogContent className="sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>Email Server Configuration</DialogTitle>
-                    <DialogDescription>Enter your email server details for sending and receiving emails.</DialogDescription>
+                    <DialogDescription>
+                        Your email settings are securely managed via environment variables. To change them, please update your deployment's configuration.
+                    </DialogDescription>
                 </DialogHeader>
                 <Tabs defaultValue="smtp">
                     <TabsList className="grid w-full grid-cols-2">
@@ -462,48 +428,25 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                     </TabsList>
                     <TabsContent value="smtp" className="pt-4">
                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpHost" className="text-right">Host</Label><Input id="smtpHost" value={localSettings.smtpHost} onChange={(e) => handleFieldChange('smtpHost', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPort" className="text-right">Port</Label><Input id="smtpPort" type="number" value={localSettings.smtpPort} onChange={(e) => handleFieldChange('smtpPort', parseInt(e.target.value, 10) || 0)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpUser" className="text-right">Username</Label><Input id="smtpUser" value={localSettings.smtpUser} onChange={(e) => handleFieldChange('smtpUser', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtpPass" className="text-right">Password</Label><Input id="smtpPass" type="password" value={localSettings.smtpPass} onChange={(e) => handleFieldChange('smtpPass', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="smtpEncryption" className="text-right">Encryption</Label>
-                                <Select onValueChange={(v: string) => handleFieldChange('smtpEncryption', v)} value={localSettings.smtpEncryption}>
-                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                                    <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="ssl">SSL/TLS</SelectItem><SelectItem value="tls">STARTTLS</SelectItem></SelectContent>
-                                </Select>
-                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Host</Label><Input value="smtp.office365.com" readOnly className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Port</Label><Input value="587" readOnly className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Username</Label><Input value={process.env.NEXT_PUBLIC_SMTP_USER || settings.smtpUser} readOnly className="col-span-3" /></div>
                         </div>
                     </TabsContent>
                     <TabsContent value="imap" className="pt-4">
                         <div className="grid gap-4 py-4">
-                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapHost" className="text-right">Host</Label><Input id="imapHost" value={localSettings.imapHost} onChange={(e) => handleFieldChange('imapHost', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPort" className="text-right">Port</Label><Input id="imapPort" type="number" value={localSettings.imapPort} onChange={(e) => handleFieldChange('imapPort', parseInt(e.target.value, 10) || 0)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapUser" className="text-right">Username</Label><Input id="imapUser" value={localSettings.imapUser} onChange={(e) => handleFieldChange('imapUser', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imapPass" className="text-right">Password</Label><Input id="imapPass" type="password" value={localSettings.imapPass} onChange={(e) => handleFieldChange('imapPass', e.target.value)} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="imapEncryption" className="text-right">Encryption</Label>
-                                <Select onValueChange={(v: string) => handleFieldChange('imapEncryption', v)} value={localSettings.imapEncryption}>
-                                    <SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger>
-                                    <SelectContent><SelectItem value="none">None</SelectItem><SelectItem value="ssl">SSL/TLS</SelectItem></SelectContent>
-                                </Select>
-                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Host</Label><Input value="outlook.office365.com" readOnly className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Port</Label><Input value="993" readOnly className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Username</Label><Input value={process.env.NEXT_PUBLIC_IMAP_USER || settings.imapUser} readOnly className="col-span-3" /></div>
                         </div>
                     </TabsContent>
                 </Tabs>
-                <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t">
+                 <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t">
                      <div className="flex items-center gap-2">
-                        <Button variant="outline" onClick={handleTestConnection} disabled={testStatus === 'testing' || !isFormValid}>
-                            {testStatus === 'testing' ? 'Testing...' : 'Test Connection'}
-                        </Button>
-                        {testStatus === 'success' && <CheckCircle className="h-5 w-5 text-green-500" />}
-                        {testStatus === 'error' && <AlertCircle className="h-5 w-5 text-destructive" />}
+                        <p className="text-sm text-muted-foreground">Settings are read-only.</p>
                     </div>
                     <div className="flex gap-2">
-                         <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                         <Button onClick={handleSubmit} disabled={!isFormValid || mutation.isPending}>
-                            {mutation.isPending ? 'Saving...' : 'Save Changes'}
-                         </Button>
+                         <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
