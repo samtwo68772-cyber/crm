@@ -24,7 +24,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { cn } from '@/lib/utils';
 import type { Notification } from '@/lib/types';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { getNotifications, markAllAsRead, markAsRead } from '@/app/notifications/actions';
 import { getGeneralSettings } from '@/app/settings/actions';
 import { useIsClient } from '@/hooks/use-is-client';
@@ -237,7 +237,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                                     <div className="flex-1">
                                         <p className="font-semibold text-sm">{notification.title}</p>
                                         <p className="text-xs text-muted-foreground">{notification.description}</p>
-                                        <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(parseISO(notification.timestamp), { addSuffix: true })}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}</p>
                                     </div>
                                 </DropdownMenuItem>
                             ))
@@ -291,4 +291,3 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
     );
 }
-
