@@ -19,16 +19,16 @@ export const accounts: Account[] = [
 ];
 
 export const contacts: Contact[] = [
-    { id: 'contact-1', name: 'John Doe', email: 'john.d@customer.com', phone: '123-456-7890', company: 'Acme Inc.', accountId: 'acc-1', role: 'IT Manager', avatar: '/avatars/05.png', notes: 'Primary technical contact. Prefers email communication.' },
-    { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', accountId: 'acc-2', role: 'Procurement Officer', avatar: '/avatars/06.png', notes: 'Handles all billing and contract renewals.' },
-    { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', accountId: 'acc-3', role: 'Lead Developer', avatar: '/avatars/07.png' },
-    { id: 'contact-4', name: 'Susan Miller', email: 'susan.m@customer.com', phone: '456-789-0123', company: 'Acme Inc.', accountId: 'acc-1', role: 'Project Manager', avatar: '/avatars/08.png' },
-    { id: 'contact-5', name: 'Miles Dyson', email: 'miles.d@cyberdyne.com', phone: '567-890-1234', company: 'Cyberdyne Systems', accountId: 'acc-4', role: 'Head of Research', avatar: '/avatars/09.png' },
-    { id: 'contact-6', name: 'Hank Scorpio', email: 'h.scorpio@globex.com', phone: '678-901-2345', company: 'Globex Corporation', accountId: 'acc-5', role: 'CEO', avatar: '/avatars/10.png' },
+    { id: 'contact-1', name: 'John Doe', email: 'john.d@customer.com', phone: '123-456-7890', company: 'Acme Inc.', accountId: 'acc-1', role: 'IT Manager', avatar: '/avatars/05.png', notes: 'Primary technical contact. Prefers email communication.', tasks: [] },
+    { id: 'contact-2', name: 'Jane Roe', email: 'jane.r@customer.com', phone: '234-567-8901', company: 'Stark Industries', accountId: 'acc-2', role: 'Procurement Officer', avatar: '/avatars/06.png', notes: 'Handles all billing and contract renewals.', tasks: [] },
+    { id: 'contact-3', name: 'Peter Jones', email: 'peter.j@customer.com', phone: '345-678-9012', company: 'Wayne Enterprises', accountId: 'acc-3', role: 'Lead Developer', avatar: '/avatars/07.png', tasks: [] },
+    { id: 'contact-4', name: 'Susan Miller', email: 'susan.m@customer.com', phone: '456-789-0123', company: 'Acme Inc.', accountId: 'acc-1', role: 'Project Manager', avatar: '/avatars/08.png', tasks: [] },
+    { id: 'contact-5', name: 'Miles Dyson', email: 'miles.d@cyberdyne.com', phone: '567-890-1234', company: 'Cyberdyne Systems', accountId: 'acc-4', role: 'Head of Research', avatar: '/avatars/09.png', tasks: [] },
+    { id: 'contact-6', name: 'Hank Scorpio', email: 'h.scorpio@globex.com', phone: '678-901-2345', company: 'Globex Corporation', accountId: 'acc-5', role: 'CEO', avatar: '/avatars/10.png', tasks: [] },
 ];
 
 
-export const cases: Case[] = [
+export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: string[] }[] = [
   { 
     id: 'case-101', 
     subject: 'Login issue on mobile', 
@@ -42,7 +42,7 @@ export const cases: Case[] = [
     resolvedAt: '2024-05-21',
     description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', 
     communications: [
-        { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorRole: 'staff', timestamp: '2024-05-20 10:00:00' }
+        { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorId: 'user-2', authorRole: 'staff', timestamp: '2024-05-20 10:00:00' }
     ],
     contactId: 'contact-1',
     satisfactionRating: 4,
@@ -76,7 +76,7 @@ export const cases: Case[] = [
     resolvedAt: '2024-05-19',
     description: 'User loves the platform and would like to see a dark mode option for the UI.', 
     communications: [
-        { id: 'comm-2', type: 'Note', content: 'Feature has been added to the product backlog. Closing case.', author: 'Alex Johnson', authorRole: 'admin', timestamp: '2024-05-18 14:00:00' }
+        { id: 'comm-2', type: 'Note', content: 'Feature has been added to the product backlog. Closing case.', author: 'Alex Johnson', authorId: 'user-1', authorRole: 'admin', timestamp: '2024-05-18 14:00:00' }
     ],
     contactId: 'contact-3',
     satisfactionRating: 5,
@@ -94,7 +94,7 @@ export const cases: Case[] = [
     resolvedAt: undefined,
     description: 'The export to CSV feature is failing with a server error 500. This is blocking their monthly reporting.', 
     communications: [
-        { id: 'comm-3', type: 'Finding', content: 'The CSV export fails due to a timeout on large datasets. The query needs to be optimized.', author: 'James Smith', authorRole: 'staff', timestamp: '2024-05-21 11:30:00' }
+        { id: 'comm-3', type: 'Finding', content: 'The CSV export fails due to a timeout on large datasets. The query needs to be optimized.', author: 'James Smith', authorId: 'user-3', authorRole: 'staff', timestamp: '2024-05-21 11:30:00' }
     ],
     contactId: 'contact-4',
     satisfactionRating: undefined,
@@ -143,7 +143,7 @@ export const cases: Case[] = [
     resolvedAt: '2024-05-21',
     description: 'Requesting API access for a custom integration, which is not supported on their current plan.', 
     communications: [
-      { id: 'comm-4', type: 'Note', content: 'Customer plan does not include API access. Declined request.', author: 'Alex Johnson', authorRole: 'admin', timestamp: '2024-05-21 16:00:00' }
+      { id: 'comm-4', type: 'Note', content: 'Customer plan does not include API access. Declined request.', author: 'Alex Johnson', authorId: 'user-1', authorRole: 'admin', timestamp: '2024-05-21 16:00:00' }
     ],
     satisfactionRating: 2,
   },
@@ -167,12 +167,12 @@ export const teams: Team[] = [
     { id: 'team-4', name: 'Sales (Archived)', description: 'Old sales team.', leaderId: 'user-1', memberIds: [], status: 'Archived' },
 ];
 
-export const documents: Document[] = [
-  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', linkedToType: 'Case', linkedToId: 'case-101' },
-  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', linkedToType: 'Account', linkedToId: 'acc-2' },
-  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', linkedToType: 'Case', linkedToId: 'case-104' },
-  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', linkedToType: 'Case', linkedToId: 'case-101', previewUrl: 'https://placehold.co/600x400.png' },
-  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', linkedToType: 'Account', linkedToId: 'acc-2' }
+export const documents: Omit<Document, 'authorId'>[] = [
+  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: '2024-05-18', uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101' },
+  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: '2024-05-19', uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2' },
+  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: '2024-05-20', uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104' },
+  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: '2024-05-20', uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png' },
+  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: '2023-02-20', uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2' }
 ];
 
 export const meetings: Meeting[] = [
@@ -182,7 +182,7 @@ export const meetings: Meeting[] = [
     description: 'Quarterly business review and planning for next quarter.',
     date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(), 
     status: 'Upcoming', 
-    participants: ['user-1', 'user-2'],
+    participants: [],
     linkedRecord: 'case-101',
     contactId: 'contact-1'
   },
@@ -192,7 +192,7 @@ export const meetings: Meeting[] = [
     description: 'Kickoff meeting for the new mobile app redesign project.',
     date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), 
     status: 'Completed', 
-    participants: ['user-1', 'user-3'],
+    participants: [],
   },
   { 
     id: 'meet-3', 
@@ -200,7 +200,7 @@ export const meetings: Meeting[] = [
     description: 'Weekly sync to discuss high-priority cases.',
     date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), 
     status: 'Completed', 
-    participants: ['user-2', 'user-3', 'user-4'],
+    participants: [],
   },
    { 
     id: 'meet-4', 
@@ -208,7 +208,7 @@ export const meetings: Meeting[] = [
     description: 'Demo of the new features for Stark Industries.',
     date: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString(), 
     status: 'Upcoming', 
-    participants: ['user-1'],
+    participants: [],
     linkedRecord: 'case-102',
     contactId: 'contact-2'
   },
@@ -218,7 +218,7 @@ export const meetings: Meeting[] = [
     description: 'Scheduled maintenance at the client\'s office.',
     date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), 
     status: 'Canceled', 
-    participants: ['user-4'],
+    participants: [],
   },
 ];
 

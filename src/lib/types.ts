@@ -11,6 +11,7 @@ export type User = {
   passwordHash?: string;
   assignments?: CaseAssignment[];
   meetings?: MeetingParticipant[];
+  notificationPreferences?: NotificationPreferences;
 };
 
 export type Case = {
@@ -28,6 +29,7 @@ export type Case = {
   contactId?: string;
   satisfactionRating?: number; // 1-5
   assignments: CaseAssignment[];
+  createdById: string;
 };
 
 export type CaseAssignment = {
@@ -36,7 +38,7 @@ export type CaseAssignment = {
   userId: string;
   user: User;
   assignedAt: Date;
-  assignedBy: string;
+  assignedByUserId: string;
 };
 
 export type Communication = {
@@ -54,7 +56,7 @@ export type Task = {
   title: string;
   description?: string;
   status: 'To Do' | 'In Progress' | 'Done' | 'Canceled';
-  dueDate: string;
+  dueDate: string | null;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
   assignedTo?: string;
@@ -71,6 +73,7 @@ export type Contact = {
   role: string;
   notes?: string;
   avatar: string;
+  tasks: Task[];
 };
 
 export type Team = {

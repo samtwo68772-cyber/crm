@@ -95,13 +95,13 @@ async function main() {
         update: {
             ...rest,
             createdAt: new Date(caseItem.createdAt),
-            resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : undefined,
+            resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : null,
             createdById: 'user-1', // Default creator
         },
         create: {
             ...rest,
             createdAt: new Date(caseItem.createdAt),
-            resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : undefined,
+            resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : null,
             createdById: 'user-1', // Default creator
         }
     });
@@ -155,8 +155,8 @@ async function main() {
       create: {...meetingData, date: new Date(meeting.date)},
     });
     // Create meeting participants
-    if (participants && participants.length > 0) {
-      for (const userId of participants) {
+    const participantIds = ['user-1', 'user-2']; // Example participants
+    for (const userId of participantIds) {
         const existingParticipant = await prisma.meetingParticipant.findFirst({
             where: {
                 meetingId: newMeeting.id,
@@ -171,17 +171,25 @@ async function main() {
                 }
             });
         }
-      }
     }
   }
   console.log('Meetings seeded.');
   
   // Seed Documents
   for (const doc of documents) {
+      const { authorId, ...docData } = doc as any; // authorId is handled by relation
       await prisma.document.upsert({
           where: {id: doc.id},
-          update: {...doc, uploadedAt: new Date(doc.uploadedAt)},
-          create: {...doc, uploadedAt: new Date(doc.uploadedAt)},
+          update: {
+              ...docData,
+              uploadedAt: new Date(doc.uploadedAt),
+              author: { connect: { id: 'user-1' } }
+          },
+          create: {
+              ...docData,
+              uploadedAt: new Date(doc.uploadedAt),
+              author: { connect: { id: 'user-1' } }
+          },
       })
   }
   console.log('Documents seeded.');
