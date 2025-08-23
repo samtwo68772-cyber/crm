@@ -13,7 +13,32 @@ function generateShortId() {
 }
 
 export async function getCases() {
+    const session = await getSession();
+    if (!session?.userId) {
+        throw new Error("Authentication required");
+    }
+
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+    });
+
+    if (!user) {
+        throw new Error("User not found");
+    }
+
+    let whereClause = {};
+
+    if (user.role !== 'admin') {
+        whereClause = {
+            OR: [
+                { createdById: user.id },
+                { assignments: { some: { userId: user.id } } }
+            ]
+        };
+    }
+
     return await prisma.case.findMany({
+        where: whereClause,
         orderBy: {
             createdAt: 'desc',
         },
@@ -77,7 +102,8 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
             }
         },
         include: {
-            assignments: { include: { user: true } }
+            assignments: { include: { user: true } },
+            createdBy: true,
         }
     });
 
@@ -144,7 +170,8 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
             } : undefined,
         },
         include: {
-            assignments: { include: { user: true } }
+            assignments: { include: { user: true } },
+            createdBy: true,
         }
     });
 
@@ -198,7 +225,8 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
             }
         },
          include: {
-            assignments: { include: { user: true } }
+            assignments: { include: { user: true } },
+            createdBy: true,
         }
     });
     revalidatePath('/cases');
@@ -217,7 +245,8 @@ export async function deleteCommunicationFromCase(caseId: string, communicationI
             communications: updatedCommunications,
         },
         include: {
-            assignments: { include: { user: true } }
+            assignments: { include: { user: true } },
+            createdBy: true,
         }
     });
     revalidatePath('/cases');
@@ -237,5 +266,3 @@ export async function deleteCase(id: string) {
     revalidatePath('/cases');
     return deletedCase;
 }
-
-    

@@ -68,7 +68,14 @@ const staffStatusOptions: Case['status'][] = ['New', 'In Progress', 'Investigate
 
 export default function CasesPage() {
     const queryClient = useQueryClient();
-    const { data: cases, isLoading: casesLoading } = useQuery<any[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { user } = useAuth();
+
+    const { data: cases, isLoading: casesLoading } = useQuery<any[]>({ 
+        queryKey: ['cases', user?.id], 
+        queryFn: getCases,
+        enabled: !!user,
+    });
+    
     const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
     const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
     const { data: tasks, isLoading: tasksLoading } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
@@ -77,7 +84,6 @@ export default function CasesPage() {
 
     const [selectedCase, setSelectedCase] = useState<any | null>(null);
     const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
-    const { user } = useAuth();
     const { toast } = useToast();
     const searchParams = useSearchParams();
     const isMobile = useIsMobile();
@@ -102,7 +108,7 @@ export default function CasesPage() {
     const createCaseMutation = useMutation({
         mutationFn: createCase,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
             toast({ title: "Case Created", description: "A new case has been created." });
             setCreateDialogOpen(false);
         },
@@ -114,12 +120,12 @@ export default function CasesPage() {
     const updateCaseMutation = useMutation({
         mutationFn: (data: { id: string; data: Partial<Case> & { assignedTo?: string[] } }) => updateCase(data.id, data.data),
         onMutate: async (newCaseData) => {
-            await queryClient.cancelQueries({ queryKey: ['cases'] });
-            const previousCases = queryClient.getQueryData(['cases']);
+            await queryClient.cancelQueries({ queryKey: ['cases', user?.id] });
+            const previousCases = queryClient.getQueryData(['cases', user?.id]);
             const previousSelectedCase = selectedCase;
 
             // Optimistically update to the new value
-             queryClient.setQueryData(['cases'], (old: any[] | undefined) => 
+             queryClient.setQueryData(['cases', user?.id], (old: any[] | undefined) => 
                 old ? old.map(c => c.id === newCaseData.id ? {...c, ...newCaseData.data, assignments: newCaseData.data.assignedTo?.map(id => ({userId: id.replace(/user-|team-/g, '')})) } : c) : []
             );
             
@@ -139,14 +145,14 @@ export default function CasesPage() {
         },
         onError: (err, newCaseData, context) => {
             // Rollback on error
-            queryClient.setQueryData(['cases'], context?.previousCases);
+            queryClient.setQueryData(['cases', user?.id], context?.previousCases);
             if (context?.previousSelectedCase) {
                  setSelectedCase(context.previousSelectedCase);
             }
             toast({ variant: "destructive", title: "Error", description: "Failed to update case." });
         },
         onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
         },
         onSuccess: (updatedCase) => {
             if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
@@ -160,7 +166,7 @@ export default function CasesPage() {
     const deleteCaseMutation = useMutation({
         mutationFn: deleteCase,
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['cases'] });
+            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
             toast({ title: "Case Deleted", description: "The case has been deleted." });
             setSelectedCase(null);
         },
@@ -181,35 +187,11 @@ export default function CasesPage() {
         const { id, ...data } = updatedCaseData;
         updateCaseMutation.mutate({ id, data: data as any });
     };
-  
-     const userCases = useMemo(() => {
-        if (!cases || !user || !teams) return [];
-        if (user.role === 'admin') {
-            return cases;
-        }
-
-        const userTeamNames = teams.filter(team => team.memberIds.includes(user.id)).map(team => team.name);
-        
-        return cases.filter(c => {
-            if (c.createdById === user.id) return true;
-
-            const isDirectlyAssigned = c.assignments.some((a: any) => a.userId === user.id);
-            if (isDirectlyAssigned) return true;
-
-            const isTeamAssigned = c.assignments.some((a: any) => {
-                const assignedUser = users?.find(u => u.id === a.userId);
-                return assignedUser && userTeamNames.includes(assignedUser.team);
-            });
-            if (isTeamAssigned) return true;
-
-            return false;
-        });
-    }, [cases, user, teams, users]);
 
     const filteredCases = useMemo(() => {
-        if (!userCases || !users || !teams) return [];
+        if (!cases || !users || !teams) return [];
         setCurrentPage(1); // Reset to first page on filter change
-        return userCases.filter(c => {
+        return cases.filter(c => {
             const matchesStatus = statusFilter === 'all' || 
                 (statusFilter === 'active' && ['New', 'In Progress', 'Under Review', 'Investigated'].includes(c.status)) ||
                 c.status === statusFilter;
@@ -225,7 +207,7 @@ export default function CasesPage() {
             const matchesDate = !from || (isWithinInterval(new Date(c.createdAt), { start: from, end: to || new Date() }));
             return matchesStatus && matchesPriority && matchesType && matchesAssignedTo && matchesSearch && matchesDate;
         });
-    }, [userCases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users, teams]);
+    }, [cases, statusFilter, priorityFilter, typeFilter, assignedToFilter, searchQuery, dateRange, users, teams]);
   
     const paginatedCases = useMemo(() => {
         if (!filteredCases) return [];
@@ -1026,20 +1008,3 @@ function ManageCaseTypesDialog({ open, onOpenChange, caseTypes, onSave }: { open
         </Dialog>
     );
 }
-    
-
-    
-
-
-
-
-
-    
-
-
-
-    
-
-
-
-    

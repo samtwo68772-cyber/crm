@@ -62,7 +62,6 @@ export type Task = {
   linkedCase?: string;
   assignedTo?: string;
   contactId?: string;
-  contact?: Contact;
 };
 
 export type Contact = {
@@ -153,7 +152,7 @@ export type Email = {
     to: { name: string, email: string };
     subject: string;
     body: string;
-    date: string;
+    date: Date;
     type: 'inbox' | 'sent';
     read: boolean;
     linkedCaseId?: string;
@@ -180,7 +179,7 @@ export type Notification = {
   type: 'case' | 'task' | 'email' | 'meeting';
   title: string;
   description: string;
-  timestamp: string;
+  timestamp: Date;
   read: boolean;
   userId?: string; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
   link: string; // The URL to navigate to when clicked
