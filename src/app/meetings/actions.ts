@@ -27,7 +27,7 @@ export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> &
   const newMeeting = await prisma.meeting.create({
     data: {
       ...meetingData,
-      contactId,
+      contactId: contactId,
       participants: {
         create: participantIds.map(userId => ({
           user: { connect: { id: userId } }

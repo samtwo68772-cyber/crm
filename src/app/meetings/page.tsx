@@ -49,7 +49,8 @@ function getStatusColor(status: Meeting['status']) {
     }
 }
 
-const safeFormat = (date: string | Date, formatString: string) => {
+const safeFormat = (date: string | Date | undefined, formatString: string) => {
+    if (!date) return "Invalid Date";
     try {
         const d = (date instanceof Date) ? date : new Date(date);
         if (!isValid(d)) {
@@ -292,7 +293,7 @@ export default function MeetingsPage() {
                                 className="w-full meeting-calendar-wrapper"
                                 components={{
                                     DayContent: ({ date, ...props }) => {
-                                        const dayMeetings = userMeetings.filter(m => isSameDay(new Date(m.date), date));
+                                        const dayMeetings = userMeetings.filter(m => isSameDay(m.date, date));
                                         return (
                                             <div className="h-full w-full">
                                                 <div className="w-full text-right p-1 text-sm">{format(date, 'd')}</div>
@@ -521,7 +522,20 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
     if (!validate()) {
         return;
     }
-    onCreate({ title, description, date, participantIds, linkedRecord, status: 'Upcoming' });
+    
+    const linkedCase = cases.find(c => c.id === linkedRecord);
+    
+    const dataToCreate = { 
+        title, 
+        description, 
+        date, 
+        participantIds, 
+        linkedRecord, 
+        contactId: linkedCase?.contactId,
+        status: 'Upcoming' 
+    };
+
+    onCreate(dataToCreate);
     setTitle(''); setDescription(''); setDate(''); setParticipantIds([]); setLinkedRecord(''); setErrors({});
   };
 
