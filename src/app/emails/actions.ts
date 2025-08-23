@@ -32,8 +32,8 @@ export async function processIncomingEmails() {
         }
     };
     
-    if (!config.imap.user || !config.imap.password) {
-        console.error("IMAP credentials are not set in .env file.");
+    if (!config.imap.user || !config.imap.password || !config.imap.host) {
+        console.error("IMAP credentials are not fully set in .env file.");
         throw new Error("IMAP credentials not configured.");
     }
 
