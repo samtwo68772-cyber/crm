@@ -22,6 +22,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
+import { format, isValid } from 'date-fns';
 
 const fileTypeIcons: { [key in Document['type']]: React.ReactNode } = {
     'PDF': <FileText className="h-10 w-10 text-red-500" />,
@@ -249,7 +250,7 @@ export default function DocumentsPage() {
                                    <div className="flex gap-2 items-center"><LinkIcon className="h-4 w-4 text-muted-foreground" /> <strong>Linked To:</strong> {getLinkedItemName(doc)} ({doc.linkedToType})</div>
                                    <div className="flex gap-2 items-center"><Folder className="h-4 w-4 text-muted-foreground" /> <strong>Category:</strong> {doc.category}</div>
                                    <div className="flex gap-2 items-center"><User className="h-4 w-4 text-muted-foreground" /> <strong>Uploaded By:</strong> {doc.uploadedBy}</div>
-                                   <div className="flex gap-2 items-center"><Calendar className="h-4 w-4 text-muted-foreground" /> <strong>Uploaded At:</strong> {doc.uploadedAt}</div>
+                                   <div className="flex gap-2 items-center"><Calendar className="h-4 w-4 text-muted-foreground" /> <strong>Uploaded At:</strong> {isValid(new Date(doc.uploadedAt)) ? format(new Date(doc.uploadedAt), 'PPP') : 'Invalid Date'}</div>
                                 </div>
                                 <div className="flex gap-2 mt-6">
                                     <Button size="sm" onClick={() => handleDownload(doc)}><Download className="mr-2 h-4 w-4"/> Download</Button>
@@ -414,3 +415,6 @@ function UploadDocumentDialog({ open, onOpenChange, document, onSave, cases, acc
         </Dialog>
     )
 }
+
+
+    
