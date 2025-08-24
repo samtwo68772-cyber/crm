@@ -390,9 +390,6 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                             </Button>
                         </div>
                     </div>
-                     <div className="text-sm text-muted-foreground p-4 border-l-4">
-                        To enable email integration, provide your server credentials. For Gmail/Outlook, you may need to generate an "App Password" if you use two-factor authentication.
-                    </div>
                 </CardContent>
             </Card>
             <EmailSettingsDialog
@@ -422,7 +419,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                 let errorDescription = '';
                 if (!data.smtp.success) errorDescription += `SMTP: ${data.smtp.error}\n`;
                 if (!data.imap.success) errorDescription += `IMAP: ${data.imap.error}`;
-                toast({ variant: "destructive", title: "Connection Failed", description: errorDescription });
+                toast({ variant: "destructive", title: "Connection Failed", description: errorDescription, duration: 9000 });
             }
         },
         onError: (error: any) => {
@@ -452,41 +449,31 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl">
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Email Server Configuration</DialogTitle>
                     <DialogDescription>
-                       Enter your email server details for both sending and receiving emails.
+                       Enter your email server details for both sending and receiving emails. Use the same account for both.
                     </DialogDescription>
                 </DialogHeader>
-                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6 pt-4">
-                    <div className="sm:col-span-3">
-                        <h4 className="font-medium text-lg">Sending (SMTP)</h4>
-                        <div className="mt-4 space-y-4">
-                            <div><Label>Host</Label><Input value={currentSettings.smtpHost} onChange={e => setCurrentSettings(s => ({...s, smtpHost: e.target.value}))} /></div>
-                            <div><Label>Port</Label><Input type="number" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} /></div>
-                            <div><Label>Username</Label><Input value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} /></div>
-                            <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} /></div>
-                        </div>
-                    </div>
-
-                     <div className="sm:col-span-3">
-                        <h4 className="font-medium text-lg">Receiving (IMAP)</h4>
-                        <div className="mt-4 space-y-4">
-                             <div><Label>Host</Label><Input value={currentSettings.imapHost} onChange={e => setCurrentSettings(s => ({...s, imapHost: e.target.value}))} /></div>
-                             <div><Label>Port</Label><Input type="number" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} /></div>
-                             <div><Label>Username</Label><Input value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} /></div>
-                             <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} /></div>
-                        </div>
-                    </div>
-                </div>
-                 <div className="text-sm p-4 bg-muted/50 rounded-md mt-4">
-                    <p className="font-semibold flex items-center gap-2"><AlertCircle className="h-4 w-4" />Connection Help</p>
-                    <ul className="list-disc pl-5 mt-2 text-muted-foreground space-y-1">
-                        <li>If using Gmail/Outlook with 2FA, you must generate and use an "App Password".</li>
-                        <li>If not using 2FA, you may need to enable "Less Secure App Access" in your Google Account settings.</li>
-                    </ul>
-                </div>
+                <Tabs defaultValue="smtp" className="pt-4">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="smtp">Sending (SMTP)</TabsTrigger>
+                        <TabsTrigger value="imap">Receiving (IMAP)</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="smtp" className="space-y-4 pt-4">
+                        <div><Label>Host</Label><Input placeholder="smtp.example.com" value={currentSettings.smtpHost} onChange={e => setCurrentSettings(s => ({...s, smtpHost: e.target.value}))} /></div>
+                        <div><Label>Port</Label><Input type="number" placeholder="587" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} /></div>
+                        <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} /></div>
+                        <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} /></div>
+                    </TabsContent>
+                     <TabsContent value="imap" className="space-y-4 pt-4">
+                        <div><Label>Host</Label><Input placeholder="imap.example.com" value={currentSettings.imapHost} onChange={e => setCurrentSettings(s => ({...s, imapHost: e.target.value}))} /></div>
+                        <div><Label>Port</Label><Input type="number" placeholder="993" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} /></div>
+                        <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} /></div>
+                        <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} /></div>
+                    </TabsContent>
+                </Tabs>
                  <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t mt-4">
                      <Button variant="outline" onClick={handleTestConnection} disabled={testConnectionMutation.isPending}>
                         {testConnectionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
