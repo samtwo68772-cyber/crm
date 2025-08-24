@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -460,35 +459,35 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                        Enter your email server details for both sending and receiving emails.
                     </DialogDescription>
                 </DialogHeader>
-                <Tabs defaultValue="smtp">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="smtp">Sending (SMTP)</TabsTrigger>
-                        <TabsTrigger value="imap">Receiving (IMAP)</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="smtp" className="pt-4">
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-host" className="text-right">Host</Label><Input id="smtp-host" value={currentSettings.smtpHost} onChange={e => setCurrentSettings(s => ({...s, smtpHost: e.target.value}))} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-port" className="text-right">Port</Label><Input id="smtp-port" type="number" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-user" className="text-right">Username</Label><Input id="smtp-user" value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-pass" className="text-right">Password</Label><Input id="smtp-pass" type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} className="col-span-3" /></div>
-                            <div className="col-start-2 col-span-3 text-xs text-muted-foreground">
-                                If using Gmail/Outlook with 2FA, you must generate and use an "App Password".
-                            </div>
+                <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6 pt-4">
+                    <div className="sm:col-span-3">
+                        <h4 className="font-medium text-lg">Sending (SMTP)</h4>
+                        <div className="mt-4 space-y-4">
+                            <div><Label>Host</Label><Input value={currentSettings.smtpHost} onChange={e => setCurrentSettings(s => ({...s, smtpHost: e.target.value}))} /></div>
+                            <div><Label>Port</Label><Input type="number" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} /></div>
+                            <div><Label>Username</Label><Input value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} /></div>
+                            <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} /></div>
                         </div>
-                    </TabsContent>
-                    <TabsContent value="imap" className="pt-4">
-                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-host" className="text-right">Host</Label><Input id="imap-host" value={currentSettings.imapHost} onChange={e => setCurrentSettings(s => ({...s, imapHost: e.target.value}))} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-port" className="text-right">Port</Label><Input id="imap-port" type="number" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-user" className="text-right">Username</Label><Input id="imap-user" value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-pass" className="text-right">Password</Label><Input id="imap-pass" type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} className="col-span-3" /></div>
-                             <div className="col-start-2 col-span-3 text-xs text-muted-foreground">
-                                If using Gmail/Outlook with 2FA, you must generate and use an "App Password".
-                            </div>
+                    </div>
+
+                     <div className="sm:col-span-3">
+                        <h4 className="font-medium text-lg">Receiving (IMAP)</h4>
+                        <div className="mt-4 space-y-4">
+                             <div><Label>Host</Label><Input value={currentSettings.imapHost} onChange={e => setCurrentSettings(s => ({...s, imapHost: e.target.value}))} /></div>
+                             <div><Label>Port</Label><Input type="number" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} /></div>
+                             <div><Label>Username</Label><Input value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} /></div>
+                             <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} /></div>
                         </div>
-                    </TabsContent>
-                </Tabs>
-                 <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t">
+                    </div>
+                </div>
+                 <div className="text-sm p-4 bg-muted/50 rounded-md mt-4">
+                    <p className="font-semibold flex items-center gap-2"><AlertCircle className="h-4 w-4" />Connection Help</p>
+                    <ul className="list-disc pl-5 mt-2 text-muted-foreground space-y-1">
+                        <li>If using Gmail/Outlook with 2FA, you must generate and use an "App Password".</li>
+                        <li>If not using 2FA, you may need to enable "Less Secure App Access" in your Google Account settings.</li>
+                    </ul>
+                </div>
+                 <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t mt-4">
                      <Button variant="outline" onClick={handleTestConnection} disabled={testConnectionMutation.isPending}>
                         {testConnectionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Test Connection
@@ -1077,3 +1076,5 @@ function AuditLog({ logs, users }: { logs: AuditLogType[], users: User[]}) {
         </Card>
     )
 }
+
+    
