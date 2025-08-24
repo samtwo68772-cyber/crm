@@ -29,17 +29,15 @@ export async function processIncomingEmails() {
     const emailSettings = await getEmailSettings();
 
     const config = {
-        imap: {
-            user: emailSettings.imapUser || process.env.IMAP_USER!,
-            password: emailSettings.imapPass || process.env.IMAP_PASS!,
-            host: emailSettings.imapHost || process.env.IMAP_HOST!,
-            port: emailSettings.imapPort || parseInt(process.env.IMAP_PORT || '993', 10),
-            tls: emailSettings.imapEncryption === 'ssl' || emailSettings.imapEncryption === 'tls',
-            authTimeout: 3000,
-            tlsOptions: {
-                rejectUnauthorized: false
-            }
-        }
+      imap: {
+        user: emailSettings.imapUser || process.env.IMAP_USER!,
+        password: emailSettings.imapPass || process.env.IMAP_PASS!,
+        host: emailSettings.imapHost || process.env.IMAP_HOST || "outlook.office365.com",
+        port: emailSettings.imapPort || parseInt(process.env.IMAP_PORT || "993", 10),
+        tls: true,
+        authTimeout: 10000,
+        tlsOptions: { rejectUnauthorized: false }
+      }
     };
     
     if (!config.imap.user || !config.imap.password || !config.imap.host) {
@@ -180,7 +178,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
     try {
         console.log(`Attempting to send email to ${to}...`);
         const info = await transporter.sendMail({
-            from: `"MintCRM" <${smtpUser}>`,
+            from: `"MinT CRM" <${smtpUser}>`,
             to: to,
             subject: subject,
             html: body,
