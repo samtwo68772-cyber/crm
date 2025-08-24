@@ -34,7 +34,7 @@ export async function processIncomingEmails() {
             password: emailSettings.imapPass || process.env.IMAP_PASS!,
             host: emailSettings.imapHost || process.env.IMAP_HOST!,
             port: emailSettings.imapPort || parseInt(process.env.IMAP_PORT || '993', 10),
-            tls: true,
+            tls: emailSettings.imapEncryption === 'ssl' || emailSettings.imapEncryption === 'tls',
             authTimeout: 3000,
             tlsOptions: {
                 rejectUnauthorized: false
@@ -102,7 +102,7 @@ export async function processIncomingEmails() {
                         from: { name: mail.from?.value[0].name || 'Unknown', email: fromAddress },
                         to: { name: mail.to?.value[0].name || 'Me', email: mail.to?.value[0].address || '' },
                         subject: mail.subject || '(No Subject)',
-                        body: mail.text || mail.html || '',
+                        body: mail.html || mail.text || '',
                         date: mail.date || new Date(),
                         type: 'inbox',
                         read: false,
@@ -122,7 +122,7 @@ export async function processIncomingEmails() {
                         type: 'General Question',
                         status: 'New',
                         createdById: defaultUser.id,
-                        description: mail.text || mail.html || '(No Content)',
+                        description: mail.text || '(No Content)',
                         contactId: contact.id,
                         communications: {
                             push: { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: mail.date?.toISOString() || new Date().toISOString() }
@@ -143,6 +143,7 @@ export async function processIncomingEmails() {
         revalidatePath('/emails');
         revalidatePath('/cases');
         revalidatePath('/accounts');
+        return { count: results.length };
 
     } catch (err) {
         console.error('An error occurred during email processing:', err);

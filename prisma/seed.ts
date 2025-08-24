@@ -191,12 +191,11 @@ async function main() {
   }
   console.log('Documents seeded.');
   
-  // Seed Emails
+  // Seed Emails - Clear existing emails to avoid duplicates
+  await prisma.email.deleteMany({});
   for (const email of emails) {
-    await prisma.email.upsert({
-        where: {id: email.id},
-        update: {...email, date: new Date(email.date)},
-        create: {...email, date: new Date(email.date)}
+    await prisma.email.create({
+        data: {...email, date: new Date(email.date)}
     })
   }
   console.log('Emails seeded.');

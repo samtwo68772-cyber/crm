@@ -162,7 +162,7 @@ export type Email = {
 };
 
 export type EmailSettingsType = {
-    id?: string;
+    id: string;
     smtpHost: string;
     smtpPort: number;
     smtpUser: string;

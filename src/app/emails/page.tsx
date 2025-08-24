@@ -88,13 +88,13 @@ function EmailClientView() {
     const processEmailsMutation = useMutation({
         mutationFn: processIncomingEmails,
         onMutate: () => setIsProcessing(true),
-        onSuccess: () => {
+        onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['emails'] });
             queryClient.invalidateQueries({ queryKey: ['cases'] });
             queryClient.invalidateQueries({ queryKey: ['contacts'] });
             toast({
                 title: "Email Processing Complete",
-                description: `Processed incoming emails. New cases may have been created.`,
+                description: `Fetched ${data.count} new email(s). New cases may have been created.`,
             });
         },
         onError: (error: Error) => {
@@ -158,8 +158,9 @@ function EmailClientView() {
             });
         },
         onError: (error) => {
-            if (error.message.includes('Contact not found')) {
-                // This logic seems fine, it will trigger the dialog.
+            if (error instanceof Error && error.message.includes('Contact not found')) {
+                 setEmailForNewContact(selectedEmail);
+                 setConfirmCreateContactOpen(true);
             } else {
                 toast({ variant: 'destructive', title: 'Error', description: 'Failed to create case from email.'})
             }
@@ -167,12 +168,7 @@ function EmailClientView() {
     });
     
     const handleCreateCaseFromEmail = async (email: Email) => {
-        try {
-            await createCaseFromEmailMutation.mutateAsync(email.id);
-        } catch(e) {
-            setEmailForNewContact(email);
-            setConfirmCreateContactOpen(true);
-        }
+        createCaseFromEmailMutation.mutate(email.id);
     };
     
     const createContactMutation = useMutation({
@@ -190,7 +186,7 @@ function EmailClientView() {
             toast({ title: "Contact Created", description: `Contact "${newContactData.name}" has been successfully created. Now creating case.` });
 
             if(emailForNewContact) {
-                await handleCreateCaseFromEmail(emailForNewContact);
+                handleCreateCaseFromEmail(emailForNewContact);
             }
             setEmailForNewContact(null);
         } catch (e) {
@@ -540,11 +536,11 @@ function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSa
 
 function NotConfiguredView() {
     return (
-        <div className="flex flex-col items-center justify-center h-full text-center">
+        <div className="flex flex-col items-center justify-center h-full text-center p-4">
             <Mail className="h-24 w-24 text-muted-foreground/50 mb-6" />
             <h2 className="text-2xl font-semibold mb-2">Email Not Configured</h2>
             <p className="max-w-md text-muted-foreground mb-6">
-                To send and receive emails, you first need to configure your email server settings in your .env file.
+                To send and receive emails from your own account, you first need to configure your email server settings.
             </p>
             <Link href="/settings?tab=email">
                 <Button>
@@ -563,7 +559,7 @@ export default function EmailsPage() {
     });
     const [isComposeOpen, setComposeOpen] = useState(false);
 
-    const isConfigured = emailSettings?.configured || (!!process.env.NEXT_PUBLIC_IMAP_USER && !!process.env.NEXT_PUBLIC_IMAP_PASS);
+    const isConfigured = emailSettings?.configured;
 
     if (isLoading) {
         return (
@@ -598,5 +594,3 @@ export default function EmailsPage() {
         </div>
     );
 }
-
-    
