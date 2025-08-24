@@ -4,7 +4,8 @@
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { GeneralSettingsType, EmailSettingsType, Workflow, NotificationPreferences, AuditLog } from '@/lib/types';
-
+import nodemailer from 'nodemailer';
+import imaps from 'imap-simple';
 
 // General Settings
 export async function getGeneralSettings() {
@@ -29,7 +30,7 @@ export async function updateGeneralSettings(data: GeneralSettingsType) {
         where: { id: settings.id },
         data,
     });
-    // revalidatePath('/settings');
+    revalidatePath('/settings');
     return updatedSettings;
 }
 
@@ -54,9 +55,66 @@ export async function updateEmailSettings(data: EmailSettingsType) {
         where: { id: settings.id },
         data,
     });
-    // revalidatePath('/settings');
+    revalidatePath('/settings');
+    revalidatePath('/emails');
     return updatedSettings;
 }
+
+export async function testEmailConnection(settings: EmailSettingsType) {
+    const results = {
+        smtp: { success: false, error: 'Unknown error' },
+        imap: { success: false, error: 'Unknown error' },
+    };
+
+    // Test SMTP
+    try {
+        const transporter = nodemailer.createTransport({
+            host: settings.smtpHost,
+            port: settings.smtpPort,
+            secure: settings.smtpPort === 465,
+            auth: {
+                user: settings.smtpUser,
+                pass: settings.smtpPass,
+            },
+            tls: {
+                rejectUnauthorized: false
+            }
+        });
+        await transporter.verify();
+        results.smtp = { success: true, error: '' };
+    } catch (error: any) {
+        results.smtp = { success: false, error: error.message };
+    }
+
+    // Test IMAP
+    let imapConnection;
+    try {
+        const config = {
+            imap: {
+                user: settings.imapUser,
+                password: settings.imapPass,
+                host: settings.imapHost,
+                port: settings.imapPort,
+                tls: settings.imapEncryption === 'ssl' || settings.imapEncryption === 'tls',
+                authTimeout: 5000,
+                tlsOptions: {
+                    rejectUnauthorized: false
+                }
+            }
+        };
+        imapConnection = await imaps.connect(config);
+        results.imap = { success: true, error: '' };
+    } catch (error: any) {
+        results.imap = { success: false, error: error.message };
+    } finally {
+        if (imapConnection) {
+            await imapConnection.end();
+        }
+    }
+
+    return results;
+}
+
 
 // Notification Preferences (Global)
 export async function getGlobalNotificationPreferences() {
@@ -95,7 +153,7 @@ export async function updateGlobalNotificationPreferences(data: NotificationPref
             meetings: data.meetings,
         },
     });
-    // revalidatePath('/settings');
+    revalidatePath('/settings');
     return updatedPrefs;
 }
 
@@ -107,7 +165,7 @@ export async function getWorkflows() {
 
 export async function createWorkflow(data: Omit<Workflow, 'id'>) {
     const newWorkflow = await prisma.workflow.create({ data });
-    // revalidatePath('/settings');
+    revalidatePath('/settings');
     return newWorkflow;
 }
 
@@ -116,13 +174,13 @@ export async function updateWorkflow(id: string, data: Partial<Omit<Workflow, 'i
         where: { id },
         data,
     });
-    // revalidatePath('/settings');
+    revalidatePath('/settings');
     return updatedWorkflow;
 }
 
 export async function deleteWorkflow(id: string) {
     const deleted = await prisma.workflow.delete({ where: { id } });
-    // revalidatePath('/settings');
+    revalidatePath('/settings');
     return deleted;
 }
 

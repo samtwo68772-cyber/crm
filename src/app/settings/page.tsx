@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock, Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType, NotificationChannel, Workflow } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -26,7 +26,7 @@ import type { DateRange } from "react-day-picker";
 import { isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { Checkbox } from '@/components/ui/checkbox';
-import { getGeneralSettings, updateGeneralSettings, getEmailSettings, updateEmailSettings, getGlobalNotificationPreferences, updateGlobalNotificationPreferences, getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, getAuditLogs } from './actions';
+import { getGeneralSettings, updateGeneralSettings, getEmailSettings, updateEmailSettings, testEmailConnection, getGlobalNotificationPreferences, updateGlobalNotificationPreferences, getWorkflows, createWorkflow, updateWorkflow, deleteWorkflow, getAuditLogs } from './actions';
 import { getUsers, getTeams } from '../admin/actions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -413,8 +413,25 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
     useEffect(() => {
         setCurrentSettings(settings)
     }, [settings, open]);
+
+    const testConnectionMutation = useMutation({
+        mutationFn: testEmailConnection,
+        onSuccess: (data) => {
+            if (data.smtp.success && data.imap.success) {
+                toast({ title: "Connection Successful!", description: "Both SMTP and IMAP connections were successful.", variant: 'default' });
+            } else {
+                let errorDescription = '';
+                if (!data.smtp.success) errorDescription += `SMTP: ${data.smtp.error}\n`;
+                if (!data.imap.success) errorDescription += `IMAP: ${data.imap.error}`;
+                toast({ variant: "destructive", title: "Connection Failed", description: errorDescription });
+            }
+        },
+        onError: (error: any) => {
+             toast({ variant: "destructive", title: "Error", description: error.message });
+        }
+    });
     
-    const mutation = useMutation({
+    const updateSettingsMutation = useMutation({
         mutationFn: updateEmailSettings,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['emailSettings'] });
@@ -427,11 +444,11 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
     });
 
     const handleSave = () => {
-        mutation.mutate({...currentSettings, configured: true });
+        updateSettingsMutation.mutate({...currentSettings, configured: true });
     };
     
     const handleTestConnection = () => {
-        toast({ title: "Test Connection", description: "This is a mock test. In a real app, this would verify server connectivity." });
+        testConnectionMutation.mutate(currentSettings);
     };
 
     return (
@@ -466,11 +483,14 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                     </TabsContent>
                 </Tabs>
                  <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t">
-                     <Button variant="outline" onClick={handleTestConnection}>Test Connection</Button>
+                     <Button variant="outline" onClick={handleTestConnection} disabled={testConnectionMutation.isPending}>
+                        {testConnectionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Test Connection
+                     </Button>
                     <div className="flex gap-2">
                          <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                         <Button onClick={handleSave} disabled={mutation.isPending}>
-                            {mutation.isPending ? 'Saving...' : 'Save Changes'}
+                         <Button onClick={handleSave} disabled={updateSettingsMutation.isPending}>
+                            {updateSettingsMutation.isPending ? 'Saving...' : 'Save Changes'}
                          </Button>
                     </div>
                 </DialogFooter>
