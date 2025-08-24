@@ -61,7 +61,6 @@ function EmailClientView() {
     const isLoading = emailsLoading || contactsLoading || accountsLoading;
 
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
-    const [isComposeOpen, setComposeOpen] = useState(false);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
@@ -318,12 +317,7 @@ function EmailClientView() {
                     onCreateCase={handleCreateCaseFromEmail}
                 />
             )}
-
-            <ComposeEmailDialog 
-                open={isComposeOpen}
-                onOpenChange={setComposeOpen}
-            />
-
+            
             <AlertDialog open={isConfirmCreateContactOpen} onOpenChange={setConfirmCreateContactOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -567,6 +561,7 @@ export default function EmailsPage() {
         queryKey: ['emailSettings'], 
         queryFn: getEmailSettings 
     });
+    const [isComposeOpen, setComposeOpen] = useState(false);
 
     const isConfigured = emailSettings?.configured || (!!process.env.NEXT_PUBLIC_IMAP_USER && !!process.env.NEXT_PUBLIC_IMAP_PASS);
 
@@ -589,11 +584,11 @@ export default function EmailsPage() {
                     <p className="text-muted-foreground">Manage your communications and cases.</p>
                 </div>
                 {isConfigured && (
-                    <Dialog>
+                    <Dialog open={isComposeOpen} onOpenChange={setComposeOpen}>
                         <DialogTrigger asChild>
                              <Button><Edit className="mr-2 h-4 w-4" /> Compose</Button>
                         </DialogTrigger>
-                        <ComposeEmailDialog open={true} onOpenChange={()=>{}}/>
+                        <ComposeEmailDialog open={isComposeOpen} onOpenChange={setComposeOpen}/>
                     </Dialog>
                 )}
             </header>
@@ -603,3 +598,5 @@ export default function EmailsPage() {
         </div>
     );
 }
+
+    
