@@ -471,6 +471,9 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-port" className="text-right">Port</Label><Input id="smtp-port" type="number" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-user" className="text-right">Username</Label><Input id="smtp-user" value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-pass" className="text-right">Password</Label><Input id="smtp-pass" type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} className="col-span-3" /></div>
+                            <div className="col-start-2 col-span-3 text-xs text-muted-foreground">
+                                If using Gmail/Outlook with 2FA, you must generate and use an "App Password".
+                            </div>
                         </div>
                     </TabsContent>
                     <TabsContent value="imap" className="pt-4">
@@ -479,6 +482,9 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-port" className="text-right">Port</Label><Input id="imap-port" type="number" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-user" className="text-right">Username</Label><Input id="imap-user" value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} className="col-span-3" /></div>
                             <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-pass" className="text-right">Password</Label><Input id="imap-pass" type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} className="col-span-3" /></div>
+                             <div className="col-start-2 col-span-3 text-xs text-muted-foreground">
+                                If using Gmail/Outlook with 2FA, you must generate and use an "App Password".
+                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>
