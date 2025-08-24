@@ -16,6 +16,7 @@ function generateShortId(prefix: string) {
 }
 
 export async function getEmails() {
+    await processIncomingEmails().catch(err => console.warn("Email fetch failed:", err.message));
     return await prisma.email.findMany({
         orderBy: {
             date: 'desc'
@@ -32,8 +33,8 @@ export async function processIncomingEmails() {
       imap: {
         user: emailSettings.imapUser || process.env.IMAP_USER!,
         password: emailSettings.imapPass || process.env.IMAP_PASS!,
-        host: emailSettings.imapHost || process.env.IMAP_HOST || "outlook.office365.com",
-        port: emailSettings.imapPort || parseInt(process.env.IMAP_PORT || "993", 10),
+        host: emailSettings.imapHost || "outlook.office365.com",
+        port: emailSettings.imapPort || 993,
         tls: true,
         authTimeout: 10000,
         tlsOptions: { rejectUnauthorized: false }
@@ -156,8 +157,8 @@ export async function sendEmail(to: string, subject: string, body: string) {
     const emailSettings = await getEmailSettings();
     const smtpUser = emailSettings.smtpUser || process.env.SMTP_USER;
     const smtpPass = emailSettings.smtpPass || process.env.SMTP_PASS;
-    const smtpHost = emailSettings.smtpHost || process.env.SMTP_HOST;
-    const smtpPort = emailSettings.smtpPort || parseInt(process.env.SMTP_PORT || '587', 10);
+    const smtpHost = emailSettings.smtpHost || "smtp.office365.com";
+    const smtpPort = emailSettings.smtpPort || 587;
 
 
      if (!smtpUser || !smtpPass || !smtpHost) {
@@ -168,7 +169,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
     const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: smtpPort,
-        secure: smtpPort === 465,
+        secure: false, // For TLS with STARTTLS
         auth: {
             user: smtpUser,
             pass: smtpPass,
