@@ -8,6 +8,8 @@ import imaps from 'imap-simple';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
 import { randomBytes } from 'crypto';
+import { getEmailSettings } from '../settings/actions';
+
 
 function generateShortId(prefix: string) {
     return `${prefix.toUpperCase()}-${randomBytes(4).toString('hex').slice(0, 7).toUpperCase()}`;
@@ -24,22 +26,24 @@ export async function getEmails() {
 export async function processIncomingEmails() {
     console.log("Starting email processing...");
 
+    const emailSettings = await getEmailSettings();
+
     const config = {
         imap: {
-            user: process.env.IMAP_USER!,
-            password: process.env.IMAP_PASS!,
-            host: process.env.IMAP_HOST!,
-            port: parseInt(process.env.IMAP_PORT || '993', 10),
+            user: emailSettings.imapUser || process.env.IMAP_USER!,
+            password: emailSettings.imapPass || process.env.IMAP_PASS!,
+            host: emailSettings.imapHost || process.env.IMAP_HOST!,
+            port: emailSettings.imapPort || parseInt(process.env.IMAP_PORT || '993', 10),
             tls: true,
             authTimeout: 3000,
             tlsOptions: {
-                rejectUnauthorized: false // Necessary for some environments, consider security implications
+                rejectUnauthorized: false
             }
         }
     };
     
     if (!config.imap.user || !config.imap.password || !config.imap.host) {
-        console.error("IMAP credentials are not fully set in .env file.");
+        console.error("IMAP credentials are not configured in settings or .env file.");
         throw new Error("IMAP credentials not configured.");
     }
 
@@ -61,6 +65,7 @@ export async function processIncomingEmails() {
 
         const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
         if (!defaultUser) {
+            console.error("No default admin user found to assign cases to.");
             throw new Error("No default admin user found to assign cases to.");
         }
 
@@ -149,25 +154,32 @@ export async function processIncomingEmails() {
 }
 
 export async function sendEmail(to: string, subject: string, body: string) {
-     if (!process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.SMTP_HOST) {
-        console.error("SMTP credentials are not fully set in .env file.");
+    const emailSettings = await getEmailSettings();
+    const smtpUser = emailSettings.smtpUser || process.env.SMTP_USER;
+    const smtpPass = emailSettings.smtpPass || process.env.SMTP_PASS;
+    const smtpHost = emailSettings.smtpHost || process.env.SMTP_HOST;
+    const smtpPort = emailSettings.smtpPort || parseInt(process.env.SMTP_PORT || '587', 10);
+
+
+     if (!smtpUser || !smtpPass || !smtpHost) {
+        console.error("SMTP credentials are not configured in settings or .env file.");
         throw new Error("SMTP credentials not configured.");
     }
     
     const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || '587', 10),
-        secure: false, // true for 465, false for other ports (like 587 with STARTTLS)
+        host: smtpHost,
+        port: smtpPort,
+        secure: smtpPort === 465,
         auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
+            user: smtpUser,
+            pass: smtpPass,
         },
     });
 
     try {
         console.log(`Attempting to send email to ${to}...`);
         const info = await transporter.sendMail({
-            from: `"MintCRM" <${process.env.SMTP_USER}>`,
+            from: `"MintCRM" <${smtpUser}>`,
             to: to,
             subject: subject,
             html: body,
@@ -178,7 +190,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
         // Save sent email to our database
         await prisma.email.create({
             data: {
-                from: { name: 'Me', email: process.env.SMTP_USER },
+                from: { name: 'Me', email: smtpUser },
                 to: { name: to, email: to },
                 subject,
                 body,

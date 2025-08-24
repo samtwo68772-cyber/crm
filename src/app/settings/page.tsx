@@ -361,8 +361,6 @@ function SecuritySettings({ initialSettings, onSave }: { initialSettings: Securi
 
 function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType; }) {
     const [isDialogOpen, setDialogOpen] = useState(false);
-    const configured = process.env.NEXT_PUBLIC_IMAP_USER && process.env.NEXT_PUBLIC_IMAP_PASS;
-    const host = process.env.NEXT_PUBLIC_IMAP_HOST || initialSettings.imapHost;
     
     return (
         <>
@@ -372,7 +370,7 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                         <Mail className="h-6 w-6" />
                         <div>
                             <CardTitle>Email Configuration</CardTitle>
-                            <CardDescription>Set up SMTP (sending) and IMAP (receiving) email accounts via environment variables.</CardDescription>
+                            <CardDescription>Set up SMTP (sending) and IMAP (receiving) email accounts.</CardDescription>
                         </div>
                     </div>
                 </CardHeader>
@@ -381,18 +379,20 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                         <div>
                             <h4 className="font-medium">Email Server</h4>
                              <p className="text-sm text-muted-foreground">
-                                {initialSettings.configured ? `Configuration loaded from environment variables for ${host}` : 'Not configured'}
+                                {initialSettings.configured ? `Configuration for ${initialSettings.imapUser}` : 'Not configured'}
                             </p>
                         </div>
                         <div className="flex items-center gap-2 w-full sm:w-auto">
                              <Badge variant={initialSettings.configured ? 'success' : 'secondary'} className="mr-auto sm:mr-0">
                                 {initialSettings.configured ? 'Active' : 'Inactive'}
                             </Badge>
-                            <Button variant="outline" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">View Config</Button>
+                            <Button variant="outline" onClick={() => setDialogOpen(true)} className="w-full sm:w-auto">
+                                {initialSettings.configured ? 'View/Edit Config' : 'Configure'}
+                            </Button>
                         </div>
                     </div>
                      <div className="text-sm text-muted-foreground p-4 border-l-4">
-                        To enable real email integration, set the `IMAP_USER`, `IMAP_PASS`, and other related variables in your `.env` file. You may need to generate an "App Password" from your email provider if you use two-factor authentication.
+                        To enable email integration, provide your server credentials. For Gmail/Outlook, you may need to generate an "App Password" if you use two-factor authentication.
                     </div>
                 </CardContent>
             </Card>
@@ -407,6 +407,28 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
 
 function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, onOpenChange: (open: boolean) => void, settings: EmailSettingsType }) {
     const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [currentSettings, setCurrentSettings] = useState(settings);
+    
+    useEffect(() => {
+        setCurrentSettings(settings)
+    }, [settings, open]);
+    
+    const mutation = useMutation({
+        mutationFn: updateEmailSettings,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['emailSettings'] });
+            toast({ title: "Settings Saved", description: "Your email settings have been updated." });
+            onOpenChange(false);
+        },
+        onError: () => {
+            toast({ variant: 'destructive', title: 'Error', description: 'Failed to save email settings.'})
+        }
+    });
+
+    const handleSave = () => {
+        mutation.mutate({...currentSettings, configured: true });
+    };
     
     const handleTestConnection = () => {
         toast({ title: "Test Connection", description: "This is a mock test. In a real app, this would verify server connectivity." });
@@ -418,7 +440,7 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                 <DialogHeader>
                     <DialogTitle>Email Server Configuration</DialogTitle>
                     <DialogDescription>
-                        Your email settings are securely managed via environment variables. To change them, please update your deployment's configuration.
+                       Enter your email server details for both sending and receiving emails.
                     </DialogDescription>
                 </DialogHeader>
                 <Tabs defaultValue="smtp">
@@ -428,25 +450,28 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                     </TabsList>
                     <TabsContent value="smtp" className="pt-4">
                         <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Host</Label><Input value="smtp.office365.com" readOnly className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Port</Label><Input value="587" readOnly className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Username</Label><Input value={process.env.NEXT_PUBLIC_SMTP_USER || settings.smtpUser} readOnly className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-host" className="text-right">Host</Label><Input id="smtp-host" value={currentSettings.smtpHost} onChange={e => setCurrentSettings(s => ({...s, smtpHost: e.target.value}))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-port" className="text-right">Port</Label><Input id="smtp-port" type="number" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-user" className="text-right">Username</Label><Input id="smtp-user" value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="smtp-pass" className="text-right">Password</Label><Input id="smtp-pass" type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} className="col-span-3" /></div>
                         </div>
                     </TabsContent>
                     <TabsContent value="imap" className="pt-4">
-                        <div className="grid gap-4 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Host</Label><Input value="outlook.office365.com" readOnly className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Port</Label><Input value="993" readOnly className="col-span-3" /></div>
-                            <div className="grid grid-cols-4 items-center gap-4"><Label className="text-right">Username</Label><Input value={process.env.NEXT_PUBLIC_IMAP_USER || settings.imapUser} readOnly className="col-span-3" /></div>
+                         <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-host" className="text-right">Host</Label><Input id="imap-host" value={currentSettings.imapHost} onChange={e => setCurrentSettings(s => ({...s, imapHost: e.target.value}))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-port" className="text-right">Port</Label><Input id="imap-port" type="number" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-user" className="text-right">Username</Label><Input id="imap-user" value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} className="col-span-3" /></div>
+                            <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="imap-pass" className="text-right">Password</Label><Input id="imap-pass" type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} className="col-span-3" /></div>
                         </div>
                     </TabsContent>
                 </Tabs>
                  <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t">
-                     <div className="flex items-center gap-2">
-                        <p className="text-sm text-muted-foreground">Settings are read-only.</p>
-                    </div>
+                     <Button variant="outline" onClick={handleTestConnection}>Test Connection</Button>
                     <div className="flex gap-2">
-                         <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
+                         <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                         <Button onClick={handleSave} disabled={mutation.isPending}>
+                            {mutation.isPending ? 'Saving...' : 'Save Changes'}
+                         </Button>
                     </div>
                 </DialogFooter>
             </DialogContent>
