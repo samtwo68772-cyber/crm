@@ -49,7 +49,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useSearchParams } from 'next/navigation';
-import { useMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -72,7 +72,7 @@ function EmailClientView() {
     const [isProcessing, setIsProcessing] = useState(false);
     const searchParams = useSearchParams();
     const [showUnread, setShowUnread] = useState(false);
-    const isMobile = useMobile();
+    const isMobile = useIsMobile();
 
     const safeParseDate = (dateString: string | Date) => {
         const date = (dateString instanceof Date) ? dateString : new Date(dateString);
