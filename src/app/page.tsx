@@ -97,7 +97,7 @@ function RecentCases({ allUsers }: { allUsers: User[] | undefined }) {
         if (!initialCases) return [];
         const twoWeeksAgo = subDays(new Date(), 14);
         return initialCases
-            .filter(c => isAfter(c.createdAt, twoWeeksAgo))
+            .filter(c => isAfter(new Date(c.createdAt), twoWeeksAgo))
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     }, [initialCases]);
 
@@ -172,22 +172,22 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
         const twoWeeksAgo = subDays(new Date(), 14);
 
         const caseActivities = casesData
-            .filter(c => isAfter(c.createdAt, twoWeeksAgo))
+            .filter(c => isAfter(new Date(c.createdAt), twoWeeksAgo))
             .map(c => ({
                 id: `case-${c.id}`,
                 type: 'case',
                 description: `New case created: "${c.subject}"`,
-                timestamp: c.createdAt,
+                timestamp: new Date(c.createdAt),
                 user: allUsers.find(u => c.assignments?.some(a => a.userId === u.id)) || { name: 'Unassigned' }
             }));
 
         const taskActivities = tasksData
-            .filter(t => isAfter(new Date(t.dueDate), twoWeeksAgo))
+            .filter(t => t.dueDate && isAfter(new Date(t.dueDate), twoWeeksAgo))
             .map(t => ({
                 id: `task-${t.id}`,
                 type: 'task',
                 description: `${t.status === 'Done' ? 'Task completed' : 'New task'}: "${t.title}"`,
-                timestamp: t.dueDate, 
+                timestamp: new Date(t.dueDate!), 
                 user: allUsers.find(u => u.id === t.assignedTo)
             }));
 
@@ -197,7 +197,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
                 id: `meeting-${m.id}`,
                 type: 'meeting',
                 description: `${m.status === 'Upcoming' ? 'Meeting scheduled' : 'Meeting'}: "${m.title}"`,
-                timestamp: m.date,
+                timestamp: new Date(m.date),
                 user: allUsers.find(u => m.participants.some(p => p.userId === u.id))
             }));
         
@@ -207,13 +207,13 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
                 id: `audit-${log.id}`,
                 type: 'audit',
                 description: log.details,
-                timestamp: log.timestamp,
+                timestamp: new Date(log.timestamp),
                 user: allUsers.find(u => u.id === log.userId)
             }));
 
 
         return [...caseActivities, ...taskActivities, ...meetingActivities, ...auditActivities]
-            .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
     }, [casesData, tasksData, meetingsData, allUsers, auditLogsData]);
     
@@ -258,7 +258,7 @@ function RecentActivity({ allUsers }: { allUsers: User[] | undefined }) {
                                         <div className="flex-1">
                                             <p className="text-sm">{activity.description}</p>
                                             <p className="text-xs text-muted-foreground">
-                                                {formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true })} &bull; {activity.user?.name || 'System'}
+                                                {formatDistanceToNow(activity.timestamp, { addSuffix: true })} &bull; {activity.user?.name || 'System'}
                                             </p>
                                         </div>
                                     </div>

@@ -22,8 +22,8 @@ export type Case = {
   priority: 'High' | 'Medium' | 'Low';
   type: 'Bug Report' | 'Feature Request' | 'Billing Inquiry' | 'General Question';
   status: 'New' | 'In Progress' | 'Resolved' | 'Investigated' | 'Completed' | 'Under Review' | 'Declined' | 'Closed';
-  createdAt: Date;
-  resolvedAt?: Date;
+  createdAt: string;
+  resolvedAt?: string;
   description: string;
   communications?: Communication[];
   contactId?: string;
@@ -57,7 +57,7 @@ export type Task = {
   title: string;
   description?: string;
   status: 'To Do' | 'In Progress' | 'Done' | 'Canceled';
-  dueDate: Date | null;
+  dueDate: string | null;
   priority: 'High' | 'Medium' | 'Low';
   linkedCase?: string;
   assignedTo?: string;
@@ -90,7 +90,7 @@ export type Account = {
   id: string;
   name: string;
   industry: string;
-  createdAt: Date;
+  createdAt: string;
   address?: string;
   phone?: string;
   email?: string;
@@ -106,7 +106,7 @@ export type Document = {
   name: string;
   type: 'PDF' | 'Document' | 'Spreadsheet' | 'Image' | 'Meeting';
   size: string;
-  uploadedAt: Date;
+  uploadedAt: string;
   uploadedBy: string;
   authorId: string;
   category: 'Case File' | 'Contract' | 'Report' | 'Meeting Notes' | 'Other';
@@ -122,7 +122,7 @@ export type Meeting = {
   id: string;
   title: string;
   description: string;
-  date: Date;
+  date: string;
   status: 'Upcoming' | 'Completed' | 'Canceled';
   linkedRecord?: string; // case or task ID
   notes?: { authorId: string; content: string; timestamp: string }[];
@@ -154,7 +154,7 @@ export type Email = {
     to: { name: string, email: string };
     subject: string;
     body: string;
-    date: Date;
+    date: string;
     type: 'inbox' | 'sent';
     read: boolean;
     linkedCaseId?: string;
@@ -181,7 +181,7 @@ export type Notification = {
   type: 'case' | 'task' | 'email' | 'meeting';
   title: string;
   description: string;
-  timestamp: Date;
+  timestamp: string;
   read: boolean;
   userId?: string; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
   link: string; // The URL to navigate to when clicked

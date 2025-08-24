@@ -25,9 +25,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { cn } from '@/lib/utils';
-import { dataCache } from '@/lib/data-cache';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -859,7 +858,7 @@ function RelatedItemsList({ title, icon: Icon, items }: { title?: string, icon?:
                         <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
                             {'status' in item && <span>Status: <Badge variant="outline" className="text-xs">{item.status}</Badge></span>}
                              {'priority' in item && <span>Priority: {item.priority}</span>}
-                             {'dueDate' in item && <span>Due: {item.dueDate}</span>}
+                             {'dueDate' in item && item.dueDate && <span>Due: {new Date(item.dueDate).toLocaleDateString()}</span>}
                              {'date' in item && <span>Date: {new Date(item.date).toLocaleDateString()}</span>}
                         </div>
                     </div>

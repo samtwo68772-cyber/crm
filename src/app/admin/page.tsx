@@ -23,7 +23,6 @@ import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams } from './actions';
 import { getCases } from '../cases/actions';
-import { useIsClient } from '@/hooks/use-is-client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 
