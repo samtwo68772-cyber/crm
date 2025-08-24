@@ -108,12 +108,6 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         }
     })
     
-    const handleLinkClick = () => {
-        if (isMobile) {
-            setSidebarOpen(false);
-        }
-    }
-
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.read) {
             markAsReadMutation.mutate(notification.id);
@@ -151,16 +145,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         <div className="flex-1 overflow-y-auto">
             <nav className="space-y-1 p-4">
                 {navItems.map((item) => (
-                   <Link key={item.href} href={item.href} onClick={handleLinkClick}
+                   <Link key={item.href} href={item.href}
                       className={cn(
-                        "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out",
+                        "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg",
                         pathname === item.href 
                             ? 'bg-primary/10 text-primary' 
-                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary',
+                            : 'text-muted-foreground hover:bg-muted/50',
                         sidebarCollapsed ? 'justify-center' : ''
                       )}
                     >
-                      <item.icon className={cn("h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out", sidebarCollapsed ? '' : 'mr-3', pathname === item.href ? 'text-primary' : 'group-hover:text-primary')} />
+                      <item.icon className={cn("h-5 w-5 shrink-0", sidebarCollapsed ? '' : 'mr-3')} />
                       <span className={cn("truncate", sidebarCollapsed ? 'hidden' : 'block')}>{item.label}</span>
                   </Link>
                 ))}
@@ -168,16 +162,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         </div>
         <div className="mt-auto p-4 border-t">
              <nav className="space-y-1">
-                <Link key={profileNavItem.href} href={profileNavItem.href} onClick={handleLinkClick}
+                <Link key={profileNavItem.href} href={profileNavItem.href}
                       className={cn(
-                        "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ease-in-out",
+                        "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg",
                         pathname === profileNavItem.href 
                             ? 'bg-primary/10 text-primary' 
-                            : 'text-muted-foreground hover:bg-primary/5 hover:text-primary',
+                            : 'text-muted-foreground hover:bg-muted/50',
                         sidebarCollapsed ? 'justify-center' : ''
                       )}
                 >
-                    <profileNavItem.icon className={cn("h-5 w-5 shrink-0 transition-colors duration-200 ease-in-out", sidebarCollapsed ? '' : 'mr-3', pathname === profileNavItem.href ? 'text-primary' : 'group-hover:text-primary')} />
+                    <profileNavItem.icon className={cn("h-5 w-5 shrink-0", sidebarCollapsed ? '' : 'mr-3')} />
                     <span className={cn("truncate", sidebarCollapsed ? 'hidden' : 'block')}>{profileNavItem.label}</span>
                 </Link>
             </nav>
