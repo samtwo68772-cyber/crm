@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { getEmails, processIncomingEmails, markEmailAsRead, createCaseFromEmail } from './actions';
+import { getEmails, processIncomingEmails, markEmailAsRead, createCaseFromEmail, sendEmail } from './actions';
 import { getContacts, createContact } from '../accounts/actions';
 import { getAccounts } from '../accounts/actions';
 import { getCases, createCase } from '../cases/actions';
@@ -50,7 +50,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import Link from 'next/link';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { useSearchParams } from 'next/navigation';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-is-mobile';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -62,6 +62,7 @@ function EmailClientView() {
     const isLoading = emailsLoading || contactsLoading || accountsLoading;
 
     const [selectedEmail, setSelectedEmail] = useState<Email | null>(null);
+    const [isComposeOpen, setComposeOpen] = useState(false);
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [mailbox, setMailbox] = useState<'inbox' | 'sent'>('inbox');
     const [searchQuery, setSearchQuery] = useState('');
@@ -88,6 +89,7 @@ function EmailClientView() {
 
     const processEmailsMutation = useMutation({
         mutationFn: processIncomingEmails,
+        onMutate: () => setIsProcessing(true),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['emails'] });
             queryClient.invalidateQueries({ queryKey: ['cases'] });
@@ -97,8 +99,8 @@ function EmailClientView() {
                 description: `Processed incoming emails. New cases may have been created.`,
             });
         },
-        onError: () => {
-            toast({ variant: 'destructive', title: 'Error', description: 'Failed to process emails.'})
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: 'Error Processing Emails', description: error.message || 'An unknown error occurred.' })
         },
         onSettled: () => {
             setIsProcessing(false);
@@ -106,7 +108,6 @@ function EmailClientView() {
     })
 
     const handleProcessEmails = async () => {
-        setIsProcessing(true);
         processEmailsMutation.mutate();
     };
 
@@ -134,10 +135,8 @@ function EmailClientView() {
     
     const markAsReadMutation = useMutation({
         mutationFn: markEmailAsRead,
-        onSuccess: (updatedEmail) => {
-            queryClient.setQueryData(['emails'], (oldData: Email[] | undefined) => 
-                oldData ? oldData.map(e => e.id === updatedEmail.id ? updatedEmail : e) : []
-            );
+        onSuccess: () => {
+             queryClient.invalidateQueries({ queryKey: ['emails'] });
         }
     });
     
@@ -321,6 +320,11 @@ function EmailClientView() {
                 />
             )}
 
+            <ComposeEmailDialog 
+                open={isComposeOpen}
+                onOpenChange={setComposeOpen}
+            />
+
             <AlertDialog open={isConfirmCreateContactOpen} onOpenChange={setConfirmCreateContactOpen}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -377,7 +381,11 @@ function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: b
                             </TooltipProvider>
                             <Separator orientation="vertical" className="h-6 mx-1" />
                             {email.linkedCaseId ? (
-                                <Button variant="secondary" size="sm" className="gap-2"><LinkIcon className="h-4 w-4"/>Linked</Button>
+                                <Button variant="secondary" size="sm" asChild>
+                                    <Link href={`/cases?id=${email.linkedCaseId}`}>
+                                        <LinkIcon className="h-4 w-4 mr-2"/>Linked
+                                    </Link>
+                                </Button>
                             ) : (
                                 <Button variant="outline" size="sm" className="gap-2" onClick={() => onCreateCase(email)}><PlusCircle className="h-4 w-4" /> Create Case</Button>
                             )}
@@ -400,8 +408,7 @@ function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: b
                             <p className="text-sm text-muted-foreground ml-auto shrink-0">{format(safeParseDate(email.date), 'PPpp')}</p>
                         </div>
                     </div>
-                    <div className="p-6 whitespace-pre-wrap font-serif text-base/relaxed">
-                        {email.body}
+                    <div className="p-6 whitespace-pre-wrap font-serif text-base/relaxed" dangerouslySetInnerHTML={{ __html: email.body }}>
                     </div>
                     {email.attachments && email.attachments.length > 0 && (
                         <div className="p-4 border-t">
@@ -426,6 +433,58 @@ function EmailDetailSheet({ open, onOpenChange, email, onCreateCase }: { open: b
             </SheetContent>
         </Sheet>
     );
+}
+
+function ComposeEmailDialog({ open, onOpenChange }: { open: boolean, onOpenChange: (open: boolean) => void }) {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+    const [to, setTo] = useState('');
+    const [subject, setSubject] = useState('');
+    const [body, setBody] = useState('');
+
+    const sendEmailMutation = useMutation({
+        mutationFn: (data: {to: string, subject: string, body: string}) => sendEmail(data.to, data.subject, data.body),
+        onSuccess: () => {
+            toast({ title: "Email Sent", description: "Your email has been successfully sent." });
+            queryClient.invalidateQueries({ queryKey: ['emails'] });
+            onOpenChange(false);
+            setTo(''); setSubject(''); setBody('');
+        },
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: "Error Sending Email", description: error.message });
+        }
+    });
+
+    const handleSend = () => {
+        sendEmailMutation.mutate({ to, subject, body });
+    };
+
+    return (
+         <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>Compose Email</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="to" className="text-right">To</Label>
+                        <Input id="to" value={to} onChange={e => setTo(e.target.value)} className="col-span-3" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="subject" className="text-right">Subject</Label>
+                        <Input id="subject" value={subject} onChange={e => setSubject(e.target.value)} className="col-span-3" />
+                    </div>
+                    <Textarea value={body} onChange={e => setBody(e.target.value)} placeholder="Write your email here..." className="min-h-[250px]" />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSend} disabled={sendEmailMutation.isPending}>
+                        {sendEmailMutation.isPending ? 'Sending...' : 'Send'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
 }
 
 function ContactFormDialog({ open, onOpenChange, initialEmail, initialName, onSave, onCancel, accounts }: { open: boolean, onOpenChange: (open: boolean) => void, initialEmail?: string, initialName?: string, onSave: (data: any) => void, onCancel: () => void, accounts: Account[] }) {
@@ -492,7 +551,7 @@ function NotConfiguredView() {
             <Mail className="h-24 w-24 text-muted-foreground/50 mb-6" />
             <h2 className="text-2xl font-semibold mb-2">Email Not Configured</h2>
             <p className="max-w-md text-muted-foreground mb-6">
-                To send and receive emails, you first need to configure your email server settings.
+                To send and receive emails, you first need to configure your email server settings in your .env file.
             </p>
             <Link href="/settings?tab=email">
                 <Button>
@@ -509,6 +568,8 @@ export default function EmailsPage() {
         queryKey: ['emailSettings'], 
         queryFn: getEmailSettings 
     });
+
+    const isConfigured = emailSettings?.configured || (!!process.env.NEXT_PUBLIC_IMAP_USER && !!process.env.NEXT_PUBLIC_IMAP_PASS);
 
     if (isLoading) {
         return (
@@ -528,12 +589,18 @@ export default function EmailsPage() {
                     <h1 className="text-2xl font-bold tracking-tight font-headline">Email</h1>
                     <p className="text-muted-foreground">Manage your communications and cases.</p>
                 </div>
-                {emailSettings?.configured && <Button><Edit className="mr-2 h-4 w-4" /> Compose</Button>}
+                {isConfigured && (
+                    <Dialog>
+                        <DialogTrigger asChild>
+                             <Button><Edit className="mr-2 h-4 w-4" /> Compose</Button>
+                        </DialogTrigger>
+                        <ComposeEmailDialog open={true} onOpenChange={()=>{}}/>
+                    </Dialog>
+                )}
             </header>
             <div className="flex-1 overflow-hidden">
-                {emailSettings?.configured ? <EmailClientView /> : <NotConfiguredView />}
+                {isConfigured ? <EmailClientView /> : <NotConfiguredView />}
             </div>
         </div>
     );
 }
-

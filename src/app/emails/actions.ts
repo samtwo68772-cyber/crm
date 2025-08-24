@@ -6,6 +6,12 @@ import { revalidatePath } from 'next/cache';
 import type { Email } from '@/lib/types';
 import imaps from 'imap-simple';
 import { simpleParser } from 'mailparser';
+import nodemailer from 'nodemailer';
+import { randomBytes } from 'crypto';
+
+function generateShortId(prefix: string) {
+    return `${prefix.toUpperCase()}-${randomBytes(4).toString('hex').slice(0, 7).toUpperCase()}`;
+}
 
 export async function getEmails() {
     return await prisma.email.findMany({
@@ -27,7 +33,7 @@ export async function processIncomingEmails() {
             tls: true,
             authTimeout: 3000,
             tlsOptions: {
-                rejectUnauthorized: false
+                rejectUnauthorized: false // Necessary for some environments, consider security implications
             }
         }
     };
@@ -36,15 +42,13 @@ export async function processIncomingEmails() {
         console.error("IMAP credentials are not fully set in .env file.");
         throw new Error("IMAP credentials not configured.");
     }
-    
-    const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
-    if (!defaultUser) {
-        throw new Error("No default admin user found to assign cases to.");
-    }
 
+    let connection;
     try {
-        const connection = await imaps.connect(config);
+        console.log(`Connecting to IMAP server: ${config.imap.host}...`);
+        connection = await imaps.connect(config);
         console.log("IMAP connection successful.");
+        
         await connection.openBox('INBOX');
         const searchCriteria = ['UNSEEN'];
         const fetchOptions = {
@@ -54,6 +58,11 @@ export async function processIncomingEmails() {
 
         const results = await connection.search(searchCriteria, fetchOptions);
         console.log(`Found ${results.length} new emails.`);
+
+        const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
+        if (!defaultUser) {
+            throw new Error("No default admin user found to assign cases to.");
+        }
 
         for (const item of results) {
             const all = item.parts.find(part => part.which === '');
@@ -67,22 +76,40 @@ export async function processIncomingEmails() {
                     continue;
                 }
 
+                // Create or find contact
                 let contact = await prisma.contact.findUnique({ where: { email: fromAddress } });
                 if (!contact) {
                     contact = await prisma.contact.create({
                         data: {
                             name: mail.from?.value[0].name || fromAddress,
                             email: fromAddress,
-                            company: 'Unknown',
-                            role: 'Unknown',
+                            company: 'Unknown', // Default value
+                            role: 'Unknown', // Default value
                             avatar: `https://placehold.co/40x40.png?text=${(mail.from?.value[0].name || fromAddress).charAt(0)}`,
                         }
                     });
-                     console.log(`Created new contact: ${contact.name}`);
+                    console.log(`Created new contact: ${contact.name}`);
                 }
 
+                // Create Email record in DB
+                const newEmail = await prisma.email.create({
+                    data: {
+                        from: { name: mail.from?.value[0].name || 'Unknown', email: fromAddress },
+                        to: { name: mail.to?.value[0].name || 'Me', email: mail.to?.value[0].address || '' },
+                        subject: mail.subject || '(No Subject)',
+                        body: mail.text || mail.html || '',
+                        date: mail.date || new Date(),
+                        type: 'inbox',
+                        read: false,
+                    }
+                });
+                console.log(`Saved email #${newEmail.id} to database.`);
+
+
+                // Create Case from email
                 const newCase = await prisma.case.create({
                     data: {
+                        id: generateShortId('CASE'),
                         subject: mail.subject || '(No Subject)',
                         customer: contact.name,
                         email: contact.email,
@@ -98,18 +125,74 @@ export async function processIncomingEmails() {
                     }
                 });
                 console.log(`Created new case #${newCase.id} from email.`);
+                
+                await prisma.email.update({
+                    where: { id: newEmail.id },
+                    data: { linkedCaseId: newCase.id }
+                });
             }
         }
 
         connection.end();
-        console.log("Email processing finished.");
+        console.log("Email processing finished successfully.");
         revalidatePath('/emails');
         revalidatePath('/cases');
         revalidatePath('/accounts');
 
     } catch (err) {
-        console.error('An error occurred while processing emails:', err);
+        console.error('An error occurred during email processing:', err);
+        if (connection) {
+            connection.end();
+        }
         throw new Error('Failed to process emails. Check server logs for details.');
+    }
+}
+
+export async function sendEmail(to: string, subject: string, body: string) {
+     if (!process.env.SMTP_USER || !process.env.SMTP_PASS || !process.env.SMTP_HOST) {
+        console.error("SMTP credentials are not fully set in .env file.");
+        throw new Error("SMTP credentials not configured.");
+    }
+    
+    const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        secure: false, // true for 465, false for other ports (like 587 with STARTTLS)
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+        },
+    });
+
+    try {
+        console.log(`Attempting to send email to ${to}...`);
+        const info = await transporter.sendMail({
+            from: `"MintCRM" <${process.env.SMTP_USER}>`,
+            to: to,
+            subject: subject,
+            html: body,
+        });
+
+        console.log("Message sent: %s", info.messageId);
+        
+        // Save sent email to our database
+        await prisma.email.create({
+            data: {
+                from: { name: 'Me', email: process.env.SMTP_USER },
+                to: { name: to, email: to },
+                subject,
+                body,
+                date: new Date(),
+                type: 'sent',
+                read: true,
+            }
+        });
+        
+        revalidatePath('/emails');
+        return { success: true, messageId: info.messageId };
+    } catch(err) {
+        console.error("Error sending email: ", err);
+        throw new Error("Failed to send email.");
     }
 }
 
@@ -146,6 +229,7 @@ export async function createCaseFromEmail(emailId: string) {
 
     const newCase = await prisma.case.create({
         data: {
+            id: generateShortId('CASE'),
             subject: email.subject,
             customer: contact.name,
             email: contact.email,

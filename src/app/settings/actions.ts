@@ -3,7 +3,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import type { GeneralSettingsType, EmailSettingsType, Workflow, NotificationPreferences } from '@/lib/types';
+import type { GeneralSettingsType, EmailSettingsType, Workflow, NotificationPreferences, AuditLog } from '@/lib/types';
 
 
 // General Settings
