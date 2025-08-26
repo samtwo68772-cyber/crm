@@ -106,7 +106,6 @@ function EmailClientView() {
 
     useEffect(() => {
         const handleSync = async () => {
-            // Don't sync on first load if emails are already loading
             if (document.hidden || syncEmailsMutation.isPending || emailsLoading) return;
             syncEmailsMutation.mutate();
         };

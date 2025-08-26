@@ -98,7 +98,6 @@ export async function processIncomingEmails() {
                    }
                 });
 
-
                 if (existingEmail) {
                     console.log(`Skipping already existing email UID ${emailUID}, Subject: ${subject}`);
                     continue;
@@ -214,7 +213,7 @@ export async function syncSentEmails() {
 
         const boxes = await connection.getBoxes();
         let sentBoxName = '';
-
+        
         const findSentBoxRecursive = (boxes: any, pathPrefix = ''): string | null => {
             for (const boxName in boxes) {
                 const fullPath = pathPrefix ? `${pathPrefix}${boxes[boxName].delimiter}${boxName}` : boxName;
@@ -231,14 +230,16 @@ export async function syncSentEmails() {
             }
             return null;
         };
-
-        const standardGmailSent = '[Gmail]/Sent Mail';
+        
+        // Prioritize standard names
         if (boxes['[Gmail]']?.children?.['Sent Mail']) {
-            sentBoxName = standardGmailSent;
+            sentBoxName = '[Gmail]/Sent Mail';
+        } else if (boxes['Sent']) {
+            sentBoxName = 'Sent';
         } else {
+            // Fallback to recursive search if standard names aren't found
             sentBoxName = findSentBoxRecursive(boxes) || '';
         }
-
 
         if (!sentBoxName) {
             console.error("Could not find a sent mail folder. Available folders:", JSON.stringify(boxes, null, 2));
