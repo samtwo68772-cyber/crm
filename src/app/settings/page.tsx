@@ -79,7 +79,6 @@ export default function SettingsPage() {
     const isLoading = generalLoading || emailLoading || notificationsLoading || workflowsLoading || auditLogsLoading || usersLoading || teamsLoading;
 
     const [securitySettings, setSecuritySettings] = useState<SecuritySettingsType>(initialSecuritySettings);
-    const isAdmin = user?.role === 'admin';
     const searchParams = useSearchParams()
     const defaultTab = searchParams.get('tab') || "general";
 
@@ -100,7 +99,17 @@ export default function SettingsPage() {
         }
     });
 
-    if (!isAdmin) {
+    if (isLoading) {
+        return (
+            <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+                <Skeleton className="h-12 w-1/2" />
+                <Skeleton className="h-10 w-full" />
+                <Skeleton className="h-96 w-full" />
+            </div>
+        );
+    }
+    
+    if (user?.role !== 'admin') {
         return (
             <div className="p-8">
                 <h2 className="text-3xl font-bold tracking-tight font-headline">System Settings</h2>
@@ -109,14 +118,13 @@ export default function SettingsPage() {
         )
     }
 
-    if (isLoading || !generalSettings || !emailSettings || !notificationPreferences || !workflows || !auditLogs || !users || !teams) {
+    if (!generalSettings || !emailSettings || !notificationPreferences || !workflows || !auditLogs || !users || !teams) {
         return (
-            <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-                <Skeleton className="h-12 w-1/2" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-96 w-full" />
+             <div className="p-8">
+                <h2 className="text-3xl font-bold tracking-tight font-headline">System Settings</h2>
+                <p className="text-muted-foreground">Could not load settings data.</p>
             </div>
-        );
+        )
     }
 
     return (
@@ -393,7 +401,7 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                 </CardContent>
             </Card>
             <EmailSettingsDialog
-                key={initialSettings.id + (isDialogOpen ? '-open' : '-closed')}
+                key={initialSettings.id}
                 open={isDialogOpen}
                 onOpenChange={setDialogOpen}
                 settings={initialSettings}
