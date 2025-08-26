@@ -69,6 +69,8 @@ export async function processIncomingEmails() {
 
         for (const item of results) {
             const emailUID = item.attributes.uid;
+            let subject = '(No Subject)';
+            let fromAddress = 'unknown@example.com';
             try {
                 const all = item.parts.find(part => part.which === '');
                 if (!all) {
@@ -77,23 +79,18 @@ export async function processIncomingEmails() {
                 }
 
                 const mail = await simpleParser(all.body);
-                const subject = mail.subject || '(No Subject)';
-                const fromAddress = mail.from?.value[0]?.address;
+                subject = mail.subject || '(No Subject)';
+                fromAddress = mail.from?.value[0]?.address || 'unknown@example.com';
 
-                console.log(`Processing email UID ${emailUID} from: ${fromAddress || 'Unknown'}, Subject: ${subject}`);
-
-                if (!fromAddress) {
-                    console.warn(`Skipping email UID ${emailUID} with no from address.`);
-                    failedCount++;
-                    continue;
-                }
-
+                console.log(`Processing email UID ${emailUID} from: ${fromAddress}, Subject: ${subject}`);
+                
+                // Skip emails from self
                 if (fromAddress === emailSettings.imapUser) {
                     console.log(`Skipping email UID ${emailUID} from self: ${fromAddress}`);
                     continue;
                 }
                 
-                 const existingEmail = await prisma.email.findFirst({
+                const existingEmail = await prisma.email.findFirst({
                    where: {
                        AND: [
                            { subject: subject },
@@ -108,8 +105,11 @@ export async function processIncomingEmails() {
                 }
 
                 const fromName = mail.from?.value[0]?.name || fromAddress;
-                const toName = mail.to?.value[0]?.name || 'Me';
-                const toAddress = mail.to?.value[0]?.address || '';
+                const toValue = mail.to?.value[0];
+                const toName = toValue?.name || 'Me';
+                const toAddress = toValue?.address || '';
+                const body = mail.html || mail.text || '';
+                const date = mail.date || new Date();
 
                 let contact = await prisma.contact.findUnique({ where: { email: fromAddress } });
                 if (!contact) {
@@ -117,7 +117,7 @@ export async function processIncomingEmails() {
                         data: {
                             name: fromName,
                             email: fromAddress,
-                            phone: '',
+                            phone: '', // Provide default empty string
                             company: 'Unknown',
                             role: 'Unknown',
                             avatar: `https://placehold.co/40x40.png?text=${fromName.charAt(0)}`,
@@ -131,8 +131,8 @@ export async function processIncomingEmails() {
                         from: { name: fromName, email: fromAddress },
                         to: { name: toName, email: toAddress },
                         subject: subject,
-                        body: mail.html || mail.text || '',
-                        date: mail.date || new Date(),
+                        body: body,
+                        date: date,
                         type: 'inbox',
                         read: false,
                     }
@@ -149,9 +149,9 @@ export async function processIncomingEmails() {
                         type: 'General Question',
                         status: 'New',
                         createdById: defaultUser.id,
-                        description: mail.text || '(No Content)',
+                        description: mail.text || body.substring(0, 500),
                         contactId: contact.id,
-                        communications: [{ id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: (mail.date || new Date()).toISOString() }]
+                        communications: [{ id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: date.toISOString() }]
                     }
                 });
                 console.log(`Created new case #${newCase.id} from email.`);
@@ -165,7 +165,7 @@ export async function processIncomingEmails() {
 
             } catch (emailError) {
                 failedCount++;
-                console.error(`Failed to process email UID ${emailUID}. Error:`, emailError);
+                console.error(`Failed to process email UID ${emailUID} (Subject: ${subject}). Error:`, emailError);
             }
         }
 
@@ -213,20 +213,21 @@ export async function syncSentEmails() {
         connection = await imaps.connect(config);
         console.log("IMAP connection successful for sent mail.");
 
-        // Try common names for the sent folder
-        const sentBoxNames = ['[Gmail]/Sent Mail', 'Sent'];
-        let sentBoxName = '';
         const boxes = await connection.getBoxes();
-        for (const name of sentBoxNames) {
-            if (boxes[name]) {
-                sentBoxName = name;
+        let sentBoxName = '';
+
+        // First, look for a box with the \Sent attribute
+        for (const box in boxes) {
+            if (boxes[box].attribs.includes('\\Sent')) {
+                sentBoxName = box;
                 break;
             }
         }
+
+        // If not found, search for a box name that includes "Sent" as a fallback
         if (!sentBoxName) {
-             // Look for a box with the \Sent attribute as a fallback
             for (const box in boxes) {
-                if (boxes[box].attribs.includes('\\Sent')) {
+                if (box.toLowerCase().includes('sent')) {
                     sentBoxName = box;
                     break;
                 }
@@ -234,6 +235,7 @@ export async function syncSentEmails() {
         }
 
         if (!sentBoxName) {
+            console.error("Could not find a sent mail folder. Available folders:", Object.keys(boxes));
             throw new Error("Could not find the sent mail folder.");
         }
         
