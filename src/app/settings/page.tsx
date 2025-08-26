@@ -11,7 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock, Loader2 } from 'lucide-react';
+import { Upload, Shield, Bell, Users, Settings, Database, Building, KeyRound, Globe, Palette, Mail, UserCheck, FileText, Bot, Search, PlusCircle, MoreHorizontal, Trash2, CheckCircle, AlertCircle, Copy, ArrowRight, X, Lock, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import type { User, Team, AuditLog as AuditLogType, EmailSettingsType, NotificationPreferences, GeneralSettingsType, NotificationChannel, Workflow } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -406,6 +406,8 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [currentSettings, setCurrentSettings] = useState(settings);
+    const [showSmtpPass, setShowSmtpPass] = useState(false);
+    const [showImapPass, setShowImapPass] = useState(false);
     
     const testConnectionMutation = useMutation({
         mutationFn: testEmailConnection,
@@ -454,7 +456,8 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                 <DialogHeader>
                     <DialogTitle>Email Server Configuration</DialogTitle>
                     <DialogDescription>
-                       Enter your email server details for both sending and receiving emails. Use the same account for both.
+                       Enter your email server details for both sending and receiving emails.
+                       Use the same account for both.
                     </DialogDescription>
                 </DialogHeader>
                 <Tabs defaultValue="smtp" className="pt-4">
@@ -479,7 +482,22 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                             </div>
                         </div>
                         <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.smtpUser} onChange={e => handleFieldChange('smtpUser', e.target.value)} /></div>
-                        <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => handleFieldChange('smtpPass', e.target.value)} /></div>
+                        <div>
+                            <Label>Password</Label>
+                            <div className="relative">
+                                <Input type={showSmtpPass ? 'text' : 'password'} value={currentSettings.smtpPass} onChange={e => handleFieldChange('smtpPass', e.target.value)} />
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                                    onClick={() => setShowSmtpPass(!showSmtpPass)}
+                                >
+                                    {showSmtpPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    <span className="sr-only">{showSmtpPass ? 'Hide password' : 'Show password'}</span>
+                                </Button>
+                            </div>
+                        </div>
                     </TabsContent>
                      <TabsContent value="imap" className="space-y-4 pt-4">
                         <div><Label>Host</Label><Input placeholder="imap.example.com" value={currentSettings.imapHost} onChange={e => handleFieldChange('imapHost', e.target.value)} /></div>
@@ -497,7 +515,22 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                             </div>
                         </div>
                         <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.imapUser} onChange={e => handleFieldChange('imapUser', e.target.value)} /></div>
-                        <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => handleFieldChange('imapPass', e.target.value)} /></div>
+                        <div>
+                            <Label>Password</Label>
+                             <div className="relative">
+                                <Input type={showImapPass ? 'text' : 'password'} value={currentSettings.imapPass} onChange={e => handleFieldChange('imapPass', e.target.value)} />
+                                 <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                                    onClick={() => setShowImapPass(!showImapPass)}
+                                >
+                                    {showImapPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    <span className="sr-only">{showImapPass ? 'Hide password' : 'Show password'}</span>
+                                </Button>
+                            </div>
+                        </div>
                     </TabsContent>
                 </Tabs>
                  <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t mt-4">
