@@ -393,6 +393,7 @@ function EmailSettings({ initialSettings }: { initialSettings: EmailSettingsType
                 </CardContent>
             </Card>
             <EmailSettingsDialog
+                key={initialSettings.id + (isDialogOpen ? '-open' : '-closed')}
                 open={isDialogOpen}
                 onOpenChange={setDialogOpen}
                 settings={initialSettings}
@@ -406,20 +407,16 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
     const queryClient = useQueryClient();
     const [currentSettings, setCurrentSettings] = useState(settings);
     
-    useEffect(() => {
-        setCurrentSettings(settings)
-    }, [settings, open]);
-
     const testConnectionMutation = useMutation({
         mutationFn: testEmailConnection,
         onSuccess: (data) => {
             if (data.smtp.success && data.imap.success) {
                 toast({ title: "Connection Successful!", description: "Both SMTP and IMAP connections were successful.", variant: 'default' });
             } else {
-                let errorDescription = '';
-                if (!data.smtp.success) errorDescription += `SMTP: ${data.smtp.error}\n`;
-                if (!data.imap.success) errorDescription += `IMAP: ${data.imap.error}`;
-                toast({ variant: "destructive", title: "Connection Failed", description: errorDescription, duration: 9000 });
+                let errorParts = [];
+                if (!data.smtp.success) errorParts.push(`SMTP: ${data.smtp.error}`);
+                if (!data.imap.success) errorParts.push(`IMAP: ${data.imap.error}`);
+                toast({ variant: "destructive", title: "Connection Failed", description: errorParts.join('\n'), duration: 9000 });
             }
         },
         onError: (error: any) => {
@@ -447,6 +444,10 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
         testConnectionMutation.mutate(currentSettings);
     };
 
+    const handleFieldChange = (field: keyof EmailSettingsType, value: string | number) => {
+        setCurrentSettings(s => ({...s, [field]: value}));
+    }
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-lg">
@@ -462,16 +463,16 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                         <TabsTrigger value="imap">Receiving (IMAP)</TabsTrigger>
                     </TabsList>
                     <TabsContent value="smtp" className="space-y-4 pt-4">
-                        <div><Label>Host</Label><Input placeholder="smtp.example.com" value={currentSettings.smtpHost} onChange={e => setCurrentSettings(s => ({...s, smtpHost: e.target.value}))} /></div>
-                        <div><Label>Port</Label><Input type="number" placeholder="587" value={currentSettings.smtpPort} onChange={e => setCurrentSettings(s => ({...s, smtpPort: parseInt(e.target.value, 10)}))} /></div>
-                        <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.smtpUser} onChange={e => setCurrentSettings(s => ({...s, smtpUser: e.target.value}))} /></div>
-                        <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => setCurrentSettings(s => ({...s, smtpPass: e.target.value}))} /></div>
+                        <div><Label>Host</Label><Input placeholder="smtp.example.com" value={currentSettings.smtpHost} onChange={e => handleFieldChange('smtpHost', e.target.value)} /></div>
+                        <div><Label>Port</Label><Input type="number" placeholder="587" value={currentSettings.smtpPort} onChange={e => handleFieldChange('smtpPort', parseInt(e.target.value, 10))} /></div>
+                        <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.smtpUser} onChange={e => handleFieldChange('smtpUser', e.target.value)} /></div>
+                        <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => handleFieldChange('smtpPass', e.target.value)} /></div>
                     </TabsContent>
                      <TabsContent value="imap" className="space-y-4 pt-4">
-                        <div><Label>Host</Label><Input placeholder="imap.example.com" value={currentSettings.imapHost} onChange={e => setCurrentSettings(s => ({...s, imapHost: e.target.value}))} /></div>
-                        <div><Label>Port</Label><Input type="number" placeholder="993" value={currentSettings.imapPort} onChange={e => setCurrentSettings(s => ({...s, imapPort: parseInt(e.target.value, 10)}))} /></div>
-                        <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.imapUser} onChange={e => setCurrentSettings(s => ({...s, imapUser: e.target.value}))} /></div>
-                        <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => setCurrentSettings(s => ({...s, imapPass: e.target.value}))} /></div>
+                        <div><Label>Host</Label><Input placeholder="imap.example.com" value={currentSettings.imapHost} onChange={e => handleFieldChange('imapHost', e.target.value)} /></div>
+                        <div><Label>Port</Label><Input type="number" placeholder="993" value={currentSettings.imapPort} onChange={e => handleFieldChange('imapPort', parseInt(e.target.value, 10))} /></div>
+                        <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.imapUser} onChange={e => handleFieldChange('imapUser', e.target.value)} /></div>
+                        <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => handleFieldChange('imapPass', e.target.value)} /></div>
                     </TabsContent>
                 </Tabs>
                  <DialogFooter className="flex-col sm:flex-row justify-between pt-4 border-t mt-4">
@@ -1063,5 +1064,3 @@ function AuditLog({ logs, users }: { logs: AuditLogType[], users: User[]}) {
         </Card>
     )
 }
-
-    

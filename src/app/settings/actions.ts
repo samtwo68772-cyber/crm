@@ -66,49 +66,62 @@ export async function testEmailConnection(settings: EmailSettingsType) {
         imap: { success: false, error: 'Unknown error' },
     };
 
-    // Test SMTP
-    try {
-        const transporter = nodemailer.createTransport({
-            host: settings.smtpHost,
-            port: settings.smtpPort,
-            secure: settings.smtpPort === 465,
-            auth: {
-                user: settings.smtpUser,
-                pass: settings.smtpPass,
-            },
-            tls: {
-                rejectUnauthorized: false
-            }
-        });
-        await transporter.verify();
-        results.smtp = { success: true, error: '' };
-    } catch (error: any) {
-        results.smtp = { success: false, error: error.message };
-    }
-
-    // Test IMAP
-    let imapConnection;
-    try {
-        const config = {
-            imap: {
-                user: settings.imapUser,
-                password: settings.imapPass,
-                host: settings.imapHost,
-                port: settings.imapPort,
-                tls: settings.imapEncryption === 'ssl' || settings.imapEncryption === 'tls',
-                authTimeout: 5000,
-                tlsOptions: {
+    if (!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPass) {
+        results.smtp.error = 'SMTP settings are incomplete.';
+    } else {
+        // Test SMTP
+        try {
+            const transporter = nodemailer.createTransport({
+                host: settings.smtpHost,
+                port: settings.smtpPort,
+                secure: settings.smtpPort === 465, // true for 465, false for other ports
+                auth: {
+                    user: settings.smtpUser,
+                    pass: settings.smtpPass,
+                },
+                tls: {
                     rejectUnauthorized: false
                 }
+            });
+            await transporter.verify();
+            results.smtp = { success: true, error: '' };
+        } catch (error: any) {
+            results.smtp = { success: false, error: error.message };
+        }
+    }
+
+    if (!settings.imapHost || !settings.imapPort || !settings.imapUser || !settings.imapPass) {
+        results.imap.error = 'IMAP settings are incomplete.';
+    } else {
+        // Test IMAP
+        let imapConnection;
+        try {
+            const config = {
+                imap: {
+                    user: settings.imapUser,
+                    password: settings.imapPass,
+                    host: settings.imapHost,
+                    port: settings.imapPort,
+                    tls: settings.imapEncryption === 'ssl' || settings.imapEncryption === 'tls',
+                    authTimeout: 10000,
+                    tlsOptions: {
+                        rejectUnauthorized: false,
+                        servername: settings.imapHost, // SNI context for TLS
+                    }
+                }
+            };
+            imapConnection = await imaps.connect(config);
+            results.imap = { success: true, error: '' };
+        } catch (error: any) {
+            results.imap = { success: false, error: error.message };
+        } finally {
+            if (imapConnection) {
+                try {
+                    await imapConnection.end();
+                } catch (e) {
+                    console.error("Failed to end IMAP connection:", e);
+                }
             }
-        };
-        imapConnection = await imaps.connect(config);
-        results.imap = { success: true, error: '' };
-    } catch (error: any) {
-        results.imap = { success: false, error: error.message };
-    } finally {
-        if (imapConnection) {
-            await imapConnection.end();
         }
     }
 
