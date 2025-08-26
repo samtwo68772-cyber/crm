@@ -98,6 +98,7 @@ export async function processIncomingEmails() {
                    }
                 });
 
+
                 if (existingEmail) {
                     console.log(`Skipping already existing email UID ${emailUID}, Subject: ${subject}`);
                     continue;
@@ -172,7 +173,6 @@ export async function processIncomingEmails() {
         console.log(`Email processing finished. Successfully processed: ${processedCount}, Failed: ${failedCount}`);
         revalidatePath('/emails');
         revalidatePath('/cases');
-        revalidatePath('/accounts');
         return { count: processedCount };
 
     } catch (err) {
@@ -215,8 +215,7 @@ export async function syncSentEmails() {
         const boxes = await connection.getBoxes();
         let sentBoxName = '';
 
-        // Recursive function to find the sent folder
-        function findSentBox(boxes: any, pathPrefix = ''): string | null {
+        const findSentBoxRecursive = (boxes: any, pathPrefix = ''): string | null => {
             for (const boxName in boxes) {
                 const fullPath = pathPrefix ? `${pathPrefix}${boxes[boxName].delimiter}${boxName}` : boxName;
                 const box = boxes[boxName];
@@ -226,16 +225,20 @@ export async function syncSentEmails() {
                 }
 
                 if (box.children && Object.keys(box.children).length > 0) {
-                    const foundInChild = findSentBox(box.children, fullPath);
-                    if (foundInChild) {
-                        return foundInChild;
-                    }
+                    const foundInChild = findSentBoxRecursive(box.children, fullPath);
+                    if (foundInChild) return foundInChild;
                 }
             }
             return null;
+        };
+
+        const standardGmailSent = '[Gmail]/Sent Mail';
+        if (boxes['[Gmail]']?.children?.['Sent Mail']) {
+            sentBoxName = standardGmailSent;
+        } else {
+            sentBoxName = findSentBoxRecursive(boxes) || '';
         }
 
-        sentBoxName = findSentBox(boxes) || '';
 
         if (!sentBoxName) {
             console.error("Could not find a sent mail folder. Available folders:", JSON.stringify(boxes, null, 2));
@@ -306,6 +309,31 @@ export async function syncSentEmails() {
         }
         throw new Error('Failed to sync sent emails. Check server logs for details.');
     }
+}
+
+export async function syncAllEmails() {
+    const results = {
+        inbox: { count: 0, error: null as string | null },
+        sent: { count: 0, error: null as string | null }
+    };
+    
+    try {
+        const inboxResult = await processIncomingEmails();
+        results.inbox.count = inboxResult.count;
+    } catch(e: any) {
+        results.inbox.error = e.message;
+        console.error("Error processing inbox:", e);
+    }
+    
+    try {
+        const sentResult = await syncSentEmails();
+        results.sent.count = sentResult.count;
+    } catch(e: any) {
+        results.sent.error = e.message;
+        console.error("Error syncing sent mail:", e);
+    }
+
+    return results;
 }
 
 

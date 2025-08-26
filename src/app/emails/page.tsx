@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { getEmails, processIncomingEmails, markEmailAsRead, createCaseFromEmail, sendEmail, syncSentEmails } from './actions';
+import { getEmails, markEmailAsRead, createCaseFromEmail, sendEmail, syncAllEmails } from './actions';
 import { getContacts, createContact } from '../accounts/actions';
 import { getAccounts } from '../accounts/actions';
 import { getCases, createCase } from '../cases/actions';
@@ -68,9 +68,6 @@ function EmailClientView() {
     const [isContactCreateOpen, setContactCreateOpen] = useState(false);
     const [isConfirmCreateContactOpen, setConfirmCreateContactOpen] = useState(false);
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [isSyncingSent, setIsSyncingSent] = useState(false);
-    const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
     const searchParams = useSearchParams();
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
@@ -87,74 +84,42 @@ function EmailClientView() {
         }
     }, [searchParams]);
 
-    const processEmailsMutation = useMutation({
-        mutationFn: processIncomingEmails,
-        onMutate: () => setIsProcessing(true),
+    const syncEmailsMutation = useMutation({
+        mutationFn: syncAllEmails,
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['emails'] });
             queryClient.invalidateQueries({ queryKey: ['cases'] });
             queryClient.invalidateQueries({ queryKey: ['contacts'] });
-            toast({
-                title: "Email Processing Complete",
-                description: `Fetched ${data.count} new email(s). New cases may have been created.`,
-            });
+            
+            const inboxCount = data.inbox.count;
+            if (inboxCount > 0) {
+                 toast({
+                    title: "Email Sync Complete",
+                    description: `Fetched ${inboxCount} new email(s). New cases may have been created.`,
+                });
+            }
         },
         onError: (error: Error) => {
-            toast({ variant: 'destructive', title: 'Error Processing Emails', description: error.message || 'An unknown error occurred.' })
+            toast({ variant: 'destructive', title: 'Error Syncing Emails', description: error.message || 'An unknown error occurred.' })
         },
-        onSettled: () => {
-            setIsProcessing(false);
-        }
     })
-
-    const syncSentEmailsMutation = useMutation({
-        mutationFn: syncSentEmails,
-        onMutate: () => setIsSyncingSent(true),
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ['emails'] });
-            toast({
-                title: "Sent Mail Synced",
-                description: `Synced ${data.count} new sent email(s).`,
-            });
-        },
-        onError: (error: Error) => {
-            toast({ variant: 'destructive', title: 'Error Syncing Sent Mail', description: error.message || 'An unknown error occurred.' })
-        },
-        onSettled: () => {
-            setIsSyncingSent(false);
-        }
-    });
 
     useEffect(() => {
         const handleSync = async () => {
-            if (document.hidden || isProcessing || isSyncingSent || isBackgroundSyncing) return;
-            
-            setIsBackgroundSyncing(true);
-            try {
-                // We use the non-throwing versions here for silent background refresh
-                await processIncomingEmails();
-                await syncSentEmails();
-                queryClient.invalidateQueries({ queryKey: ['emails'] });
-            } catch (error) {
-                console.error("Background sync failed:", error);
-            } finally {
-                setIsBackgroundSyncing(false);
-            }
+            // Don't sync on first load if emails are already loading
+            if (document.hidden || syncEmailsMutation.isPending || emailsLoading) return;
+            syncEmailsMutation.mutate();
         };
 
-        const intervalId = setInterval(handleSync, 30000); // Sync every 30 seconds
+        const intervalId = setInterval(handleSync, 60000); // Sync every 60 seconds
 
         return () => clearInterval(intervalId);
-    }, [isProcessing, isSyncingSent, isBackgroundSyncing, queryClient]);
+    }, [syncEmailsMutation, emailsLoading]);
 
 
-    const handleProcessEmails = async () => {
-        processEmailsMutation.mutate();
+    const handleManualSync = async () => {
+        syncEmailsMutation.mutate();
     };
-    
-    const handleSyncSentEmails = async () => {
-        syncSentEmailsMutation.mutate();
-    }
 
     const filteredEmails = useMemo(() => {
         if (!emails) return [];
@@ -244,9 +209,7 @@ function EmailClientView() {
     const stripHtml = (html: string) => {
         if (typeof document !== 'undefined') {
             const doc = new DOMParser().parseFromString(html, 'text/html');
-            // First, remove script and style tags completely
-            doc.querySelectorAll('script, style').forEach(el => el.remove());
-            // Then, get the text content
+            doc.querySelectorAll('style, script').forEach(el => el.remove());
             return doc.body.textContent || "";
         }
         return html;
@@ -355,22 +318,13 @@ function EmailClientView() {
                     </div>
                      <div className="flex items-center gap-2">
                         <Button 
-                            onClick={handleProcessEmails} 
-                            disabled={isProcessing || isSyncingSent}
+                            onClick={handleManualSync} 
+                            disabled={syncEmailsMutation.isPending}
                             variant="outline"
                             size="sm"
                         >
-                            <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin", isBackgroundSyncing && "animate-spin text-muted-foreground")} />
-                            {isProcessing ? 'Processing...' : 'Process Inbox'}
-                        </Button>
-                        <Button 
-                            onClick={handleSyncSentEmails} 
-                            disabled={isSyncingSent || isProcessing}
-                            variant="outline"
-                            size="sm"
-                        >
-                            <RefreshCw className={cn("mr-2 h-4 w-4", isSyncingSent && "animate-spin")} />
-                            {isSyncingSent ? 'Syncing...' : 'Sync Sent'}
+                            <RefreshCw className={cn("mr-2 h-4 w-4", syncEmailsMutation.isPending && "animate-spin")} />
+                            {syncEmailsMutation.isPending ? 'Syncing...' : 'Refresh'}
                         </Button>
                     </div>
                 </div>
