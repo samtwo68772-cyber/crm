@@ -84,7 +84,6 @@ export async function processIncomingEmails() {
 
                 console.log(`Processing email UID ${emailUID} from: ${fromAddress}, Subject: ${subject}`);
                 
-                // Skip emails from self
                 if (fromAddress === emailSettings.imapUser) {
                     console.log(`Skipping email UID ${emailUID} from self: ${fromAddress}`);
                     continue;
@@ -117,7 +116,7 @@ export async function processIncomingEmails() {
                         data: {
                             name: fromName,
                             email: fromAddress,
-                            phone: '', // Provide default empty string
+                            phone: '',
                             company: 'Unknown',
                             role: 'Unknown',
                             avatar: `https://placehold.co/40x40.png?text=${fromName.charAt(0)}`,
@@ -216,44 +215,30 @@ export async function syncSentEmails() {
         const boxes = await connection.getBoxes();
         let sentBoxName = '';
 
-        // Define a list of common names for the sent folder
-        const commonSentFolderNames = [
-            '[Gmail]/Sent Mail', // Standard for Gmail
-            'Sent',
-            'Sent Items',
-            'Sent Messages',
-        ];
+        // Recursive function to find the sent folder
+        function findSentBox(boxes: any, pathPrefix = ''): string | null {
+            for (const boxName in boxes) {
+                const fullPath = pathPrefix ? `${pathPrefix}${boxes[boxName].delimiter}${boxName}` : boxName;
+                const box = boxes[boxName];
 
-        // 1. Check for common, known names first
-        for (const name of commonSentFolderNames) {
-            if (boxes[name]) {
-                sentBoxName = name;
-                break;
-            }
-        }
+                if (box.attribs.includes('\\Sent') || boxName.toLowerCase().includes('sent')) {
+                    return fullPath;
+                }
 
-        // 2. If not found, look for a box with the \Sent attribute
-        if (!sentBoxName) {
-            for (const box in boxes) {
-                if (boxes[box].attribs.includes('\\Sent')) {
-                    sentBoxName = box;
-                    break;
+                if (box.children && Object.keys(box.children).length > 0) {
+                    const foundInChild = findSentBox(box.children, fullPath);
+                    if (foundInChild) {
+                        return foundInChild;
+                    }
                 }
             }
+            return null;
         }
 
-        // 3. As a last resort, search for a box name that includes "Sent"
-        if (!sentBoxName) {
-            for (const box in boxes) {
-                if (box.toLowerCase().includes('sent')) {
-                    sentBoxName = box;
-                    break;
-                }
-            }
-        }
+        sentBoxName = findSentBox(boxes) || '';
 
         if (!sentBoxName) {
-            console.error("Could not find a sent mail folder. Available folders:", Object.keys(boxes));
+            console.error("Could not find a sent mail folder. Available folders:", JSON.stringify(boxes, null, 2));
             throw new Error("Could not find the sent mail folder.");
         }
         
