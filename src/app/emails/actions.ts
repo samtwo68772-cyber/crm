@@ -16,7 +16,7 @@ function generateShortId(prefix: string) {
 }
 
 export async function getEmails() {
-    await processIncomingEmails().catch(err => console.warn("Email fetch failed:", err.message));
+    // We will call processIncomingEmails from the UI directly to avoid running it on every page load.
     return await prisma.email.findMany({
         orderBy: {
             date: 'desc'
@@ -42,7 +42,7 @@ export async function processIncomingEmails() {
     };
     
     if (!config.imap.user || !config.imap.password || !config.imap.host) {
-        console.error("IMAP credentials are not configured in settings or .env file.");
+        console.error("IMAP credentials are not configured in settings.");
         throw new Error("IMAP credentials not configured.");
     }
 
@@ -53,14 +53,14 @@ export async function processIncomingEmails() {
         console.log("IMAP connection successful.");
         
         await connection.openBox('INBOX');
-        const searchCriteria = ['UNSEEN'];
+        const searchCriteria = ['ALL']; // Fetch all emails
         const fetchOptions = {
             bodies: [''],
-            markSeen: true
+            markSeen: false // Do not mark as seen, just fetch
         };
 
         const results = await connection.search(searchCriteria, fetchOptions);
-        console.log(`Found ${results.length} new emails.`);
+        console.log(`Found ${results.length} emails in INBOX.`);
 
         const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
         if (!defaultUser) {
@@ -79,6 +79,28 @@ export async function processIncomingEmails() {
                     console.log("Skipping email with no from address.");
                     continue;
                 }
+                
+                // Skip if email from our own user to avoid loops
+                if (fromAddress === emailSettings.imapUser) {
+                    console.log(`Skipping email from self: ${fromAddress}`);
+                    continue;
+                }
+                
+                // Check if email already exists
+                const existingEmail = await prisma.email.findFirst({
+                   where: {
+                       AND: [
+                           { subject: mail.subject || '(No Subject)' },
+                           { 'from.email': fromAddress },
+                       ]
+                   }
+                });
+                
+                if (existingEmail) {
+                    console.log(`Skipping already existing email: ${mail.subject}`);
+                    continue;
+                }
+
 
                 // Create or find contact
                 let contact = await prisma.contact.findUnique({ where: { email: fromAddress } });
