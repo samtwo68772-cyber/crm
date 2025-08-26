@@ -242,7 +242,15 @@ function EmailClientView() {
     };
     
     const stripHtml = (html: string) => {
-        return html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        if (!html) return '';
+        // Remove style and script tags completely
+        let clean = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        clean = clean.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+        // Remove all other HTML tags, leaving their content
+        clean = clean.replace(/<[^>]+>/g, ' ');
+        // Replace multiple whitespace characters with a single space
+        clean = clean.replace(/\s+/g, ' ').trim();
+        return clean;
     }
 
     if (isLoading) return (
@@ -271,18 +279,22 @@ function EmailClientView() {
                     <div 
                         key={email.id} 
                         className={cn(
-                            "p-4 border-b cursor-pointer transition-colors hover:bg-muted/50",
+                            "flex items-start p-4 border-b cursor-pointer transition-colors hover:bg-muted/50",
                             !email.read && "bg-primary/5 hover:bg-primary/10"
                         )}
                         onClick={() => handleSelectEmail(email)}
                     >
-                        <div className="flex justify-between items-start">
-                            <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
-                            <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(safeParseDate(email.date), 'MMM d')}</p>
+                        <div className="flex items-center gap-3 w-48 shrink-0">
+                           <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
                         </div>
-                        <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
-                        <p className="text-xs text-muted-foreground truncate">{stripHtml(email.body)}</p>
-                        {email.linkedCaseId && <Badge variant="secondary" className="mt-2 text-xs">Linked</Badge>}
+                        <div className="flex-1 min-w-0">
+                           <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
+                           <p className="text-xs text-muted-foreground truncate">{stripHtml(email.body)}</p>
+                        </div>
+                        <div className="flex items-center gap-2 pl-4">
+                            {email.linkedCaseId && <Badge variant="secondary" className="text-xs">Linked</Badge>}
+                            <p className={cn("text-xs text-muted-foreground shrink-0", !email.read && "text-primary")}>{format(safeParseDate(email.date), 'MMM d')}</p>
+                        </div>
                     </div>
                 ))
             ) : (
