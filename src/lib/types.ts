@@ -159,6 +159,7 @@ export type Email = {
     read: boolean;
     linkedCaseId?: string;
     attachments?: { name: string, size: string, type: 'PDF' | 'Image' | 'Document' }[];
+    messageId?: string | null;
 };
 
 export type EmailSettingsType = {

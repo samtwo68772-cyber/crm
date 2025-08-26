@@ -28,6 +28,10 @@ export async function processIncomingEmails() {
     console.log("Starting email processing...");
 
     const emailSettings = await getEmailSettings();
+    if (!emailSettings.configured) {
+        console.error("IMAP is not configured.");
+        throw new Error("IMAP credentials are not configured in settings.");
+    }
 
     const config = {
       imap: {
@@ -41,11 +45,6 @@ export async function processIncomingEmails() {
       }
     };
     
-    if (!config.imap.user || !config.imap.password || !config.imap.host) {
-        console.error("IMAP credentials are not configured in settings.");
-        throw new Error("IMAP credentials not configured.");
-    }
-
     let connection;
     try {
         console.log(`Connecting to IMAP server: ${config.imap.host}...`);
@@ -53,11 +52,8 @@ export async function processIncomingEmails() {
         console.log("IMAP connection successful.");
         
         await connection.openBox('INBOX');
-        const searchCriteria = ['ALL']; // Fetch all emails
-        const fetchOptions = {
-            bodies: [''],
-            markSeen: false // Do not mark as seen, just fetch
-        };
+        const searchCriteria = ['ALL'];
+        const fetchOptions = { bodies: [''], markSeen: false };
 
         const results = await connection.search(searchCriteria, fetchOptions);
         console.log(`Found ${results.length} emails in INBOX.`);
@@ -68,75 +64,85 @@ export async function processIncomingEmails() {
             throw new Error("No default admin user found to assign cases to.");
         }
 
+        let processedCount = 0;
+        let failedCount = 0;
+
         for (const item of results) {
-            const all = item.parts.find(part => part.which === '');
-            if (all) {
+            const emailUID = item.attributes.uid;
+            try {
+                const all = item.parts.find(part => part.which === '');
+                if (!all) {
+                    console.warn(`Skipping email UID ${emailUID}: No body part found.`);
+                    continue;
+                }
+
                 const mail = await simpleParser(all.body);
-                console.log(`Processing email from: ${mail.from?.text}, Subject: ${mail.subject}`);
-                
-                const fromAddress = mail.from?.value[0].address;
+                const subject = mail.subject || '(No Subject)';
+                const fromAddress = mail.from?.value[0]?.address;
+
+                console.log(`Processing email UID ${emailUID} from: ${fromAddress || 'Unknown'}, Subject: ${subject}`);
+
                 if (!fromAddress) {
-                    console.log("Skipping email with no from address.");
+                    console.warn(`Skipping email UID ${emailUID} with no from address.`);
+                    failedCount++;
                     continue;
                 }
-                
-                // Skip if email from our own user to avoid loops
+
                 if (fromAddress === emailSettings.imapUser) {
-                    console.log(`Skipping email from self: ${fromAddress}`);
+                    console.log(`Skipping email UID ${emailUID} from self: ${fromAddress}`);
                     continue;
                 }
                 
-                // Check if email already exists
                 const existingEmail = await prisma.email.findFirst({
                    where: {
-                       AND: [
-                           { subject: mail.subject || '(No Subject)' },
-                           { 'from.email': fromAddress },
+                       OR: [
+                           { messageId: mail.messageId },
+                           { AND: [ { subject: subject }, { 'from.email': fromAddress }] }
                        ]
                    }
                 });
                 
                 if (existingEmail) {
-                    console.log(`Skipping already existing email: ${mail.subject}`);
+                    console.log(`Skipping already existing email UID ${emailUID}, Subject: ${subject}`);
                     continue;
                 }
 
+                const fromName = mail.from?.value[0]?.name || fromAddress;
+                const toName = mail.to?.value[0]?.name || 'Me';
+                const toAddress = mail.to?.value[0]?.address || '';
 
-                // Create or find contact
                 let contact = await prisma.contact.findUnique({ where: { email: fromAddress } });
                 if (!contact) {
                     contact = await prisma.contact.create({
                         data: {
-                            name: mail.from?.value[0].name || fromAddress,
+                            name: fromName,
                             email: fromAddress,
-                            company: 'Unknown', // Default value
-                            role: 'Unknown', // Default value
-                            avatar: `https://placehold.co/40x40.png?text=${(mail.from?.value[0].name || fromAddress).charAt(0)}`,
+                            company: 'Unknown',
+                            role: 'Unknown',
+                            avatar: `https://placehold.co/40x40.png?text=${fromName.charAt(0)}`,
                         }
                     });
                     console.log(`Created new contact: ${contact.name}`);
                 }
 
-                // Create Email record in DB
                 const newEmail = await prisma.email.create({
                     data: {
-                        from: { name: mail.from?.value[0].name || 'Unknown', email: fromAddress },
-                        to: { name: mail.to?.value[0].name || 'Me', email: mail.to?.value[0].address || '' },
-                        subject: mail.subject || '(No Subject)',
+                        from: { name: fromName, email: fromAddress },
+                        to: { name: toName, email: toAddress },
+                        subject: subject,
                         body: mail.html || mail.text || '',
                         date: mail.date || new Date(),
                         type: 'inbox',
                         read: false,
+                        messageId: mail.messageId,
                     }
                 });
                 console.log(`Saved email #${newEmail.id} to database.`);
 
-
-                // Create Case from email
                 const newCase = await prisma.case.create({
                     data: {
                         id: generateShortId('CASE'),
-                        subject: mail.subject || '(No Subject)',
+                        subject: subject,
                         customer: contact.name,
                         email: contact.email,
                         priority: 'Medium',
@@ -146,7 +152,7 @@ export async function processIncomingEmails() {
                         description: mail.text || '(No Content)',
                         contactId: contact.id,
                         communications: {
-                            push: { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: mail.date?.toISOString() || new Date().toISOString() }
+                            push: { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: (mail.date || new Date()).toISOString() }
                         }
                     }
                 });
@@ -156,18 +162,25 @@ export async function processIncomingEmails() {
                     where: { id: newEmail.id },
                     data: { linkedCaseId: newCase.id }
                 });
+
+                processedCount++;
+
+            } catch (emailError) {
+                failedCount++;
+                console.error(`Failed to process email UID ${emailUID}. Error:`, emailError);
+                // Continue to the next email
             }
         }
 
         connection.end();
-        console.log("Email processing finished successfully.");
+        console.log(`Email processing finished. Successfully processed: ${processedCount}, Failed: ${failedCount}`);
         revalidatePath('/emails');
         revalidatePath('/cases');
         revalidatePath('/accounts');
-        return { count: results.length };
+        return { count: processedCount };
 
     } catch (err) {
-        console.error('An error occurred during email processing:', err);
+        console.error('A critical error occurred during email processing:', err);
         if (connection) {
             connection.end();
         }
@@ -223,6 +236,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
                 date: new Date(),
                 type: 'sent',
                 read: true,
+                messageId: info.messageId,
             }
         });
         
