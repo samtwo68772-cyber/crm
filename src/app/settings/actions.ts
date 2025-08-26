@@ -66,20 +66,21 @@ export async function testEmailConnection(settings: EmailSettingsType) {
         imap: { success: false, error: 'Unknown error' },
     };
 
+    // Test SMTP
     if (!settings.smtpHost || !settings.smtpPort || !settings.smtpUser || !settings.smtpPass) {
         results.smtp.error = 'SMTP settings are incomplete.';
     } else {
-        // Test SMTP
         try {
             const transporter = nodemailer.createTransport({
                 host: settings.smtpHost,
                 port: settings.smtpPort,
-                secure: settings.smtpPort === 465, // true for 465, false for other ports
+                secure: settings.smtpPort === 465, // Explicitly use secure for port 465
                 auth: {
                     user: settings.smtpUser,
                     pass: settings.smtpPass,
                 },
                 tls: {
+                    ciphers: settings.smtpEncryption === 'ssl' ? 'SSLv3' : undefined,
                     rejectUnauthorized: false
                 }
             });
@@ -90,10 +91,10 @@ export async function testEmailConnection(settings: EmailSettingsType) {
         }
     }
 
+    // Test IMAP
     if (!settings.imapHost || !settings.imapPort || !settings.imapUser || !settings.imapPass) {
         results.imap.error = 'IMAP settings are incomplete.';
     } else {
-        // Test IMAP
         let imapConnection;
         try {
             const config = {
@@ -102,11 +103,10 @@ export async function testEmailConnection(settings: EmailSettingsType) {
                     password: settings.imapPass,
                     host: settings.imapHost,
                     port: settings.imapPort,
-                    tls: settings.imapEncryption === 'ssl' || settings.imapEncryption === 'tls',
-                    authTimeout: 10000,
+                    tls: settings.imapEncryption === 'tls' || settings.imapEncryption === 'ssl',
                     tlsOptions: {
                         rejectUnauthorized: false,
-                        servername: settings.imapHost, // SNI context for TLS
+                        servername: settings.imapHost,
                     }
                 }
             };
@@ -205,3 +205,5 @@ export async function getAuditLogs() {
         }
     });
 }
+
+    

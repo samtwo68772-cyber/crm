@@ -464,13 +464,38 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
                     </TabsList>
                     <TabsContent value="smtp" className="space-y-4 pt-4">
                         <div><Label>Host</Label><Input placeholder="smtp.example.com" value={currentSettings.smtpHost} onChange={e => handleFieldChange('smtpHost', e.target.value)} /></div>
-                        <div><Label>Port</Label><Input type="number" placeholder="587" value={currentSettings.smtpPort} onChange={e => handleFieldChange('smtpPort', parseInt(e.target.value, 10))} /></div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div><Label>Port</Label><Input type="number" placeholder="587" value={currentSettings.smtpPort} onChange={e => handleFieldChange('smtpPort', parseInt(e.target.value, 10))} /></div>
+                             <div>
+                                <Label>Encryption</Label>
+                                <Select value={currentSettings.smtpEncryption} onValueChange={(v) => handleFieldChange('smtpEncryption', v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="tls">TLS</SelectItem>
+                                        <SelectItem value="ssl">SSL</SelectItem>
+                                        <SelectItem value="none">None</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                         <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.smtpUser} onChange={e => handleFieldChange('smtpUser', e.target.value)} /></div>
                         <div><Label>Password</Label><Input type="password" value={currentSettings.smtpPass} onChange={e => handleFieldChange('smtpPass', e.target.value)} /></div>
                     </TabsContent>
                      <TabsContent value="imap" className="space-y-4 pt-4">
                         <div><Label>Host</Label><Input placeholder="imap.example.com" value={currentSettings.imapHost} onChange={e => handleFieldChange('imapHost', e.target.value)} /></div>
-                        <div><Label>Port</Label><Input type="number" placeholder="993" value={currentSettings.imapPort} onChange={e => handleFieldChange('imapPort', parseInt(e.target.value, 10))} /></div>
+                         <div className="grid grid-cols-2 gap-4">
+                            <div><Label>Port</Label><Input type="number" placeholder="993" value={currentSettings.imapPort} onChange={e => handleFieldChange('imapPort', parseInt(e.target.value, 10))} /></div>
+                            <div>
+                                <Label>Encryption</Label>
+                                <Select value={currentSettings.imapEncryption} onValueChange={(v) => handleFieldChange('imapEncryption', v)}>
+                                    <SelectTrigger><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="ssl">SSL</SelectItem>
+                                        <SelectItem value="tls">TLS</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                         <div><Label>Username</Label><Input placeholder="you@example.com" value={currentSettings.imapUser} onChange={e => handleFieldChange('imapUser', e.target.value)} /></div>
                         <div><Label>Password</Label><Input type="password" value={currentSettings.imapPass} onChange={e => handleFieldChange('imapPass', e.target.value)} /></div>
                     </TabsContent>
@@ -585,7 +610,7 @@ function AlertsSettings({ preferences }: { preferences: NotificationPreferences;
                         <h4 className="font-medium text-lg mb-4">{categoryValue.title}</h4>
                         <div className="space-y-4">
                             {Object.entries(categoryValue.events).map(([eventKey, eventLabel]) => {
-                                const pref = currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[keyof NotificationPreferences]];
+                                const pref = currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[typeof category]];
                                 return (
                                 <div key={eventKey} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                     <Label className="flex-1 font-normal">{eventLabel}</Label>
@@ -1064,3 +1089,5 @@ function AuditLog({ logs, users }: { logs: AuditLogType[], users: User[]}) {
         </Card>
     )
 }
+
+    
