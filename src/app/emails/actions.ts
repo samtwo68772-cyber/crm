@@ -98,7 +98,7 @@ export async function processIncomingEmails() {
                        ]
                    }
                 });
-                
+
                 if (existingEmail) {
                     console.log(`Skipping already existing email UID ${emailUID}, Subject: ${subject}`);
                     continue;
@@ -165,7 +165,7 @@ export async function processIncomingEmails() {
 
             } catch (emailError) {
                 failedCount++;
-                console.error(`Failed to process email UID ${emailUID} (Subject: ${subject}). Error:`, emailError);
+                console.error(`Failed to process email UID ${emailUID}. Error:`, emailError);
             }
         }
 
@@ -216,15 +216,33 @@ export async function syncSentEmails() {
         const boxes = await connection.getBoxes();
         let sentBoxName = '';
 
-        // First, look for a box with the \Sent attribute
-        for (const box in boxes) {
-            if (boxes[box].attribs.includes('\\Sent')) {
-                sentBoxName = box;
+        // Define a list of common names for the sent folder
+        const commonSentFolderNames = [
+            '[Gmail]/Sent Mail', // Standard for Gmail
+            'Sent',
+            'Sent Items',
+            'Sent Messages',
+        ];
+
+        // 1. Check for common, known names first
+        for (const name of commonSentFolderNames) {
+            if (boxes[name]) {
+                sentBoxName = name;
                 break;
             }
         }
 
-        // If not found, search for a box name that includes "Sent" as a fallback
+        // 2. If not found, look for a box with the \Sent attribute
+        if (!sentBoxName) {
+            for (const box in boxes) {
+                if (boxes[box].attribs.includes('\\Sent')) {
+                    sentBoxName = box;
+                    break;
+                }
+            }
+        }
+
+        // 3. As a last resort, search for a box name that includes "Sent"
         if (!sentBoxName) {
             for (const box in boxes) {
                 if (box.toLowerCase().includes('sent')) {
