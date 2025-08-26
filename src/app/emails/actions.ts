@@ -136,7 +136,6 @@ export async function processIncomingEmails() {
                         date: mail.date || new Date(),
                         type: 'inbox',
                         read: false,
-                        messageId: mail.messageId,
                     }
                 });
                 console.log(`Saved email #${newEmail.id} to database.`);
