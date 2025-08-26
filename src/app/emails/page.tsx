@@ -242,15 +242,14 @@ function EmailClientView() {
     };
     
     const stripHtml = (html: string) => {
-        if (!html) return '';
-        // Remove style and script tags completely
-        let clean = html.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
-        clean = clean.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
-        // Remove all other HTML tags, leaving their content
-        clean = clean.replace(/<[^>]+>/g, ' ');
-        // Replace multiple whitespace characters with a single space
-        clean = clean.replace(/\s+/g, ' ').trim();
-        return clean;
+        if (typeof document !== 'undefined') {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            // First, remove script and style tags completely
+            doc.querySelectorAll('script, style').forEach(el => el.remove());
+            // Then, get the text content
+            return doc.body.textContent || "";
+        }
+        return html;
     }
 
     if (isLoading) return (
@@ -279,12 +278,12 @@ function EmailClientView() {
                     <div 
                         key={email.id} 
                         className={cn(
-                            "flex items-start p-4 border-b cursor-pointer transition-colors hover:bg-muted/50",
+                            "grid grid-cols-[12rem,1fr,auto] items-center p-4 border-b cursor-pointer transition-colors hover:bg-muted/50 gap-4",
                             !email.read && "bg-primary/5 hover:bg-primary/10"
                         )}
                         onClick={() => handleSelectEmail(email)}
                     >
-                        <div className="flex items-center gap-3 w-48 shrink-0">
+                        <div className="flex items-center gap-3 w-full shrink-0 truncate">
                            <p className={cn("truncate text-sm font-medium", !email.read && "text-primary")}>{mailbox === 'inbox' ? email.from.name : `To: ${email.to.name}`}</p>
                         </div>
                         <div className="flex-1 min-w-0">
