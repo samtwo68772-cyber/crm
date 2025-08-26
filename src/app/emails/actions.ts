@@ -31,13 +31,13 @@ export async function processIncomingEmails() {
 
     const config = {
       imap: {
-        user: emailSettings.imapUser || process.env.IMAP_USER!,
-        password: emailSettings.imapPass || process.env.IMAP_PASS!,
-        host: emailSettings.imapHost || "outlook.office365.com",
-        port: emailSettings.imapPort || 993,
-        tls: true,
+        user: emailSettings.imapUser,
+        password: emailSettings.imapPass,
+        host: emailSettings.imapHost,
+        port: emailSettings.imapPort,
+        tls: emailSettings.imapEncryption === 'tls' || emailSettings.imapEncryption === 'ssl',
         authTimeout: 10000,
-        tlsOptions: { rejectUnauthorized: false }
+        tlsOptions: { rejectUnauthorized: false, servername: emailSettings.imapHost }
       }
     };
     
@@ -155,10 +155,10 @@ export async function processIncomingEmails() {
 
 export async function sendEmail(to: string, subject: string, body: string) {
     const emailSettings = await getEmailSettings();
-    const smtpUser = emailSettings.smtpUser || process.env.SMTP_USER;
-    const smtpPass = emailSettings.smtpPass || process.env.SMTP_PASS;
-    const smtpHost = emailSettings.smtpHost || "smtp.office365.com";
-    const smtpPort = emailSettings.smtpPort || 587;
+    const smtpUser = emailSettings.smtpUser;
+    const smtpPass = emailSettings.smtpPass;
+    const smtpHost = emailSettings.smtpHost;
+    const smtpPort = emailSettings.smtpPort;
 
 
      if (!smtpUser || !smtpPass || !smtpHost) {
@@ -169,11 +169,15 @@ export async function sendEmail(to: string, subject: string, body: string) {
     const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: smtpPort,
-        secure: false, // For TLS with STARTTLS
+        secure: smtpPort === 465, // For TLS with STARTTLS
         auth: {
             user: smtpUser,
             pass: smtpPass,
         },
+        tls: {
+            ciphers: emailSettings.smtpEncryption === 'ssl' ? 'SSLv3' : undefined,
+            rejectUnauthorized: false
+        }
     });
 
     try {
