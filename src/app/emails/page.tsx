@@ -3,7 +3,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
-import { getEmails, processIncomingEmails, markEmailAsRead, createCaseFromEmail, sendEmail } from './actions';
+import { getEmails, processIncomingEmails, markEmailAsRead, createCaseFromEmail, sendEmail, syncSentEmails } from './actions';
 import { getContacts, createContact } from '../accounts/actions';
 import { getAccounts } from '../accounts/actions';
 import { getCases, createCase } from '../cases/actions';
@@ -69,6 +69,7 @@ function EmailClientView() {
     const [isConfirmCreateContactOpen, setConfirmCreateContactOpen] = useState(false);
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isSyncingSent, setIsSyncingSent] = useState(false);
     const searchParams = useSearchParams();
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
@@ -105,9 +106,31 @@ function EmailClientView() {
         }
     })
 
+    const syncSentEmailsMutation = useMutation({
+        mutationFn: syncSentEmails,
+        onMutate: () => setIsSyncingSent(true),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ['emails'] });
+            toast({
+                title: "Sent Mail Synced",
+                description: `Synced ${data.count} new sent email(s).`,
+            });
+        },
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: 'Error Syncing Sent Mail', description: error.message || 'An unknown error occurred.' })
+        },
+        onSettled: () => {
+            setIsSyncingSent(false);
+        }
+    });
+
     const handleProcessEmails = async () => {
         processEmailsMutation.mutate();
     };
+    
+    const handleSyncSentEmails = async () => {
+        syncSentEmailsMutation.mutate();
+    }
 
     const filteredEmails = useMemo(() => {
         if (!emails) return [];
@@ -291,15 +314,26 @@ function EmailClientView() {
                             <Send className="h-4 w-4" /> Sent
                         </Button>
                     </div>
-                    <Button 
-                        onClick={handleProcessEmails} 
-                        disabled={isProcessing}
-                        variant="outline"
-                        size="sm"
-                    >
-                        <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")} />
-                        {isProcessing ? 'Processing...' : 'Process Mail'}
-                    </Button>
+                     <div className="flex items-center gap-2">
+                        <Button 
+                            onClick={handleProcessEmails} 
+                            disabled={isProcessing || isSyncingSent}
+                            variant="outline"
+                            size="sm"
+                        >
+                            <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")} />
+                            {isProcessing ? 'Processing...' : 'Process Inbox'}
+                        </Button>
+                        <Button 
+                            onClick={handleSyncSentEmails} 
+                            disabled={isSyncingSent || isProcessing}
+                            variant="outline"
+                            size="sm"
+                        >
+                            <RefreshCw className={cn("mr-2 h-4 w-4", isSyncingSent && "animate-spin")} />
+                            {isSyncingSent ? 'Syncing...' : 'Sync Sent'}
+                        </Button>
+                    </div>
                 </div>
             </div>
 

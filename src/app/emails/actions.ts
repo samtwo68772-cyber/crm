@@ -93,11 +93,11 @@ export async function processIncomingEmails() {
                     continue;
                 }
                 
-                const existingEmail = await prisma.email.findFirst({
+                 const existingEmail = await prisma.email.findFirst({
                    where: {
                        AND: [
                            { subject: subject },
-                           { from: { path: ['email'], equals: fromAddress } }
+                           { 'from': { path: ['email'], equals: fromAddress } }
                        ]
                    }
                 });
@@ -117,7 +117,7 @@ export async function processIncomingEmails() {
                         data: {
                             name: fromName,
                             email: fromAddress,
-                            phone: '', // Provide a default empty string for phone
+                            phone: '',
                             company: 'Unknown',
                             role: 'Unknown',
                             avatar: `https://placehold.co/40x40.png?text=${fromName.charAt(0)}`,
@@ -151,9 +151,7 @@ export async function processIncomingEmails() {
                         createdById: defaultUser.id,
                         description: mail.text || '(No Content)',
                         contactId: contact.id,
-                        communications: [
-                            { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: (mail.date || new Date()).toISOString() }
-                        ]
+                        communications: [{ id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: (mail.date || new Date()).toISOString() }]
                     }
                 });
                 console.log(`Created new case #${newCase.id} from email.`);
@@ -168,7 +166,6 @@ export async function processIncomingEmails() {
             } catch (emailError) {
                 failedCount++;
                 console.error(`Failed to process email UID ${emailUID}. Error:`, emailError);
-                // Continue to the next email
             }
         }
 
@@ -188,6 +185,125 @@ export async function processIncomingEmails() {
     }
 }
 
+
+export async function syncSentEmails() {
+    console.log("Starting sent email synchronization...");
+
+    const emailSettings = await getEmailSettings();
+    if (!emailSettings.configured) {
+        console.error("IMAP is not configured.");
+        throw new Error("IMAP credentials are not configured in settings.");
+    }
+
+    const config = {
+        imap: {
+            user: emailSettings.imapUser,
+            password: emailSettings.imapPass,
+            host: emailSettings.imapHost,
+            port: emailSettings.imapPort,
+            tls: emailSettings.imapEncryption === 'tls' || emailSettings.imapEncryption === 'ssl',
+            authTimeout: 10000,
+            tlsOptions: { rejectUnauthorized: false, servername: emailSettings.imapHost }
+        }
+    };
+
+    let connection;
+    try {
+        console.log(`Connecting to IMAP server for sent mail: ${config.imap.host}...`);
+        connection = await imaps.connect(config);
+        console.log("IMAP connection successful for sent mail.");
+
+        // Try common names for the sent folder
+        const sentBoxNames = ['[Gmail]/Sent Mail', 'Sent'];
+        let sentBoxName = '';
+        const boxes = await connection.getBoxes();
+        for (const name of sentBoxNames) {
+            if (boxes[name]) {
+                sentBoxName = name;
+                break;
+            }
+        }
+        if (!sentBoxName) {
+             // Look for a box with the \Sent attribute as a fallback
+            for (const box in boxes) {
+                if (boxes[box].attribs.includes('\\Sent')) {
+                    sentBoxName = box;
+                    break;
+                }
+            }
+        }
+
+        if (!sentBoxName) {
+            throw new Error("Could not find the sent mail folder.");
+        }
+        
+        console.log(`Opening sent mail folder: ${sentBoxName}`);
+        await connection.openBox(sentBoxName, true); // readOnly = true
+        
+        const searchCriteria = ['ALL'];
+        const fetchOptions = { bodies: [''] };
+        const results = await connection.search(searchCriteria, fetchOptions);
+        console.log(`Found ${results.length} emails in sent folder.`);
+
+        let newEmailsSynced = 0;
+        for (const item of results) {
+            try {
+                const all = item.parts.find(part => part.which === '');
+                if (!all) continue;
+
+                const mail = await simpleParser(all.body);
+                const toAddress = mail.to?.value[0]?.address;
+
+                if (!toAddress) continue; // Skip if no recipient
+
+                // Check if this email already exists
+                const existingEmail = await prisma.email.findFirst({
+                    where: {
+                        AND: [
+                            { subject: mail.subject || '(No Subject)' },
+                            { 'to': { path: ['email'], equals: toAddress } },
+                            { date: mail.date || new Date() }
+                        ]
+                    }
+                });
+
+                if (existingEmail) {
+                    continue;
+                }
+
+                // Save to DB
+                await prisma.email.create({
+                    data: {
+                        from: { name: mail.from?.value[0]?.name || 'Me', email: mail.from?.value[0]?.address || emailSettings.imapUser },
+                        to: { name: mail.to?.value[0]?.name || toAddress, email: toAddress },
+                        subject: mail.subject || '(No Subject)',
+                        body: mail.html || mail.text || '',
+                        date: mail.date || new Date(),
+                        type: 'sent',
+                        read: true,
+                    }
+                });
+                newEmailsSynced++;
+            } catch (emailError) {
+                console.error(`Failed to process a sent email. UID: ${item.attributes.uid}. Error:`, emailError);
+            }
+        }
+
+        connection.end();
+        console.log(`Sent email sync finished. New emails synced: ${newEmailsSynced}`);
+        revalidatePath('/emails');
+        return { count: newEmailsSynced };
+
+    } catch (err) {
+        console.error('A critical error occurred during sent mail sync:', err);
+        if (connection) {
+            connection.end();
+        }
+        throw new Error('Failed to sync sent emails. Check server logs for details.');
+    }
+}
+
+
 export async function sendEmail(to: string, subject: string, body: string) {
     const emailSettings = await getEmailSettings();
     const smtpUser = emailSettings.smtpUser;
@@ -204,7 +320,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
     const transporter = nodemailer.createTransport({
         host: smtpHost,
         port: smtpPort,
-        secure: smtpPort === 465, // For TLS with STARTTLS
+        secure: smtpPort === 465,
         auth: {
             user: smtpUser,
             pass: smtpPass,
@@ -226,7 +342,6 @@ export async function sendEmail(to: string, subject: string, body: string) {
 
         console.log("Message sent: %s", info.messageId);
         
-        // Save sent email to our database
         await prisma.email.create({
             data: {
                 from: { name: 'Me', email: smtpUser },
@@ -271,7 +386,7 @@ export async function createCaseFromEmail(emailId: string) {
             data: {
                 name: email.from.name,
                 email: email.from.email,
-                phone: '', // Provide default empty string
+                phone: '',
                 company: 'Unknown',
                 role: 'Unknown',
                 avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
@@ -291,6 +406,9 @@ export async function createCaseFromEmail(emailId: string) {
             createdById: defaultUser.id,
             description: email.body,
             contactId: contact.id,
+            communications: [{
+                id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${email.body}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: new Date(email.date).toISOString()
+            }]
         }
     });
 
