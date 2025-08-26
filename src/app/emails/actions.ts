@@ -95,10 +95,11 @@ export async function processIncomingEmails() {
                 
                 const existingEmail = await prisma.email.findFirst({
                    where: {
-                       OR: [
-                           { messageId: mail.messageId },
-                           { AND: [ { subject: subject }, { 'from.email': fromAddress }] }
-                       ]
+                       subject: subject,
+                       from: {
+                           path: ['email'],
+                           equals: fromAddress,
+                       }
                    }
                 });
                 
