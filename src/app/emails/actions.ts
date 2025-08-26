@@ -95,11 +95,10 @@ export async function processIncomingEmails() {
                 
                 const existingEmail = await prisma.email.findFirst({
                    where: {
-                       subject: subject,
-                       from: {
-                           path: ['email'],
-                           equals: fromAddress,
-                       }
+                       AND: [
+                           { subject: subject },
+                           { from: { path: ['email'], equals: fromAddress } }
+                       ]
                    }
                 });
                 
@@ -152,9 +151,9 @@ export async function processIncomingEmails() {
                         createdById: defaultUser.id,
                         description: mail.text || '(No Content)',
                         contactId: contact.id,
-                        communications: {
-                            push: { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: (mail.date || new Date()).toISOString() }
-                        }
+                        communications: [
+                            { id: `comm-${Date.now()}`, type: 'Email', content: `Original email from ${contact.name}:\n\n${mail.text || ''}`, author: contact.name, authorId: contact.id, authorRole: 'staff', timestamp: (mail.date || new Date()).toISOString() }
+                        ]
                     }
                 });
                 console.log(`Created new case #${newCase.id} from email.`);
@@ -237,7 +236,6 @@ export async function sendEmail(to: string, subject: string, body: string) {
                 date: new Date(),
                 type: 'sent',
                 read: true,
-                messageId: info.messageId,
             }
         });
         
