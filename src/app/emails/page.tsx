@@ -240,6 +240,10 @@ function EmailClientView() {
             toast({ variant: 'destructive', title: 'Error', description: 'Failed to create contact.'})
         }
     };
+    
+    const stripHtml = (html: string) => {
+        return html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+    }
 
     if (isLoading) return (
          <div className="flex flex-col h-full">
@@ -277,7 +281,7 @@ function EmailClientView() {
                             <p className={cn("text-xs text-muted-foreground shrink-0 pl-2", !email.read && "text-primary")}>{format(safeParseDate(email.date), 'MMM d')}</p>
                         </div>
                         <p className={cn("text-sm truncate font-semibold", !email.read && "text-foreground")}>{email.subject}</p>
-                        <p className="text-xs text-muted-foreground truncate">{email.body}</p>
+                        <p className="text-xs text-muted-foreground truncate">{stripHtml(email.body)}</p>
                         {email.linkedCaseId && <Badge variant="secondary" className="mt-2 text-xs">Linked</Badge>}
                     </div>
                 ))
@@ -306,7 +310,7 @@ function EmailClientView() {
                             </div>
                             <p className={cn("text-sm font-medium truncate", !email.read && "text-foreground")}>{email.subject}</p>
                             <div className="flex justify-between items-center mt-2">
-                                <p className="text-xs text-muted-foreground truncate flex-1 pr-2">{email.body}</p>
+                                <p className="text-xs text-muted-foreground truncate flex-1 pr-2">{stripHtml(email.body)}</p>
                                 {email.linkedCaseId && <Badge variant="secondary" className="text-xs shrink-0">Linked</Badge>}
                             </div>
                         </CardContent>
