@@ -118,6 +118,7 @@ export async function processIncomingEmails() {
                         data: {
                             name: fromName,
                             email: fromAddress,
+                            phone: '', // Provide a default empty string for phone
                             company: 'Unknown',
                             role: 'Unknown',
                             avatar: `https://placehold.co/40x40.png?text=${fromName.charAt(0)}`,
@@ -273,6 +274,7 @@ export async function createCaseFromEmail(emailId: string) {
             data: {
                 name: email.from.name,
                 email: email.from.email,
+                phone: '', // Provide default empty string
                 company: 'Unknown',
                 role: 'Unknown',
                 avatar: `https://placehold.co/40x40.png?text=${email.from.name.charAt(0)}`,
