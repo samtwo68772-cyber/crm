@@ -70,6 +70,7 @@ function EmailClientView() {
     const [emailForNewContact, setEmailForNewContact] = useState<Email | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isSyncingSent, setIsSyncingSent] = useState(false);
+    const [isBackgroundSyncing, setIsBackgroundSyncing] = useState(false);
     const searchParams = useSearchParams();
     const [showUnread, setShowUnread] = useState(false);
     const isMobile = useIsMobile();
@@ -123,6 +124,29 @@ function EmailClientView() {
             setIsSyncingSent(false);
         }
     });
+
+    useEffect(() => {
+        const handleSync = async () => {
+            if (document.hidden || isProcessing || isSyncingSent || isBackgroundSyncing) return;
+            
+            setIsBackgroundSyncing(true);
+            try {
+                // We use the non-throwing versions here for silent background refresh
+                await processIncomingEmails();
+                await syncSentEmails();
+                queryClient.invalidateQueries({ queryKey: ['emails'] });
+            } catch (error) {
+                console.error("Background sync failed:", error);
+            } finally {
+                setIsBackgroundSyncing(false);
+            }
+        };
+
+        const intervalId = setInterval(handleSync, 30000); // Sync every 30 seconds
+
+        return () => clearInterval(intervalId);
+    }, [isProcessing, isSyncingSent, isBackgroundSyncing, queryClient]);
+
 
     const handleProcessEmails = async () => {
         processEmailsMutation.mutate();
@@ -321,7 +345,7 @@ function EmailClientView() {
                             variant="outline"
                             size="sm"
                         >
-                            <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin")} />
+                            <RefreshCw className={cn("mr-2 h-4 w-4", isProcessing && "animate-spin", isBackgroundSyncing && "animate-spin text-muted-foreground")} />
                             {isProcessing ? 'Processing...' : 'Process Inbox'}
                         </Button>
                         <Button 
