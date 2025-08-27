@@ -70,6 +70,7 @@ export async function deleteUser(id: string) {
     // before deleting the user.
     await prisma.caseAssignment.deleteMany({ where: { userId: id } });
     await prisma.meetingParticipant.deleteMany({ where: { userId: id }});
+    await prisma.notificationPreferences.deleteMany({ where: { userId: id } });
     await prisma.user.delete({ where: { id } });
     return { id };
 }
