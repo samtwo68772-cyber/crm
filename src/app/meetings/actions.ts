@@ -26,13 +26,40 @@ export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> &
   try {
     const { participantIds, contactId, ...meetingData } = data;
     
+    let finalUserIds: string[] = [];
+    for (const id of participantIds) {
+      if (id.startsWith('user-')) {
+        const userId = id.replace('user-', '');
+        if (!finalUserIds.includes(userId)) {
+          finalUserIds.push(userId);
+        }
+      } else if (id.startsWith('team-')) {
+        const teamId = id.replace('team-', '');
+        const team = await prisma.team.findUnique({
+          where: { id: teamId },
+          select: { memberIds: true }
+        });
+        if (team) {
+          team.memberIds.forEach(memberId => {
+            if (!finalUserIds.includes(memberId)) {
+              finalUserIds.push(memberId);
+            }
+          });
+        }
+      }
+    }
+    
+    // Remove duplicates
+    finalUserIds = [...new Set(finalUserIds)];
+
+
     const newMeeting = await prisma.meeting.create({
       data: {
         ...meetingData,
         date: new Date(meetingData.date), // Ensure date is a Date object
         contactId: contactId,
         participants: {
-          create: participantIds.map(userId => ({
+          create: finalUserIds.map(userId => ({
             user: { connect: { id: userId } }
           }))
         }
@@ -46,7 +73,7 @@ export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> &
       }
     });
 
-    for (const userId of participantIds) {
+    for (const userId of finalUserIds) {
         await createNotification({
             userId,
             title: 'New Meeting Scheduled',
@@ -69,14 +96,41 @@ export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> &
 
 export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id' | 'participants'>> & { participantIds?: string[] }) {
     const { participantIds, ...meetingData } = data;
+
+    let finalUserIds: string[] | undefined = undefined;
+    if (participantIds) {
+        finalUserIds = [];
+        for (const pId of participantIds) {
+          if (pId.startsWith('user-')) {
+            const userId = pId.replace('user-', '');
+            if (!finalUserIds.includes(userId)) {
+              finalUserIds.push(userId);
+            }
+          } else if (pId.startsWith('team-')) {
+            const teamId = pId.replace('team-', '');
+            const team = await prisma.team.findUnique({
+              where: { id: teamId },
+              select: { memberIds: true }
+            });
+            if (team) {
+              team.memberIds.forEach(memberId => {
+                if (!finalUserIds!.includes(memberId)) {
+                  finalUserIds!.push(memberId);
+                }
+              });
+            }
+          }
+        }
+        finalUserIds = [...new Set(finalUserIds)];
+    }
   
     const updatedMeeting = await prisma.meeting.update({
         where: { id },
         data: {
             ...meetingData,
-            participants: participantIds ? {
+            participants: finalUserIds ? {
                 deleteMany: {},
-                create: participantIds.map(userId => ({
+                create: finalUserIds.map(userId => ({
                     user: { connect: { id: userId } }
                 }))
             } : undefined,

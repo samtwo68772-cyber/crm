@@ -6,7 +6,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getMeetings, createMeeting, updateMeeting, deleteMeeting } from './actions';
 import { getCases } from '../cases/actions';
 import { getUsers } from '../admin/actions';
-import type { Meeting, Case, User } from '@/lib/types';
+import { getTeams } from '../admin/actions';
+import type { Meeting, Case, User, Team } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -158,7 +159,9 @@ export default function MeetingsPage() {
   const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
   const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
-  const isLoading = meetingsLoading || casesLoading || usersLoading;
+  const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+
+  const isLoading = meetingsLoading || casesLoading || usersLoading || teamsLoading;
 
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -180,7 +183,7 @@ export default function MeetingsPage() {
   }, [searchParams]);
 
   const updateMeetingMutation = useMutation({
-      mutationFn: (data: Partial<Meeting> & { id: string }) => updateMeeting(data.id, data as any),
+      mutationFn: (data: Partial<Meeting> & { id: string, participantIds: string[] }) => updateMeeting(data.id, data as any),
       onSuccess: (updatedMeeting) => {
           queryClient.invalidateQueries({ queryKey: ['meetings'] });
           setSelectedMeeting(updatedMeeting);
@@ -218,7 +221,7 @@ export default function MeetingsPage() {
       }
   });
 
-  const handleUpdateMeeting = async (updatedMeetingData: Partial<Meeting> & { id: string }) => {
+  const handleUpdateMeeting = async (updatedMeetingData: Partial<Meeting> & { id: string, participantIds: string[] }) => {
     updateMeetingMutation.mutate(updatedMeetingData);
   };
   
@@ -354,6 +357,7 @@ export default function MeetingsPage() {
                 onUpdate={handleUpdateMeeting} 
                 onDelete={handleDeleteMeeting}
                 users={users || []}
+                teams={teams || []}
                 cases={cases || []}
             />
         </>
@@ -363,6 +367,7 @@ export default function MeetingsPage() {
         onOpenChange={setCreateDialogOpen} 
         onCreate={handleCreateMeeting} 
         users={users || []}
+        teams={teams || []}
         cases={cases || []}
       />
     </div>
@@ -409,10 +414,10 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases }: { op
 }
 
 
-function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Partial<Meeting> & {id: string, participantIds: string[]}) => void, onDelete: (id: string) => void, users: User[], cases: Case[] }) {
+function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, teams, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Partial<Meeting> & {id: string, participantIds: string[]}) => void, onDelete: (id: string) => void, users: User[], teams: Team[], cases: Case[] }) {
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
   
-  const [editedMeeting, setEditedMeeting] = useState<Omit<Meeting, 'participants'> & { participantIds: string[] }>({ ...meeting, participantIds: meeting.participants.map(p => p.userId) });
+  const [editedMeeting, setEditedMeeting] = useState<Omit<Meeting, 'participants'> & { participantIds: string[] }>({ ...meeting, participantIds: meeting.participants.map(p => `user-${p.userId}`) });
 
   const handleFieldChange = (field: keyof typeof editedMeeting, value: any) => {
     setEditedMeeting(prev => ({ ...prev, [field]: value }));
@@ -430,7 +435,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
   
   useEffect(() => {
     if (open) {
-      setEditedMeeting({ ...meeting, participantIds: meeting.participants.map(p => p.userId) });
+      setEditedMeeting({ ...meeting, participantIds: meeting.participants.map(p => `user-${p.userId}`) });
     }
   }, [meeting, open]);
 
@@ -457,7 +462,8 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                     <div className="col-span-3">
                         <ParticipantsPicker
                             allUsers={users}
-                            selectedUserIds={editedMeeting.participantIds}
+                            allTeams={teams}
+                            selectedIds={editedMeeting.participantIds}
                             onChange={(ids) => handleFieldChange('participantIds', ids)}
                         />
                     </div>
@@ -491,7 +497,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
   )
 }
 
-function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], cases: Case[] }) {
+function CreateMeetingDialog({ open, onOpenChange, onCreate, users, teams, cases }: { open: boolean, onOpenChange: (open: boolean) => void, onCreate: (data: any) => void, users: User[], teams: Team[], cases: Case[] }) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
@@ -570,7 +576,8 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, cases }: { o
                 <div className="col-span-3">
                     <ParticipantsPicker
                         allUsers={users}
-                        selectedUserIds={participantIds}
+                        allTeams={teams}
+                        selectedIds={participantIds}
                         onChange={setParticipantIds}
                     />
                      {errors.participants && <p className="text-sm text-destructive mt-1">{errors.participants}</p>}
