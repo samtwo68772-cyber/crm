@@ -68,13 +68,13 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
 export async function deleteUser(id: string) {
     await checkAdmin();
     
-    // Set userId to null in related AuditLog records
+    // Set userId to null in related AuditLog records to preserve history
     await prisma.auditLog.updateMany({
         where: { userId: id },
         data: { userId: null },
     });
     
-    // Set authorId to null in related Document records
+    // Set authorId to null in related Document records to preserve documents
     await prisma.document.updateMany({
         where: { authorId: id },
         data: { authorId: null },
