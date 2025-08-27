@@ -19,12 +19,12 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
 import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams, deleteUser, deleteTeam } from './actions';
 import { getCases } from '../cases/actions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ParticipantsPicker } from '@/components/ui/participants-picker';
 
 interface AdminClientProps {
     initialUsers: User[];
@@ -639,8 +639,11 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
     const [memberIds, setMemberIds] = useState<string[]>([]);
     const [status, setStatus] = useState<Team['status']>('Active');
 
-    const userOptions = useMemo(() => users.map(u => ({ value: u.id, label: u.name })), [users]);
-    const leaderOptions = useMemo(() => users.filter(u => memberIds.includes(u.id)).map(u => ({value: u.id, label: u.name})), [users, memberIds]);
+    const leaderOptions = useMemo(() => {
+        return users
+            .filter(u => memberIds.includes(u.id))
+            .map(u => ({ value: u.id, label: u.name }));
+    }, [users, memberIds]);
 
     useEffect(() => {
         if (team) {
@@ -671,9 +674,9 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit Team' : 'Create New Team'}</DialogTitle>
+                    <DialogTitle className="font-headline">{isEditMode ? 'Edit Team' : 'Create New Team'}</DialogTitle>
                     <DialogDescription>{isEditMode ? 'Update the details for this team.' : 'Fill in the details for the new team.'}</DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
@@ -687,7 +690,11 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="members">Team Members</Label>
-                        <MultiSelect options={userOptions} selected={memberIds} onChange={setMemberIds} placeholder="Select team members..."/>
+                        <ParticipantsPicker
+                            allUsers={users}
+                            selectedUserIds={memberIds}
+                            onChange={setMemberIds}
+                        />
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="leader">Team Leader</Label>
@@ -763,3 +770,5 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
         </div>
     );
 }
+
+    
