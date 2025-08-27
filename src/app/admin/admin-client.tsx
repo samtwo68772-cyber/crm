@@ -21,7 +21,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetCl
 import { Textarea } from '@/components/ui/textarea';
 import { MultiSelect } from '@/components/ui/multi-select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams } from './actions';
+import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams, deleteUser, deleteTeam } from './actions';
 import { getCases } from '../cases/actions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -96,12 +96,27 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
         }
     });
 
+    const deleteUserMutation = useMutation({
+        mutationFn: deleteUser,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['users'] });
+            toast({ title: "User Deleted", description: `The user has been deleted.` });
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error deleting user", description: error.message });
+        }
+    });
+
     const handleAddUser = (newUserData: Omit<User, 'id' | 'avatar'> & { password?: string }) => {
         createUserMutation.mutate(newUserData);
     };
 
     const handleUpdateUser = (userId: string, data: Partial<User>) => {
         updateUserMutation.mutate({ id: userId, data });
+    };
+
+    const handleDeleteUser = (userId: string) => {
+        deleteUserMutation.mutate(userId);
     };
     
     const openCreateForm = () => {
@@ -199,6 +214,21 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                                             <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                                             <DropdownMenuContent align="end">
                                                 <DropdownMenuItem onClick={() => openEditForm(user)}>Edit User</DropdownMenuItem>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">Delete User</DropdownMenuItem>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>This action cannot be undone. This will permanently delete the user and reassign their data.</AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteUser(user.id)}>Delete</AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -373,6 +403,19 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
         }
     });
 
+    const deleteTeamMutation = useMutation({
+        mutationFn: deleteTeam,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
+            toast({ title: "Team Deleted", description: "The team has been deleted." });
+            setIsSheetOpen(false);
+            setSelectedTeam(null);
+        },
+        onError: (error) => {
+            toast({ variant: 'destructive', title: "Error deleting team", description: error.message });
+        }
+    });
+
     const handleCreateTeam = (newTeamData: Omit<Team, 'id'>) => {
         createTeamMutation.mutate(newTeamData);
     };
@@ -383,6 +426,10 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
 
     const handleArchiveTeam = (teamId: string) => {
         archiveTeamMutation.mutate(teamId);
+    };
+
+    const handleDeleteTeam = (teamId: string) => {
+        deleteTeamMutation.mutate(teamId);
     };
 
     const handleSelectTeam = (team: Team) => {
@@ -445,6 +492,23 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
                                                 <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleSelectTeam(team)}}>View</DropdownMenuItem>
                                                 <DropdownMenuItem onClick={(e) => {e.stopPropagation(); openEditForm(team)}}>Edit</DropdownMenuItem>
                                                 {team.status === 'Active' && <DropdownMenuItem onClick={(e) => {e.stopPropagation(); handleArchiveTeam(team.id)}}>Archive</DropdownMenuItem>}
+                                                {team.status === 'Archived' && (
+                                                    <AlertDialog>
+                                                        <AlertDialogTrigger asChild>
+                                                          <DropdownMenuItem onSelect={e => e.preventDefault()} className="text-destructive focus:text-destructive">Delete Team</DropdownMenuItem>
+                                                        </AlertDialogTrigger>
+                                                        <AlertDialogContent>
+                                                          <AlertDialogHeader>
+                                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                            <AlertDialogDescription>This will permanently delete the team. This action cannot be undone.</AlertDialogDescription>
+                                                          </AlertDialogHeader>
+                                                          <AlertDialogFooter>
+                                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                            <AlertDialogAction onClick={() => handleDeleteTeam(team.id)}>Delete</AlertDialogAction>
+                                                          </AlertDialogFooter>
+                                                        </AlertDialogContent>
+                                                    </AlertDialog>
+                                                )}
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </TableCell>
@@ -461,7 +525,8 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
                     onOpenChange={setIsSheetOpen}
                     team={selectedTeam}
                     onEdit={() => openEditForm(selectedTeam)}
-                    onDelete={() => handleArchiveTeam(selectedTeam.id)}
+                    onArchive={() => handleArchiveTeam(selectedTeam.id)}
+                    onDelete={() => handleDeleteTeam(selectedTeam.id)}
                     users={users}
                 />
             )}
@@ -484,7 +549,7 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
     );
 }
 
-function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team, users: User[], onEdit: () => void, onDelete: () => void}) {
+function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onArchive, onDelete }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team, users: User[], onEdit: () => void, onArchive: () => void, onDelete: () => void}) {
     const leader = users.find(u => u.id === team.leaderId);
     const members = users.filter(u => team.memberIds.includes(u.id));
     
@@ -506,7 +571,25 @@ function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onDelete }: 
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
-                                {team.status === 'Active' && <Button variant="destructive" size="icon" onClick={onDelete}><Trash2 className="h-4 w-4"/></Button>}
+                                {team.status === 'Active' ? (
+                                    <Button variant="destructive" size="icon" onClick={onArchive}><Trash2 className="h-4 w-4"/></Button>
+                                ) : (
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="destructive" size="icon"><Trash2 className="h-4 w-4"/></Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                <AlertDialogDescription>This action cannot be undone. This will permanently delete the team.</AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={onDelete}>Delete Team</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                )}
                                 <SheetClose asChild><Button variant="ghost" size="icon"><X className="h-4 w-4"/></Button></SheetClose>
                             </div>
                         </div>

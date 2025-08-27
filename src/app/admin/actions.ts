@@ -64,6 +64,17 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
     return userWithoutPassword;
 }
 
+export async function deleteUser(id: string) {
+    await checkAdmin();
+    // You might want to add logic here to re-assign cases/tasks
+    // before deleting the user.
+    await prisma.caseAssignment.deleteMany({ where: { userId: id } });
+    await prisma.meetingParticipant.deleteMany({ where: { userId: id }});
+    await prisma.user.delete({ where: { id } });
+    return { id };
+}
+
+
 export async function createTeam(data: Omit<Team, 'id'>) {
     await checkAdmin();
     const newTeam = await prisma.team.create({
@@ -88,4 +99,15 @@ export async function archiveTeam(id: string) {
         data: { status: 'Archived' }
     });
     return updatedTeam;
+}
+
+export async function deleteTeam(id: string) {
+    await checkAdmin();
+    // Ensure team is archived before deleting
+    const team = await prisma.team.findUnique({ where: { id } });
+    if (!team || team.status !== 'Archived') {
+        throw new Error("Team must be archived before it can be deleted.");
+    }
+    await prisma.team.delete({ where: { id } });
+    return { id };
 }
