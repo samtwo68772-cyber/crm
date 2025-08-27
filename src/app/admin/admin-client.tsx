@@ -103,8 +103,8 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
             queryClient.invalidateQueries({ queryKey: ['users'] });
             toast({ title: "User Deleted", description: `The user has been deleted.` });
         },
-        onError: (error) => {
-            toast({ variant: 'destructive', title: "Error deleting user", description: error.message });
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: "Error Deleting User", description: error.message });
         }
     });
 
@@ -780,3 +780,4 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
     
 
     
+

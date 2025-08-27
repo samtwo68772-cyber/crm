@@ -68,27 +68,41 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
 export async function deleteUser(id: string) {
     await checkAdmin();
     
-    // Set userId to null in related AuditLog records to preserve history
-    await prisma.auditLog.updateMany({
-        where: { userId: id },
-        data: { userId: null },
-    });
-    
-    // Set authorId to null in related Document records to preserve documents
-    await prisma.document.updateMany({
-        where: { authorId: id },
-        data: { authorId: null },
-    });
+    try {
+        // Use a transaction to ensure all operations succeed or none do.
+        await prisma.$transaction(async (tx) => {
+            // Set related records to null where history should be preserved
+            await tx.auditLog.updateMany({
+                where: { userId: id },
+                data: { userId: null },
+            });
+            
+            await tx.document.updateMany({
+                where: { authorId: id },
+                data: { authorId: null },
+            });
 
-    // Delete related records that should not be kept
-    await prisma.caseAssignment.deleteMany({ where: { userId: id } });
-    await prisma.meetingParticipant.deleteMany({ where: { userId: id }});
-    await prisma.notificationPreferences.deleteMany({ where: { userId: id } });
-    
-    // Now it's safe to delete the user
-    await prisma.user.delete({ where: { id } });
+            // Delete dependent records that should not be kept
+            await tx.caseAssignment.deleteMany({ where: { userId: id } });
+            await tx.meetingParticipant.deleteMany({ where: { userId: id }});
+            await tx.notificationPreferences.deleteMany({ where: { userId: id } });
+            
+            // Finally, delete the user
+            await tx.user.delete({ where: { id } });
+        });
 
-    return { id };
+        return { id };
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            // P2003 is the foreign key constraint violation error code
+            if (error.code === 'P2003') {
+                throw new Error('Could not delete user. They may still be linked to other records in the system.');
+            }
+        }
+        // For any other errors, re-throw a generic message.
+        console.error("Error deleting user:", error);
+        throw new Error('An unexpected error occurred while deleting the user.');
+    }
 }
 
 
