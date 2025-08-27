@@ -2,6 +2,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import type { User, Team } from '@/lib/types';
 import { getSession } from '@/context/actions';
@@ -93,19 +94,39 @@ export async function deleteUser(id: string) {
 
 export async function createTeam(data: Omit<Team, 'id'>) {
     await checkAdmin();
-    const newTeam = await prisma.team.create({
-        data
-    });
-    return newTeam;
+    try {
+        const newTeam = await prisma.team.create({
+            data
+        });
+        return newTeam;
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            // P2002 is the error code for a unique constraint violation
+            if (error.code === 'P2002' && (error.meta?.target as string[])?.includes('name')) {
+                throw new Error('A team with this name already exists.');
+            }
+        }
+        // Re-throw other errors
+        throw error;
+    }
 }
 
 export async function updateTeam(id: string, data: Partial<Omit<Team, 'id'>>) {
     await checkAdmin();
-    const updatedTeam = await prisma.team.update({
-        where: { id },
-        data
-    });
-    return updatedTeam;
+    try {
+        const updatedTeam = await prisma.team.update({
+            where: { id },
+            data
+        });
+        return updatedTeam;
+    } catch (error) {
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            if (error.code === 'P2002' && (error.meta?.target as string[])?.includes('name')) {
+                throw new Error('A team with this name already exists.');
+            }
+        }
+        throw error;
+    }
 }
 
 export async function archiveTeam(id: string) {

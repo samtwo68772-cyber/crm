@@ -569,7 +569,7 @@ function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onArchive, o
                             <div className="space-y-1">
                                 <SheetTitle className="font-headline text-2xl">{team.name}</SheetTitle>
                                 <SheetDescription>{team.description}</SheetDescription>
-                                <p className="text-sm text-muted-foreground">Leader: {leader?.name || 'N/A'}</p>
+                                <div className="text-sm text-muted-foreground">Leader: {leader?.name || 'N/A'}</div>
                             </div>
                             <div className="flex gap-2">
                                 <Button variant="outline" size="icon" onClick={onEdit}><Edit className="h-4 w-4"/></Button>
@@ -648,7 +648,7 @@ function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { op
     }, [users, memberIds]);
 
     useEffect(() => {
-        if (team) {
+        if (team && isEditMode) {
             setName(team.name);
             setDescription(team.description);
             setLeaderId(team.leaderId);
@@ -661,7 +661,7 @@ function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { op
             setMemberIds([]);
             setStatus('Active');
         }
-    }, [team, open]);
+    }, [team, isEditMode, open]);
     
     useEffect(() => {
         // If the selected leader is no longer in the member list, reset it.
