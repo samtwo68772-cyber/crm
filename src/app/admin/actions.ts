@@ -66,12 +66,27 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
 
 export async function deleteUser(id: string) {
     await checkAdmin();
-    // You might want to add logic here to re-assign cases/tasks
-    // before deleting the user.
+    
+    // Set userId to null in related AuditLog records
+    await prisma.auditLog.updateMany({
+        where: { userId: id },
+        data: { userId: null },
+    });
+    
+    // Set authorId to null in related Document records
+    await prisma.document.updateMany({
+        where: { authorId: id },
+        data: { authorId: null },
+    });
+
+    // Delete related records that should not be kept
     await prisma.caseAssignment.deleteMany({ where: { userId: id } });
     await prisma.meetingParticipant.deleteMany({ where: { userId: id }});
     await prisma.notificationPreferences.deleteMany({ where: { userId: id } });
+    
+    // Now it's safe to delete the user
     await prisma.user.delete({ where: { id } });
+
     return { id };
 }
 
