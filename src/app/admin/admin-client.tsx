@@ -607,7 +607,7 @@ function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onArchive, o
                                         <div key={member.id} className="flex items-center gap-3 p-2 rounded-md border">
                                             <Avatar className="h-8 w-8"><AvatarImage src={member.avatar} /><AvatarFallback>{member.name.charAt(0)}</AvatarFallback></Avatar>
                                             <div>
-                                                <p className="font-medium">{member.name} {member.id === leader?.id && <Badge variant="secondary" className="ml-2">Leader</Badge>}</p>
+                                                <div className="font-medium flex items-center gap-2">{member.name} {member.id === leader?.id && <Badge variant="secondary">Leader</Badge>}</div>
                                                 <p className="text-sm text-muted-foreground">{member.role}</p>
                                             </div>
                                         </div>
@@ -770,5 +770,7 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
         </div>
     );
 }
+
+    
 
     
