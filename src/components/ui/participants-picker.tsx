@@ -29,6 +29,7 @@ export function ParticipantsPicker({ allUsers, allTeams, selectedIds, onChange }
   }, [selectedIds, isDialogOpen]);
 
   const teamOptions = useMemo(() => {
+      if (!allTeams) return [];
       return allTeams.map(team => ({
           value: `team-${team.id}`,
           label: team.name
@@ -36,6 +37,7 @@ export function ParticipantsPicker({ allUsers, allTeams, selectedIds, onChange }
   }, [allTeams]);
 
   const userOptions = useMemo(() => {
+      if (!allUsers) return [];
       return allUsers.map(user => ({
           value: `user-${user.id}`,
           label: user.name,
@@ -55,10 +57,12 @@ export function ParticipantsPicker({ allUsers, allTeams, selectedIds, onChange }
   }, [selectedIds, userOptions, teamOptions]);
 
   const filteredUsers = useMemo(() => {
+      if (!userOptions) return [];
       return userOptions.filter(user => user.label.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [userOptions, searchQuery]);
 
   const filteredTeams = useMemo(() => {
+      if (!teamOptions) return [];
       return teamOptions.filter(team => team.label.toLowerCase().includes(searchQuery.toLowerCase()))
   }, [teamOptions, searchQuery]);
 
@@ -196,3 +200,5 @@ export function ParticipantsPicker({ allUsers, allTeams, selectedIds, onChange }
     </div>
   );
 }
+
+    

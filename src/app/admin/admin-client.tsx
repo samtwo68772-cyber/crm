@@ -544,6 +544,7 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
                     }
                 }}
                 users={users}
+                teams={teams}
             />
         </div>
     );
@@ -630,7 +631,7 @@ function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onArchive, o
     )
 }
 
-function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, users: User[], onSave: (data: any, isEdit: boolean) => void }) {
+function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, users: User[], teams: Team[], onSave: (data: any, isEdit: boolean) => void }) {
     const isEditMode = !!team;
     
     const [name, setName] = useState('');
@@ -641,7 +642,7 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
 
     const leaderOptions = useMemo(() => {
         return users
-            .filter(u => memberIds.includes(u.id))
+            .filter(u => memberIds.includes(`user-${u.id}`))
             .map(u => ({ value: u.id, label: u.name }));
     }, [users, memberIds]);
 
@@ -650,7 +651,7 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
             setName(team.name);
             setDescription(team.description);
             setLeaderId(team.leaderId);
-            setMemberIds(team.memberIds);
+            setMemberIds(team.memberIds.map(id => `user-${id}`));
             setStatus(team.status);
         } else {
             setName('');
@@ -663,13 +664,14 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
     
     useEffect(() => {
         // If the selected leader is no longer in the member list, reset it.
-        if (leaderId && !memberIds.includes(leaderId)) {
+        if (leaderId && !memberIds.includes(`user-${leaderId}`)) {
             setLeaderId('');
         }
     }, [memberIds, leaderId]);
 
     const handleSubmit = () => {
-        onSave({ name, description, leaderId, memberIds, status }, isEditMode);
+        const finalMemberIds = memberIds.map(id => id.replace('user-', '').replace('team-',''));
+        onSave({ name, description, leaderId, memberIds: finalMemberIds, status }, isEditMode);
     };
 
     return (
@@ -692,7 +694,8 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
                         <Label htmlFor="members">Team Members</Label>
                         <ParticipantsPicker
                             allUsers={users}
-                            selectedUserIds={memberIds}
+                            allTeams={teams}
+                            selectedIds={memberIds}
                             onChange={setMemberIds}
                         />
                     </div>
@@ -770,6 +773,8 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
         </div>
     );
 }
+
+    
 
     
 
