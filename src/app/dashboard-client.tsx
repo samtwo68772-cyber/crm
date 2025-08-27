@@ -7,6 +7,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useRouter } from 'next/navigation';
+import { getCases } from './cases/actions';
+import { getTasks } from './tasks/actions';
+import { getMeetings } from './meetings/actions';
+import { getAuditLogs } from './settings/actions';
+import { getUsers } from './admin/actions';
 import {
     Briefcase,
     ListTodo,
@@ -26,6 +31,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useQuery } from '@tanstack/react-query';
 
 function getStatusVariant(status: Case['status']) {
     switch (status) {
@@ -261,6 +267,13 @@ export function DashboardClient({ stats, initialCases, initialTasks, initialMeet
     const { user } = useAuth();
     const router = useRouter();
 
+    const { data: casesData } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases, initialData: initialCases });
+    const { data: tasksData } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks, initialData: initialTasks });
+    const { data: meetingsData } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings, initialData: initialMeetings });
+    const { data: auditLogsData } = useQuery<AuditLog[]>({ queryKey: ['auditLogs'], queryFn: getAuditLogs, initialData: initialAuditLogs });
+    const { data: usersData } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers, initialData: allUsers });
+
+
     if (!user) return null;
 
     return (
@@ -288,15 +301,15 @@ export function DashboardClient({ stats, initialCases, initialTasks, initialMeet
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3">
-                    <RecentCases allUsers={allUsers} initialCases={initialCases} />
+                    <RecentCases allUsers={usersData} initialCases={casesData} />
                 </div>
                 <div className="lg:col-span-2">
                     <RecentActivity 
-                        allUsers={allUsers} 
-                        initialCases={initialCases} 
-                        initialTasks={initialTasks}
-                        initialMeetings={initialMeetings}
-                        initialAuditLogs={initialAuditLogs}
+                        allUsers={usersData} 
+                        initialCases={casesData} 
+                        initialTasks={tasksData}
+                        initialMeetings={meetingsData}
+                        initialAuditLogs={auditLogsData}
                     />
                 </div>
             </div>

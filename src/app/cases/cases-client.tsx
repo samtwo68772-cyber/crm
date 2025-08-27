@@ -5,6 +5,9 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import type { DateRange } from "react-day-picker"
 import { getCases, createCase, updateCase, addCommunicationToCase, deleteCase, deleteCommunicationFromCase } from './actions';
 import { updateTask as updateTaskAction } from '../tasks/actions';
+import { getUsers, getTeams } from '../admin/actions';
+import { getTasks } from '../tasks/actions';
+import { getWorkflows } from '../settings/actions';
 import type { Case, User, Communication, Task, Notification, Workflow, Team, Document } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
@@ -88,10 +91,10 @@ export function CasesClient({
         queryFn: getCases,
         initialData: initialCases,
     });
-    const { data: users } = useQuery<User[]>({ queryKey: ['users'], initialData: initialUsers });
-    const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], initialData: initialTeams });
-    const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], initialData: initialTasks });
-    const { data: workflows } = useQuery<Workflow[]>({ queryKey: ['workflows'], initialData: initialWorkflows });
+    const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers, initialData: initialUsers });
+    const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams, initialData: initialTeams });
+    const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks, initialData: initialTasks });
+    const { data: workflows } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows, initialData: initialWorkflows });
 
     const [selectedCase, setSelectedCase] = useState<any | null>(null);
     const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -685,7 +688,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                 <div key={task.id} className="flex items-center justify-between p-2 rounded-md border">
                                     <div>
                                         <p className="font-medium">{task.title}</p>
-                                        <p className="text-sm text-muted-foreground">Due: {task.dueDate ? format(task.dueDate, 'PPP') : 'N/A'}</p>
+                                        <p className="text-sm text-muted-foreground">Due: {task.dueDate ? format(new Date(task.dueDate), 'PPP') : 'N/A'}</p>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Badge variant={getPriorityVariant(task.priority)}>{task.priority}</Badge>
