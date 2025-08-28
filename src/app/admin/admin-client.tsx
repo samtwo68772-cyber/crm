@@ -338,7 +338,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="team" className="text-right">Team</Label>
-                        <Select onValueChange={setTeam} value={team}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a team" /></SelectTrigger><SelectContent>{teams.filter(t => t.status === 'Active').map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent></Select>
+                        <Select onValueChange={setTeam} value={team}><SelectTrigger className="col-span-3"><SelectValue placeholder="Select a team" /></SelectTrigger><SelectContent>{teams.filter(t => t.status === 'Active' && t.name).map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </div>
                 <DialogFooter>
@@ -363,7 +363,7 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
     const filteredTeams = useMemo(() => {
         if (!teams) return [];
         return teams.filter(team =>
-            team.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
+            team.name && team.name.toLowerCase().includes(searchQuery.toLowerCase()) &&
             team.status === statusFilter
         );
     }, [teams, searchQuery, statusFilter]);
@@ -780,4 +780,5 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
     
 
     
+
 
