@@ -133,22 +133,49 @@ export function CasesClient({
 
     const updateCaseMutation = useMutation({
         mutationFn: (data: { id: string; data: Partial<Case> & { assignedTo?: string[] } }) => updateCase(data.id, data.data),
-        onSuccess: (updatedCase) => {
-            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
+        onMutate: async (updatedCaseData) => {
+            await queryClient.cancelQueries({ queryKey: ['cases', user?.id] });
+            const previousCases = queryClient.getQueryData<any[]>(['cases', user?.id]);
 
-            // Update the selected case in the detail panel if it's open
+            queryClient.setQueryData<any[]>(['cases', user?.id], (oldCases = []) => {
+                return oldCases.map(c => {
+                    if (c.id === updatedCaseData.id) {
+                        const updatedAssignments = (updatedCaseData.data.assignedTo || []).map(id => {
+                            const userId = id.replace('user-', '');
+                            const existingUser = users?.find(u => u.id === userId);
+                            return { 
+                                caseId: c.id, 
+                                userId: userId, 
+                                user: existingUser || { name: 'Loading...', id: userId }, // Fallback
+                                assignedAt: new Date(),
+                                assignedByUserId: user?.id
+                            };
+                        });
+
+                        return { ...c, ...updatedCaseData.data, assignments: updatedAssignments };
+                    }
+                    return c;
+                });
+            });
+
+            return { previousCases };
+        },
+        onError: (_err, _newCase, context) => {
+            queryClient.setQueryData(['cases', user?.id], context?.previousCases);
+            toast({ variant: "destructive", title: "Error", description: "Failed to update case." });
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
+        },
+        onSuccess: (updatedCase) => {
             if (selectedCase && selectedCase.id === updatedCase.id) {
                 setSelectedCase(updatedCase);
             }
-
             if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
                 toast({ title: `Case ${updatedCase.status}`, description: `Case "${updatedCase.subject}" has been marked as ${updatedCase.status.toLowerCase()}.` });
             } else {
                  toast({ title: "Case Updated", description: "The case has been successfully updated." });
             }
-        },
-        onError: (err) => {
-            toast({ variant: "destructive", title: "Error", description: "Failed to update case." });
         },
     });
     
@@ -172,7 +199,7 @@ export function CasesClient({
         createCaseMutation.mutate(newCaseData as any);
     };
   
-    const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string }) => {
+    const handleUpdateCase = async (updatedCaseData: Partial<Case> & { id: string, assignedTo?: string[] }) => {
         const { id, ...data } = updatedCaseData;
         updateCaseMutation.mutate({ id, data: data as any });
     };
@@ -383,7 +410,7 @@ export function CasesClient({
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string, assignedTo?: string[]}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string, assignedTo?: string[]}) => void, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const { toast } = useToast();
