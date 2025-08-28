@@ -469,7 +469,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                 name: file.name,
                 type: 'Document', // Simplified
                 size: `${(file.size / 1024).toFixed(2)} KB`,
-                uploadedAt: new Date(),
+                uploadedAt: new Date().toISOString(),
                 uploadedBy: user.name,
                 authorId: user.id,
                 category: 'Case File',
@@ -514,7 +514,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
         await onUpdateCase({ 
             id: caseItem.id,
             status: 'Resolved',
-            resolvedAt: new Date(),
+            resolvedAt: new Date().toISOString(),
         });
         
         const taskUpdatePromises = openTasks.map(task => 
@@ -831,7 +831,10 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   const [isAssigneePickerOpen, setAssigneePickerOpen] = useState(false);
   const { toast } = useToast();
   
-  const staffUsers = useMemo(() => users.filter(u => u.role === 'staff' || u.role === 'admin'), [users]);
+  const staffUsers = useMemo(() => {
+    if (!users) return [];
+    return users.filter(u => u.role === 'staff' || u.role === 'admin')
+  }, [users]);
 
 
   const handleSubmit = () => {
@@ -940,7 +943,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
     <AssigneePickerDialog
         open={isAssigneePickerOpen}
         onOpenChange={setAssigneePickerOpen}
-        users={users}
+        users={staffUsers}
         teams={teams}
         selectedAssignees={assignedTo}
         onApply={setAssignedTo}
