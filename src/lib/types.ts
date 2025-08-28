@@ -143,7 +143,7 @@ export type MeetingParticipant = {
 
 export type AuditLog = {
     id: string;
-    userId: string;
+    userId: string | null;
     action: string;
     details: string;
     timestamp: Date;
@@ -186,7 +186,7 @@ export type Notification = {
   description: string;
   timestamp: string;
   read: boolean;
-  userId?: string; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
+  userId?: string | null; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
   link: string; // The URL to navigate to when clicked
 };
 
