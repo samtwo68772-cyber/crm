@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -178,7 +177,7 @@ export function DocumentsClient({ initialDocuments, initialCases, initialAccount
   }
 
   if (isLoading) return (
-        <div className="flex-1 space-y-6 pt-6">
+        <div className="flex-1 space-y-6 pt-6 p-4 md:p-8">
             <Skeleton className="h-12 w-1/3" />
             <Skeleton className="h-16 w-full" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -188,7 +187,7 @@ export function DocumentsClient({ initialDocuments, initialCases, initialAccount
   );
 
   return (
-    <div className="flex-1 space-y-6 pt-6">
+    <div className="flex-1 space-y-6 pt-6 p-4 md:p-8">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
             <h2 className="text-3xl font-bold tracking-tight font-headline">Documents</h2>
@@ -421,4 +420,13 @@ function UploadDocumentDialog({ open, onOpenChange, editingDocument, onSave, cas
             </DialogContent>
         </Dialog>
     )
+}
+
+// This is the actual page component that Next.js will render on the server.
+export default async function Page() {
+    const documents = await getDocuments();
+    const cases = await getCases();
+    const accounts = await getAccounts();
+
+    return <DocumentsClient initialDocuments={documents} initialCases={cases} initialAccounts={accounts} />;
 }
