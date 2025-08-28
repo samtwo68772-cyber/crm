@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   isLoading: boolean;
 }
 
@@ -22,6 +22,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
+  
+  const logout = useCallback(async () => {
+    setUser(null); // Optimistically log out on the client
+    await logoutAction();
+    queryClient.clear();
+    router.push('/login');
+  }, [router, queryClient]);
 
   const checkSession = useCallback(async () => {
     try {
@@ -36,13 +43,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     } catch (error) {
-      console.error("Failed to fetch user from session", error);
-      setUser(null);
-      if (pathname !== '/login') router.push('/login');
+      console.error("Session check failed, logging out:", error);
+      // This is the key change: if getUserById fails (user not found), we must log out.
+      await logout();
     } finally {
       setIsLoading(false);
     }
-  }, [pathname, router]);
+  }, [pathname, router, logout]);
 
   useEffect(() => {
     checkSession();
@@ -51,14 +58,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     const loggedInUser = await loginAction(email, password);
     setUser(loggedInUser);
+    queryClient.invalidateQueries(); // Invalidate all queries on new login
     router.push('/');
-  };
-
-  const logout = async () => {
-    setUser(null); // Optimistically log out on the client
-    await logoutAction();
-    queryClient.clear();
-    router.push('/login');
   };
 
   if (isLoading) {
