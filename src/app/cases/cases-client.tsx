@@ -133,47 +133,22 @@ export function CasesClient({
 
     const updateCaseMutation = useMutation({
         mutationFn: (data: { id: string; data: Partial<Case> & { assignedTo?: string[] } }) => updateCase(data.id, data.data),
-        onMutate: async (newCaseData) => {
-            await queryClient.cancelQueries({ queryKey: ['cases', user?.id] });
-            const previousCases = queryClient.getQueryData(['cases', user?.id]);
-            const previousSelectedCase = selectedCase;
-
-            // Optimistically update to the new value
-             queryClient.setQueryData(['cases', user?.id], (old: any[] | undefined) => 
-                old ? old.map(c => c.id === newCaseData.id ? {...c, ...newCaseData.data, assignments: newCaseData.data.assignedTo?.map(id => ({userId: id.replace(/user-|team-/g, '')})) } : c) : []
-            );
-            
-            if (selectedCase && selectedCase.id === newCaseData.id) {
-                 const newAssignments = newCaseData.data.assignedTo ? 
-                    newCaseData.data.assignedTo.map(id => ({ userId: id.replace(/user-|team-/g,''), user: users?.find(u => u.id === id.replace('user-', '')) }))
-                    : selectedCase.assignments;
-                
-                setSelectedCase((prev: any) => ({
-                    ...prev, 
-                    ...newCaseData.data,
-                    assignments: newAssignments
-                }));
-            }
-
-            return { previousCases, previousSelectedCase };
-        },
-        onError: (err, newCaseData, context) => {
-            // Rollback on error
-            queryClient.setQueryData(['cases', user?.id], context?.previousCases);
-            if (context?.previousSelectedCase) {
-                 setSelectedCase(context.previousSelectedCase);
-            }
-            toast({ variant: "destructive", title: "Error", description: "Failed to update case." });
-        },
-        onSettled: () => {
-            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
-        },
         onSuccess: (updatedCase) => {
+            queryClient.invalidateQueries({ queryKey: ['cases', user?.id] });
+
+            // Update the selected case in the detail panel if it's open
+            if (selectedCase && selectedCase.id === updatedCase.id) {
+                setSelectedCase(updatedCase);
+            }
+
             if (updatedCase.status === 'Completed' || updatedCase.status === 'Closed' || updatedCase.status === 'Declined' || updatedCase.status === 'Resolved') {
                 toast({ title: `Case ${updatedCase.status}`, description: `Case "${updatedCase.subject}" has been marked as ${updatedCase.status.toLowerCase()}.` });
             } else {
                  toast({ title: "Case Updated", description: "The case has been successfully updated." });
             }
+        },
+        onError: (err) => {
+            toast({ variant: "destructive", title: "Error", description: "Failed to update case." });
         },
     });
     
@@ -408,7 +383,7 @@ export function CasesClient({
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string, assignedTo?: string[]}) => Promise<void>, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const { toast } = useToast();
