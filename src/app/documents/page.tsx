@@ -11,7 +11,7 @@ import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MoreHorizontal, PlusCircle, File, FileText, FileSpreadsheet, Image as ImageIcon, Download, Edit, Trash2, Search, X, Folder, Link as LinkIcon, Calendar, User, Building, ChevronDown, ChevronUp, Upload } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,12 +33,18 @@ const fileTypeIcons: { [key in Document['type']]: React.ReactNode } = {
     'Meeting': <Calendar className="h-10 w-10 text-purple-500" />,
 };
 
+interface DocumentsClientProps {
+    initialDocuments: Document[];
+    initialCases: Case[];
+    initialAccounts: Account[];
+}
 
-export default function DocumentsPage() {
+
+export function DocumentsClient({ initialDocuments, initialCases, initialAccounts }: DocumentsClientProps) {
     const queryClient = useQueryClient();
-    const { data: documents, isLoading: documentsLoading } = useQuery<Document[]>({ queryKey: ['documents'], queryFn: getDocuments });
-    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
-    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts });
+    const { data: documents, isLoading: documentsLoading } = useQuery<Document[]>({ queryKey: ['documents'], queryFn: getDocuments, initialData: initialDocuments });
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases, initialData: initialCases });
+    const { data: accounts, isLoading: accountsLoading } = useQuery<Account[]>({ queryKey: ['accounts'], queryFn: getAccounts, initialData: initialAccounts });
     const isLoading = documentsLoading || casesLoading || accountsLoading;
 
     const [searchQuery, setSearchQuery] = useState('');
@@ -416,7 +422,3 @@ function UploadDocumentDialog({ open, onOpenChange, editingDocument, onSave, cas
         </Dialog>
     )
 }
-
-
-    
-    

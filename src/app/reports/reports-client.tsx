@@ -1,8 +1,7 @@
 
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { useAuth } from '@/context/auth-context';
+import React, { useState, useMemo } from 'react';
 import type { Case, Task, Meeting, User, Team, AuditLog } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,9 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { BarChart, LineChart, PieChart, Bar, Line, Pie, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell, AreaChart, Area } from 'recharts';
 import { Download, Calendar as CalendarIcon, Users, Briefcase, ListTodo, CheckCircle, BarChart2, PieChart as PieIcon, LineChart as LineIcon, Settings2, Bell, Clock, Percent, Award, Users2, FileDown, ArrowUpRight, ArrowDownRight, UserCheck, XCircle, Activity, Hourglass, Folder, ChevronsUpDown, Smile, Hand, GanttChartSquare, FileText } from 'lucide-react';
 import type { DateRange } from "react-day-picker";
-import { isWithinInterval, startOfDay, endOfDay, subDays, format, eachDayOfInterval, startOfWeek, endOfWeek, differenceInDays } from 'date-fns';
+import { isWithinInterval, startOfDay, endOfDay, subDays, format, differenceInDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { Calendar } from '@/components/ui/calendar';
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -30,7 +28,6 @@ import { getUsers } from '../admin/actions';
 import { getMeetings } from '../meetings/actions';
 import { getTeams } from '../admin/actions';
 import { getAuditLogs } from '../settings/actions';
-import { useToast } from "@/hooks/use-toast";
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -44,25 +41,6 @@ interface ReportsClientProps {
 }
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
-
-function getPriorityVariant(priority: 'High' | 'Medium' | 'Low') {
-  switch (priority) {
-    case 'High': return 'high';
-    case 'Medium': return 'medium';
-    case 'Low': return 'low';
-    default: return 'default';
-  }
-}
-
-function getStatusVariant(status: Case['status']) {
-    switch (status) {
-        case 'New': return 'blue';
-        case 'In Progress': return 'teal';
-        case 'Resolved': return 'green';
-        case 'Closed': return 'destructive';
-        default: return 'outline';
-    }
-}
 
 function KpiCard({ title, value, change, changeType, icon: Icon, onClick, data, positiveChange }: { title: string; value: string; change?: string; changeType?: 'positive' | 'negative'; icon: React.ElementType, onClick?: () => void, data?: any[], positiveChange?: boolean }) {
     return (
@@ -119,7 +97,6 @@ export function ReportsClient({ initialCases, initialTasks, initialUsers, initia
     const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams, initialData: initialTeams });
     const { data: auditLogs, isLoading: auditLogsLoading } = useQuery<AuditLog[]>({ queryKey: ['auditLogs'], queryFn: getAuditLogs, initialData: initialAuditLogs });
     const isLoading = casesLoading || tasksLoading || usersLoading || meetingsLoading || teamsLoading || auditLogsLoading;
-    const { toast } = useToast();
 
     const router = useRouter();
     const isMobile = useIsMobile();
@@ -201,7 +178,7 @@ export function ReportsClient({ initialCases, initialTasks, initialUsers, initia
     
     const teamPerformanceData = useMemo(() => {
         if (!teams || !users || !cases || !tasks) return [];
-        let teamsToDisplay = teams;
+        let teamsToDisplay = teams.filter(t => t.name); // Filter out teams with no name
         if (userFilter !== 'all') {
             const userTeam = users.find(u => u.id === userFilter)?.team;
             teamsToDisplay = teams.filter(t => t.name === userTeam);
@@ -443,12 +420,6 @@ export function ReportsClient({ initialCases, initialTasks, initialUsers, initia
         return `${pathname}?${params.toString()}`;
     }
     
-    const handleChartClick = (path: string, filterKey: string, payload: any) => {
-        if (payload && payload.name) {
-            router.push(buildNavUrl(path, { [filterKey]: payload.name }));
-        }
-    };
-    
     const reportCards = [
         {
             title: 'Case Summary Report',
@@ -623,7 +594,7 @@ export function ReportsClient({ initialCases, initialTasks, initialUsers, initia
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Teams</SelectItem>
-                        {teams?.map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
+                        {teams?.filter(t => t.name).map(t => <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
                  <Select value={userFilter} onValueChange={setUserFilter}>

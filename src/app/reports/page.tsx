@@ -10,6 +10,7 @@ import { ReportsClient } from './reports-client';
 
 export default async function ReportsPage() {
     
+    // Fetch all required data on the server for faster initial load
     const cases: Case[] = await getCases();
     const tasks: Task[] = await getTasks();
     const users: User[] = await getUsers();
