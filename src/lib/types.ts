@@ -4,6 +4,7 @@ export type User = {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   role: 'admin' | 'staff';
   status: 'Active' | 'Inactive';
   team: string;
@@ -150,6 +151,7 @@ export type AuditLog = {
 
 export type Email = {
     id: string;
+    ownerEmail: string;
     from: { name: string, email: string };
     to: { name: string, email: string };
     subject: string;

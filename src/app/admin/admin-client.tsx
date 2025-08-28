@@ -183,7 +183,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                     <TableHeader>
                         <TableRow>
                             <TableHead>User</TableHead>
-                            <TableHead>Email</TableHead>
+                            <TableHead>Contact</TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Team</TableHead>
@@ -205,7 +205,12 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                                             <span className="font-medium">{user.name}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>{user.email}</TableCell>
+                                    <TableCell>
+                                        <div>
+                                            <p>{user.email}</p>
+                                            <p className="text-sm text-muted-foreground">{user.phone}</p>
+                                        </div>
+                                    </TableCell>
                                     <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role}</Badge></TableCell>
                                     <TableCell><Badge variant={getStatusVariant(user.status)}>{user.status}</Badge></TableCell>
                                     <TableCell>{user.team}</TableCell>
@@ -268,28 +273,49 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
     const isEditMode = !!user;
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
+    const [phone, setPhone] = useState('');
     const [role, setRole] = useState<User['role']>('staff');
     const [status, setStatus] = useState<User['status']>('Active');
     const [team, setTeam] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+    const [errors, setErrors] = useState<{ email?: string; phone?: string }>({});
 
 
     useEffect(() => {
         if(user) {
             setName(user.name);
             setEmail(user.email);
+            setPhone(user.phone || '');
             setRole(user.role);
             setStatus(user.status);
             setTeam(user.team);
             setPassword('');
         } else {
-            setName(''); setEmail(''); setRole('staff'); setStatus('Active'); setTeam(''); setPassword('');
+            setName(''); setEmail(''); setPhone(''); setRole('staff'); setStatus('Active'); setTeam(''); setPassword('');
         }
+        setErrors({});
     }, [user, open]);
 
+    const validate = () => {
+        const newErrors: { email?: string; phone?: string } = {};
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            newErrors.email = "Please enter a valid email address.";
+        }
+        if (!phone) {
+           newErrors.phone = "Phone number is required.";
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    }
+
     const handleSubmit = () => {
-        const userData: Partial<User> & { password?: string } = { name, email, role, status, team };
+        if (!validate()) {
+            return;
+        }
+
+        const userData: Partial<User> & { password?: string } = { name, email, phone, role, status, team };
         if (password && !isEditMode) {
             userData.password = password;
         } else if (password) {
@@ -309,7 +335,20 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="name" className="text-right">Name</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} className="col-span-3" /></div>
-                    <div className="grid grid-cols-4 items-center gap-4"><Label htmlFor="email" className="text-right">Email</Label><Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="col-span-3" /></div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="email" className="text-right">Email</Label>
+                        <div className="col-span-3">
+                            <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={errors.email ? 'border-destructive' : ''} />
+                            {errors.email && <p className="text-sm text-destructive mt-1">{errors.email}</p>}
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <Label htmlFor="phone" className="text-right">Phone</Label>
+                         <div className="col-span-3">
+                            <Input id="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className={errors.phone ? 'border-destructive' : ''} />
+                            {errors.phone && <p className="text-sm text-destructive mt-1">{errors.phone}</p>}
+                        </div>
+                    </div>
                     {!isEditMode && (
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="password"  className="text-right">Password</Label>
@@ -765,20 +804,12 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
                     <TabsTrigger value="teams">Team Management</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
-                    <UserManagement users={users || []} teams={teams || []} cases={cases || []} />
+                    <UserManagement users={users || []} teams={teams.filter(t => t.name) || []} cases={cases || []} />
                 </TabsContent>
                 <TabsContent value="teams" className="mt-6">
-                    <TeamManagement teams={teams || []} users={users || []} />
+                    <TeamManagement teams={teams.filter(t => t.name) || []} users={users || []} />
                 </TabsContent>
             </Tabs>
         </div>
     );
 }
-
-    
-
-    
-
-    
-
-
