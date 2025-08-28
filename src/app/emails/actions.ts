@@ -16,8 +16,15 @@ function generateShortId(prefix: string) {
 }
 
 export async function getEmails() {
-    // We will call processIncomingEmails from the UI directly to avoid running it on every page load.
+    const emailSettings = await getEmailSettings();
+    if (!emailSettings.configured || !emailSettings.imapUser) {
+        return [];
+    }
+
     return await prisma.email.findMany({
+        where: {
+            ownerEmail: emailSettings.imapUser
+        },
         orderBy: {
             date: 'desc'
         }
@@ -32,6 +39,7 @@ export async function processIncomingEmails() {
         console.error("IMAP is not configured.");
         throw new Error("IMAP credentials are not configured in settings.");
     }
+    const ownerEmail = emailSettings.imapUser;
 
     const config = {
       imap: {
@@ -91,6 +99,7 @@ export async function processIncomingEmails() {
                 
                 const existingEmail = await prisma.email.findFirst({
                    where: {
+                       ownerEmail,
                        AND: [
                            { subject: subject },
                            { 'from': { path: ['email'], equals: fromAddress } }
@@ -127,6 +136,7 @@ export async function processIncomingEmails() {
 
                 const newEmail = await prisma.email.create({
                     data: {
+                        ownerEmail,
                         from: { name: fromName, email: fromAddress },
                         to: { name: toName, email: toAddress },
                         subject: subject,
@@ -192,6 +202,8 @@ export async function syncSentEmails() {
         console.error("IMAP is not configured.");
         throw new Error("IMAP credentials are not configured in settings.");
     }
+    const ownerEmail = emailSettings.imapUser;
+
 
     const config = {
         imap: {
@@ -268,6 +280,7 @@ export async function syncSentEmails() {
                 // Check if this email already exists
                 const existingEmail = await prisma.email.findFirst({
                     where: {
+                        ownerEmail,
                         AND: [
                             { subject: mail.subject || '(No Subject)' },
                             { 'to': { path: ['email'], equals: toAddress } },
@@ -283,6 +296,7 @@ export async function syncSentEmails() {
                 // Save to DB
                 await prisma.email.create({
                     data: {
+                        ownerEmail,
                         from: { name: mail.from?.value[0]?.name || 'Me', email: mail.from?.value[0]?.address || emailSettings.imapUser },
                         to: { name: mail.to?.value[0]?.name || toAddress, email: toAddress },
                         subject: mail.subject || '(No Subject)',
@@ -378,6 +392,7 @@ export async function sendEmail(to: string, subject: string, body: string) {
         
         await prisma.email.create({
             data: {
+                ownerEmail: smtpUser,
                 from: { name: 'Me', email: smtpUser },
                 to: { name: to, email: to },
                 subject,
