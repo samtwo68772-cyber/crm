@@ -15,7 +15,8 @@ function generateShortId() {
 export async function getCases() {
     const session = await getSession();
     if (!session?.userId) {
-        throw new Error("Authentication required");
+        // Return empty array or handle unauthenticated access as needed
+        return [];
     }
 
     const user = await prisma.user.findUnique({
@@ -23,7 +24,8 @@ export async function getCases() {
     });
 
     if (!user) {
-        throw new Error("User not found");
+        console.error("User not found for session:", session.userId);
+        return []; // Or throw new Error("User not found");
     }
 
     let whereClause = {};
