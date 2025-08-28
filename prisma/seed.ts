@@ -195,7 +195,7 @@ async function main() {
   await prisma.email.deleteMany({});
   for (const email of emails) {
     await prisma.email.create({
-        data: {...email, date: new Date(email.date)}
+        data: {...email, ownerEmail: 'alex.j@example.com', date: new Date(email.date)}
     })
   }
   console.log('Emails seeded.');
