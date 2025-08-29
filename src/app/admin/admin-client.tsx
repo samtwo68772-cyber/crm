@@ -183,7 +183,8 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                     <TableHeader>
                         <TableRow>
                             <TableHead>User</TableHead>
-                            <TableHead>Contact</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Phone</TableHead>
                             <TableHead>Role</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Team</TableHead>
@@ -205,12 +206,8 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                                             <span className="font-medium">{user.name}</span>
                                         </div>
                                     </TableCell>
-                                    <TableCell>
-                                        <div>
-                                            <p>{user.email}</p>
-                                            <p className="text-sm text-muted-foreground">{user.phone}</p>
-                                        </div>
-                                    </TableCell>
+                                    <TableCell>{user.email}</TableCell>
+                                    <TableCell>{user.phone}</TableCell>
                                     <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role}</Badge></TableCell>
                                     <TableCell><Badge variant={getStatusVariant(user.status)}>{user.status}</Badge></TableCell>
                                     <TableCell>{user.team}</TableCell>
@@ -242,7 +239,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                             )
                         }) : (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
+                                <TableCell colSpan={8} className="h-24 text-center">
                                     No users found.
                                 </TableCell>
                             </TableRow>
