@@ -23,7 +23,7 @@ async function main() {
   for (const user of users) {
     const { id, ...rest } = user;
     await prisma.user.upsert({
-      where: { email: user.email },
+      where: { id: user.id },
       update: {
         ...rest,
         passwordHash: user.name, // In a real app, this would be a proper hash
