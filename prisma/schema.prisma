@@ -1,16 +1,12 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
-generator client {
-  provider = "prisma-client-js"
-}
+// prisma/schema.prisma
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 model User {
@@ -18,16 +14,17 @@ model User {
   name                    String
   email                   String                    @unique
   phone                   String?
-  passwordHash            String
   role                    String
   status                  String
   team                    String
   avatar                  String
-  assignments             CaseAssignment[]
-  meetings                MeetingParticipant[]
+  passwordHash            String
+  caseAssignments         CaseAssignment[]
+  meetingParticipations   MeetingParticipant[]
   notificationPreferences NotificationPreferences?
-  documents               Document[]
   auditLogs               AuditLog[]
+  documents               Document[]
+  createdCases            Case[]
 }
 
 model Team {
@@ -43,55 +40,50 @@ model Account {
   id               String     @id @default(cuid())
   name             String     @unique
   industry         String
-  createdAt        DateTime
+  owner            String
+  createdAt        DateTime   @default(now())
   address          String?
   phone            String?
   email            String?
   website          String?
   primaryContactId String?
-  owner            String
-  size             String?
-  location         String?
-  contacts         Contact[]
   documents        Document[]
 }
 
 model Contact {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   name      String
-  email     String   @unique
+  email     String    @unique
   phone     String
   company   String
   role      String
   notes     String?
   avatar    String
   accountId String?
-  account   Account? @relation(fields: [accountId], references: [id])
   cases     Case[]
   tasks     Task[]
   meetings  Meeting[]
 }
 
 model Case {
-  id                 String           @id
+  id                 String           @id @default(cuid())
   subject            String
   customer           String
   email              String
   priority           String
   type               String
   status             String
-  createdAt          DateTime
+  createdAt          DateTime         @default(now())
   resolvedAt         DateTime?
   description        String
   communications     Json[]
-  contactId          String?
   satisfactionRating Int?
   assignments        CaseAssignment[]
   createdById        String
   createdBy          User             @relation(fields: [createdById], references: [id])
   contact            Contact?         @relation(fields: [contactId], references: [id])
+  contactId          String?
   documents          Document[]
-  tasks              Task[]
 }
 
 model CaseAssignment {
@@ -104,6 +96,7 @@ model CaseAssignment {
   assignedByUserId String
 }
 
+
 model Task {
   id          String    @id @default(cuid())
   title       String
@@ -113,9 +106,8 @@ model Task {
   priority    String
   linkedCase  String?
   assignedTo  String?
-  contactId   String?
   contact     Contact?  @relation(fields: [contactId], references: [id])
-  case        Case?     @relation(fields: [linkedCase], references: [id])
+  contactId   String?
 }
 
 model Meeting {
@@ -127,9 +119,9 @@ model Meeting {
   linkedRecord String?
   notes        Json[]
   attachments  Json[]
-  contactId    String?
   participants MeetingParticipant[]
   contact      Contact?             @relation(fields: [contactId], references: [id])
+  contactId    String?
 }
 
 model MeetingParticipant {
@@ -146,23 +138,32 @@ model Document {
   name         String
   type         String
   size         String
-  uploadedAt   DateTime
+  uploadedAt   DateTime @default(now())
   uploadedBy   String
-  authorId     String?
-  author       User?    @relation(fields: [authorId], references: [id])
   category     String
   description  String?
   previewUrl   String?
-  accountId    String?
-  account      Account? @relation(fields: [accountId], references: [id])
-  caseId       String?
-  case         Case?    @relation(fields: [caseId], references: [id])
   linkedToId   String?
   linkedToType String?
+  case         Case?    @relation(fields: [caseId], references: [id])
+  caseId       String?
+  account      Account? @relation(fields: [accountId], references: [id])
+  accountId    String?
+  author       User?    @relation(fields: [authorId], references: [id])
+  authorId     String?
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  details   String
+  timestamp DateTime @default(now())
 }
 
 model Email {
-  id           String    @id @default(cuid())
+  id           String @id @default(cuid())
   ownerEmail   String
   from         Json
   to           Json
@@ -173,56 +174,7 @@ model Email {
   read         Boolean
   linkedCaseId String?
   attachments  Json[]
-  messageId    String?
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  details   String
-  timestamp DateTime
-}
-
-model GeneralSettings {
-  id          String @id @default(cuid())
-  systemName  String
-  companyName String
-  logoUrl     String
-  timeZone    String
-  language    String
-}
-
-model EmailSettings {
-  id             String  @id @default(cuid())
-  configured     Boolean
-  smtpHost       String
-  smtpPort       Int
-  smtpUser       String
-  smtpPass       String
-  smtpEncryption String
-  imapHost       String
-  imapPort       Int
-  imapUser       String
-  imapPass       String
-  imapEncryption String
-}
-
-model GlobalNotificationPreferences {
-  id       String @id @default(cuid())
-  cases    Json
-  tasks    Json
-  meetings Json
-}
-
-model NotificationPreferences {
-  id       String @id @default(cuid())
-  userId   String @unique
-  user     User   @relation(fields: [userId], references: [id])
-  cases    Json
-  tasks    Json
-  meetings Json
+  messageId    String?  @unique
 }
 
 model Notification {
@@ -230,10 +182,50 @@ model Notification {
   type        String
   title       String
   description String
-  timestamp   DateTime
+  timestamp   DateTime @default(now())
   read        Boolean
   userId      String?
   link        String
+}
+
+model NotificationPreferences {
+  id       String @id @default(cuid())
+  user     User   @relation(fields: [userId], references: [id])
+  userId   String @unique
+  cases    Json
+  tasks    Json
+  meetings Json
+}
+
+model GlobalNotificationPreferences {
+    id       String @id @default(cuid())
+    cases    Json
+    tasks    Json
+    meetings Json
+}
+
+model GeneralSettings {
+    id          String @id @default(cuid())
+    systemName  String
+    companyName String
+    logoUrl     String
+    timeZone    String
+    language    String
+}
+
+model EmailSettings {
+    id              String @id @default(cuid())
+    smtpHost        String
+    smtpPort        Int
+    smtpUser        String
+    smtpPass        String
+    smtpEncryption  String
+    imapHost        String
+    imapPort        Int
+    imapUser        String
+    imapPass        String
+    imapEncryption  String
+    configured      Boolean
 }
 
 model Workflow {
