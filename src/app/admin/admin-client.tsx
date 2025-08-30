@@ -76,6 +76,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
         mutationFn: createUser,
         onSuccess: (newUser) => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
             toast({ title: "User Created", description: `User "${newUser.name}" has been added.` });
             setIsFormOpen(false);
         },
@@ -88,6 +89,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
         mutationFn: (data: { id: string; data: Partial<User> }) => updateUser(data.id, data.data),
         onSuccess: (updatedUser) => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
             toast({ title: "User Updated", description: `User "${updatedUser.name}" has been updated.` });
             setEditingUser(null);
             setIsFormOpen(false);
@@ -101,6 +103,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
         mutationFn: deleteUser,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
+            queryClient.invalidateQueries({ queryKey: ['teams'] });
             toast({ title: "User Deleted", description: `The user has been deleted.` });
         },
         onError: (error: Error) => {
@@ -420,6 +423,7 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
         mutationFn: (data: { id: string; data: Partial<Team> }) => updateTeam(data.id, data.data),
         onSuccess: (updatedTeam) => {
             queryClient.invalidateQueries({ queryKey: ['teams'] });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
             toast({ title: "Team Updated", description: `Team "${updatedTeam.name}" updated.` });
             setEditingTeam(null);
             setIsFormOpen(false);
@@ -484,6 +488,11 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
         setIsSheetOpen(false);
         setTimeout(() => setIsFormOpen(true), 150);
     };
+    
+    const getTeamMemberCount = (team: Team) => {
+        if (!users) return 0;
+        return users.filter(user => user.status === 'Active' && team.memberIds.includes(user.id)).length;
+    }
 
 
     return (
@@ -517,11 +526,12 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
                     <TableBody>
                         {filteredTeams.map((team) => {
                             const leader = users.find(u => u.id === team.leaderId);
+                            const memberCount = getTeamMemberCount(team);
                             return (
                                 <TableRow key={team.id} onClick={() => handleSelectTeam(team)} className="cursor-pointer">
                                     <TableCell className="font-medium">{team.name}</TableCell>
                                     <TableCell>{leader?.name || 'N/A'}</TableCell>
-                                    <TableCell>{team.memberIds.length}</TableCell>
+                                    <TableCell>{memberCount}</TableCell>
                                     <TableCell className="text-right">
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0" onClick={e => e.stopPropagation()}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
