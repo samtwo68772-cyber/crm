@@ -491,7 +491,7 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
     
     const getTeamMemberCount = (team: Team) => {
         if (!users) return 0;
-        return users.filter(user => user.status === 'Active' && team.memberIds.includes(user.id)).length;
+        return users.filter(user => team.memberIds.includes(user.id)).length;
     }
 
 
