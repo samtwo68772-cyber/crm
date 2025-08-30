@@ -677,11 +677,13 @@ function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { op
     const [memberIds, setMemberIds] = useState<string[]>([]);
     const [status, setStatus] = useState<Team['status']>('Active');
 
+    const activeUsers = useMemo(() => users.filter(u => u.status === 'Active'), [users]);
+
     const leaderOptions = useMemo(() => {
-        return users
+        return activeUsers
             .filter(u => memberIds.includes(`user-${u.id}`))
             .map(u => ({ value: u.id, label: u.name }));
-    }, [users, memberIds]);
+    }, [activeUsers, memberIds]);
 
     useEffect(() => {
         if (team && isEditMode) {
@@ -730,7 +732,7 @@ function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { op
                      <div className="space-y-2">
                         <Label htmlFor="members">Team Members</Label>
                         <ParticipantsPicker
-                            allUsers={users}
+                            allUsers={activeUsers}
                             allTeams={teams}
                             selectedIds={memberIds}
                             onChange={setMemberIds}

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -367,6 +368,7 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
     const [linkedCase, setLinkedCase] = useState<string | undefined>();
     
     const caseOptions = useMemo(() => cases.map(c => ({ label: `${c.id} - ${c.subject}`, value: c.id, disabled: ['Resolved', 'Closed', 'Completed'].includes(c.status) })), [cases]);
+    const activeTeams = useMemo(() => teams.filter(t => t.status === 'Active'), [teams]);
 
     useEffect(() => {
         if (isEditMode && task) {
@@ -481,7 +483,7 @@ function TaskDialog({ open, onOpenChange, task, onSave, users, teams, cases }: T
                   <Label htmlFor="assignedTo">Assigned Staff</Label>
                   <AssigneePicker
                     users={users}
-                    teams={teams}
+                    teams={activeTeams}
                     selectedAssignees={assignedTo ? [`user-${assignedTo}`] : []}
                     onChange={(assignees) => setAssignedTo(assignees.length > 0 ? assignees[0].replace('user-','') : undefined)}
                     mode="single"

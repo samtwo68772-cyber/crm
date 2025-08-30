@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
@@ -140,18 +141,18 @@ export function CasesClient({
             queryClient.setQueryData<any[]>(['cases', user?.id], (oldCases = []) => {
                 return oldCases.map(c => {
                     if (c.id === updatedCaseData.id) {
-                        const updatedAssignments = (updatedCaseData.data.assignedTo || []).map(id => {
+                         const updatedAssignments = (updatedCaseData.data.assignedTo || []).map(id => {
                             const userId = id.replace('user-', '');
                             const existingUser = users?.find(u => u.id === userId);
+                             // This structure must match the `CaseAssignment` type from prisma including the `user` object
                             return { 
                                 caseId: c.id, 
                                 userId: userId, 
-                                user: existingUser || { name: 'Loading...', id: userId }, // Fallback
+                                user: existingUser || { name: 'Loading...', id: userId }, // Fallback to prevent crashes
                                 assignedAt: new Date(),
                                 assignedByUserId: user?.id
                             };
                         });
-
                         return { ...c, ...updatedCaseData.data, assignments: updatedAssignments };
                     }
                     return c;
@@ -838,6 +839,11 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
     return users.filter(u => u.role === 'staff' || u.role === 'admin')
   }, [users]);
 
+  const activeTeams = useMemo(() => {
+      if (!teams) return [];
+      return teams.filter(t => t.status === 'Active');
+  }, [teams]);
+
 
   const handleSubmit = () => {
     const caseData: Omit<Case, 'id' | 'createdAt' | 'communications' | 'assignments' | 'createdById' | 'createdBy'> & { assignedTo: string[] } = { 
@@ -946,7 +952,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
         open={isAssigneePickerOpen}
         onOpenChange={setAssigneePickerOpen}
         users={staffUsers}
-        teams={teams}
+        teams={activeTeams}
         selectedAssignees={assignedTo}
         onApply={setAssignedTo}
     />

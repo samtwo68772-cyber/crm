@@ -416,6 +416,7 @@ function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases }: { op
 
 function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, users, teams, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onUpdate: (m: Partial<Meeting> & {id: string, participantIds: string[]}) => void, onDelete: (id: string) => void, users: User[], teams: Team[], cases: Case[] }) {
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
+  const activeTeams = useMemo(() => teams.filter(t => t.status === 'Active'), [teams]);
   
   const [editedMeeting, setEditedMeeting] = useState<Omit<Meeting, 'participants'> & { participantIds: string[] }>({ ...meeting, participantIds: meeting.participants.map(p => `user-${p.userId}`) });
 
@@ -462,7 +463,7 @@ function EditMeetingDialog({ open, onOpenChange, meeting, onUpdate, onDelete, us
                     <div className="col-span-3">
                         <ParticipantsPicker
                             allUsers={users}
-                            allTeams={teams}
+                            allTeams={activeTeams}
                             selectedIds={editedMeeting.participantIds}
                             onChange={(ids) => handleFieldChange('participantIds', ids)}
                         />
@@ -506,7 +507,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, teams, cases
   const [errors, setErrors] = useState<{ title?: string; date?: string; participants?: string }>({});
 
   const caseOptions = useMemo(() => cases.map(c => ({value: c.id, label: c.subject})), [cases]);
-
+  const activeTeams = useMemo(() => teams.filter(t => t.status === 'Active'), [teams]);
 
   const validate = () => {
     const newErrors: { title?: string; date?: string; participants?: string } = {};
@@ -576,7 +577,7 @@ function CreateMeetingDialog({ open, onOpenChange, onCreate, users, teams, cases
                 <div className="col-span-3">
                     <ParticipantsPicker
                         allUsers={users}
-                        allTeams={teams}
+                        allTeams={activeTeams}
                         selectedIds={participantIds}
                         onChange={setParticipantIds}
                     />
