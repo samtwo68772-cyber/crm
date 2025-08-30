@@ -35,7 +35,7 @@ export async function getTeams() {
 
 export async function createUser(data: Omit<User, 'id' | 'avatar' > & { password?: string }) {
     await checkAdmin();
-    const { password, ...userData } = data;
+    const { password, team: teamName, ...userData } = data;
     
     if (!password) {
         throw new Error('Password is required for new users.');
@@ -44,25 +44,79 @@ export async function createUser(data: Omit<User, 'id' | 'avatar' > & { password
     // In a real app, you would hash the password here using bcrypt
     const passwordHash = password; // Placeholder for hashing
 
-    const newUser = await prisma.user.create({
-        data: {
-            ...userData,
-            passwordHash,
-            avatar: `https://placehold.co/40x40.png?text=${data.name.charAt(0)}`
-        },
+    return await prisma.$transaction(async (tx) => {
+        const newUser = await tx.user.create({
+            data: {
+                ...userData,
+                team: teamName,
+                passwordHash,
+                avatar: `https://placehold.co/40x40.png?text=${data.name.charAt(0)}`
+            },
+        });
+
+        if (teamName) {
+            const team = await tx.team.findFirst({ where: { name: teamName } });
+            if (team) {
+                await tx.team.update({
+                    where: { id: team.id },
+                    data: {
+                        memberIds: {
+                            push: newUser.id
+                        }
+                    }
+                });
+            }
+        }
+        
+        const { passwordHash: _, ...userWithoutPassword } = newUser;
+        return userWithoutPassword;
     });
-    const { passwordHash: _, ...userWithoutPassword } = newUser;
-    return userWithoutPassword;
 }
 
 export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'avatar' | 'passwordHash'>>) {
     await checkAdmin();
-    const updatedUser = await prisma.user.update({
-        where: { id },
-        data,
+    
+    return await prisma.$transaction(async (tx) => {
+        const originalUser = await tx.user.findUnique({ where: { id } });
+        
+        // If the team is changing
+        if (data.team && originalUser?.team !== data.team) {
+            // Remove user from the old team
+            if (originalUser?.team) {
+                const oldTeam = await tx.team.findFirst({ where: { name: originalUser.team } });
+                if (oldTeam) {
+                    await tx.team.update({
+                        where: { id: oldTeam.id },
+                        data: {
+                            memberIds: {
+                                set: oldTeam.memberIds.filter(memberId => memberId !== id)
+                            }
+                        }
+                    });
+                }
+            }
+            // Add user to the new team
+            const newTeam = await tx.team.findFirst({ where: { name: data.team } });
+            if (newTeam) {
+                await tx.team.update({
+                    where: { id: newTeam.id },
+                    data: {
+                        memberIds: {
+                            push: id
+                        }
+                    }
+                });
+            }
+        }
+
+        const updatedUser = await tx.user.update({
+            where: { id },
+            data,
+        });
+
+        const { passwordHash: _, ...userWithoutPassword } = updatedUser;
+        return userWithoutPassword;
     });
-    const { passwordHash: _, ...userWithoutPassword } = updatedUser;
-    return userWithoutPassword;
 }
 
 export async function deleteUser(id: string) {
@@ -73,7 +127,7 @@ export async function deleteUser(id: string) {
         await prisma.$transaction(async (tx) => {
             const userToDelete = await tx.user.findUnique({ where: { id } });
             
-            if (userToDelete && userToDelete.team) {
+            if (userToDelete?.team) {
                 const team = await tx.team.findFirst({ where: { name: userToDelete.team } });
                 if (team) {
                     await tx.team.update({
