@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -137,7 +138,7 @@ export function ParticipantsPicker({ allUsers, allTeams, selectedIds, onChange }
           
           <ScrollArea className="h-72">
             <div className="space-y-4">
-                {filteredTeams.length > 0 && (
+                {allTeams && allTeams.length > 0 && filteredTeams.length > 0 && (
                      <div>
                         <h4 className="font-medium text-lg mb-2">Teams</h4>
                         {filteredTeams.map(team => (
@@ -200,5 +201,3 @@ export function ParticipantsPicker({ allUsers, allTeams, selectedIds, onChange }
     </div>
   );
 }
-
-    

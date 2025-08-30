@@ -591,7 +591,6 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
                     }
                 }}
                 users={users}
-                teams={teams}
             />
         </div>
     );
@@ -678,7 +677,7 @@ function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onArchive, o
     )
 }
 
-function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, users: User[], teams: Team[], onSave: (data: any, isEdit: boolean) => void }) {
+function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, team: Team | null, users: User[], onSave: (data: any, isEdit: boolean) => void }) {
     const isEditMode = !!team;
     
     const [name, setName] = useState('');
@@ -743,7 +742,7 @@ function TeamFormDialog({ open, onOpenChange, team, users, teams, onSave }: { op
                         <Label htmlFor="members">Team Members</Label>
                         <ParticipantsPicker
                             allUsers={activeUsers}
-                            allTeams={teams}
+                            allTeams={[]}
                             selectedIds={memberIds}
                             onChange={setMemberIds}
                         />
