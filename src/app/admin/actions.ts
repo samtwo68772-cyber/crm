@@ -71,6 +71,22 @@ export async function deleteUser(id: string) {
     try {
         // Use a transaction to ensure all operations succeed or none do.
         await prisma.$transaction(async (tx) => {
+            const userToDelete = await tx.user.findUnique({ where: { id } });
+            
+            if (userToDelete && userToDelete.team) {
+                const team = await tx.team.findFirst({ where: { name: userToDelete.team } });
+                if (team) {
+                    await tx.team.update({
+                        where: { id: team.id },
+                        data: {
+                            memberIds: {
+                                set: team.memberIds.filter(memberId => memberId !== id)
+                            }
+                        }
+                    });
+                }
+            }
+            
             // Set related records to null where history should be preserved
             await tx.auditLog.updateMany({
                 where: { userId: id },
