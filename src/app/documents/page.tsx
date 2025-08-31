@@ -1,9 +1,10 @@
 
-import { getDocuments } from './actions';
-import { getCases } from '../cases/actions';
-import { getAccounts } from '../accounts/actions';
-import type { Document, Case, Account } from '@/lib/types';
 import { DocumentsClient } from './documents-client';
+import type { Account, Case, Document } from '@/lib/types';
+import { getAccounts } from '../accounts/actions';
+import { getCases } from '../cases/actions';
+import { getDocuments } from './actions';
+
 
 export default async function DocumentsPage() {
     

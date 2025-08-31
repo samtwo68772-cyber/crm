@@ -1,10 +1,9 @@
 
-import { getTasks } from './actions';
-import { getUsers } from '../admin/actions';
-import { getCases } from '../cases/actions';
-import { getTeams } from '../admin/actions';
-import type { Task, User, Case, Team } from '@/lib/types';
 import { TasksClient } from './tasks-client';
+import type { Case, Task, Team, User } from '@/lib/types';
+import { getCases } from '../cases/actions';
+import { getTeams, getUsers } from '../admin/actions';
+import { getTasks } from './actions';
 
 export default async function TasksPage() {
     

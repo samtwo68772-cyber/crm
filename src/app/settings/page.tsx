@@ -1130,5 +1130,3 @@ function AuditLog({ logs, users }: { logs: AuditLogType[], users: User[]}) {
         </Card>
     )
 }
-
-    
