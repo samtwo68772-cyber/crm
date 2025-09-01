@@ -29,6 +29,7 @@ import { ParticipantsPicker } from '@/components/ui/participants-picker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { permissionModules } from '@/lib/permissions';
+import { Card, CardHeader, CardContent } from '@/components/ui/card';
 
 interface AdminClientProps {
 }
@@ -416,6 +417,7 @@ function TeamManagement({ teams, users }: { teams: Team[], users: User[] }) {
         mutationFn: createTeam,
         onSuccess: (newTeam) => {
             queryClient.invalidateQueries({ queryKey: ['teams'] });
+            queryClient.invalidateQueries({ queryKey: ['users'] });
             toast({ title: "Team Created", description: `Team "${newTeam.name}" created.` });
             setIsFormOpen(false);
         },
@@ -784,9 +786,9 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
 export function AdminClient() {
     const { user } = useAuth();
     const router = useRouter();
-    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
-    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
-    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+    const { data: cases } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
     const { data: roles, isLoading: rolesLoading } = useQuery<Role[]>({ queryKey: ['roles'], queryFn: getRoles });
 
     useEffect(() => {
@@ -799,7 +801,7 @@ export function AdminClient() {
         return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
     }
 
-    if (usersLoading || teamsLoading || casesLoading || rolesLoading) {
+    if (!users || !teams || !cases || !roles) {
         return (
              <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
                 <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>

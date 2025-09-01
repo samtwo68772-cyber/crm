@@ -49,7 +49,7 @@ async function main() {
     const { id, role, ...rest } = user;
     const roleId = user.role === 'admin' ? adminRole.id : staffRole.id;
     await prisma.user.upsert({
-      where: { id: user.id },
+      where: { email: user.email },
       update: {
         ...rest,
         passwordHash: user.name, // In a real app, this would be a proper hash
@@ -116,6 +116,7 @@ async function main() {
   console.log('Contacts seeded.');
   
   // Seed Cases
+  const user1 = await prisma.user.findFirst({where: {email: 'alex.j@example.com'}});
   for (const caseItem of cases) {
     const { communications, assignedTo, ...rest } = caseItem;
     const newCase = await prisma.case.upsert({
@@ -124,13 +125,13 @@ async function main() {
             ...rest,
             createdAt: new Date(caseItem.createdAt),
             resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : null,
-            createdById: 'user-1', // Default creator
+            createdById: user1!.id, // Default creator
         },
         create: {
             ...rest,
             createdAt: new Date(caseItem.createdAt),
             resolvedAt: caseItem.resolvedAt ? new Date(caseItem.resolvedAt) : null,
-            createdById: 'user-1', // Default creator
+            createdById: user1!.id, // Default creator
         }
     });
 
@@ -149,7 +150,7 @@ async function main() {
                 data: {
                     caseId: newCase.id,
                     userId: userId,
-                    assignedByUserId: 'user-1' // default to admin
+                    assignedByUserId: user1!.id // default to admin
                 }
             })
         }
@@ -205,15 +206,18 @@ async function main() {
   
   // Seed Documents
   for (const doc of documents) {
+      const author = await prisma.user.findFirst({where: {name: doc.uploadedBy}})
       await prisma.document.upsert({
           where: {id: doc.id},
           update: {
               ...doc,
               uploadedAt: new Date(doc.uploadedAt),
+              authorId: author?.id
           },
           create: {
               ...doc,
               uploadedAt: new Date(doc.uploadedAt),
+              authorId: author?.id
           },
       })
   }

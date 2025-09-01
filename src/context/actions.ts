@@ -17,6 +17,7 @@ export async function login(email: string, password: string) {
   // 2. Use a library like `bcrypt` to compare the provided password with the stored hash.
   const user = await prisma.user.findFirst({
     where: { email },
+    include: { role: true }
   });
 
   if (!user || user.passwordHash !== password) { // Replace with bcrypt.compare in production
@@ -46,7 +47,7 @@ export async function getSession() {
 }
 
 export async function getUserById(userId: string): Promise<User> {
-    const user = await prisma.user.findUnique({ where: { id: userId }});
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true }});
     if (!user) throw new Error("User not found");
     const { passwordHash, ...userWithoutPassword } = user;
     return userWithoutPassword as User;
