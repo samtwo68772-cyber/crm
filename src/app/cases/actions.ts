@@ -76,6 +76,7 @@ export async function getCases() {
 
     const user = await prisma.user.findUnique({
         where: { id: session.userId },
+        include: { role: true }
     });
 
     if (!user) {
@@ -85,7 +86,7 @@ export async function getCases() {
 
     let whereClause = {};
 
-    if (user.role !== 'admin') {
+    if (user.role.name !== 'Admin') {
         whereClause = {
             OR: [
                 { createdById: user.id },
@@ -263,14 +264,14 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
     const session = await getSession();
     if (!session?.userId) throw new Error("Authentication required");
 
-    const user = await prisma.user.findUnique({ where: { id: session.userId }});
+    const user = await prisma.user.findUnique({ where: { id: session.userId }, include: { role: true }});
     if (!user) throw new Error("User not found");
 
     const updatedCase = await prisma.case.update({
         where: { id: caseId },
         data: {
             communications: {
-                push: { ...comm, id: `comm-${Date.now()}`, authorId: user.id, author: user.name, authorRole: user.role }
+                push: { ...comm, id: `comm-${Date.now()}`, authorId: user.id, author: user.name, authorRole: user.role.name }
             }
         },
          include: {

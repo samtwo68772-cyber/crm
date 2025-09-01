@@ -5,9 +5,22 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { Task } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
+import { getSession } from '@/context/actions';
 
 export async function getTasks() {
+  const session = await getSession();
+  if (!session?.userId) return [];
+  
+  const user = await prisma.user.findUnique({ where: { id: session.userId }, include: { role: true } });
+  if (!user) return [];
+
+  let whereClause = {};
+  if (user.role.name !== 'Admin') {
+      whereClause = { assignedTo: user.id };
+  }
+
   return await prisma.task.findMany({
+    where: whereClause,
     orderBy: {
       dueDate: 'asc',
     },

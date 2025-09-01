@@ -4,28 +4,92 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
-import type { User, Team } from '@/lib/types';
+import type { User, Team, Role, PermissionSet } from '@/lib/types';
 import { getSession } from '@/context/actions';
+import { defaultPermissions, permissionModules } from '@/lib/permissions';
 
 async function checkAdmin() {
     const session = await getSession();
     if (!session?.userId) throw new Error('Authentication required.');
-    const user = await prisma.user.findUnique({ where: { id: session.userId } });
-    if (!user || user.role !== 'admin') throw new Error('Administrator access required.');
+    const user = await prisma.user.findUnique({ 
+        where: { id: session.userId },
+        include: { role: true }
+    });
+    if (!user || user.role.name !== 'Admin') throw new Error('Administrator access required.');
 }
 
+// Role Management
+export async function getRoles() {
+    await checkAdmin();
+    return await prisma.role.findMany({
+        orderBy: { name: 'asc' },
+        include: { users: { select: { id: true } } }
+    });
+}
+
+export async function createRole(data: { name: string; description?: string; permissions: PermissionSet }) {
+    await checkAdmin();
+    try {
+        const newRole = await prisma.role.create({
+            data: {
+                name: data.name,
+                description: data.description,
+                permissions: data.permissions as any,
+            }
+        });
+        return newRole;
+    } catch(e) {
+         if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            throw new Error('A role with this name already exists.');
+        }
+        throw e;
+    }
+}
+
+export async function updateRole(id: string, data: { name: string; description?: string; permissions: PermissionSet }) {
+    await checkAdmin();
+    try {
+        const updatedRole = await prisma.role.update({
+            where: { id },
+            data: {
+                name: data.name,
+                description: data.description,
+                permissions: data.permissions as any,
+            },
+        });
+        return updatedRole;
+    } catch (e) {
+        if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+            throw new Error('A role with this name already exists.');
+        }
+        throw e;
+    }
+}
+
+export async function deleteRole(id: string) {
+    await checkAdmin();
+    const roleInUse = await prisma.user.findFirst({ where: { roleId: id } });
+    if (roleInUse) {
+        throw new Error('This role is currently in use and cannot be deleted.');
+    }
+    await prisma.role.delete({ where: { id } });
+    return { id };
+}
+
+
 export async function getUsers() {
-    // await checkAdmin(); // This check might be too restrictive if non-admins need to see users for assignment.
     const users = await prisma.user.findMany({
         orderBy: {
             name: 'asc'
+        },
+        include: {
+            role: true
         }
     });
     return users.map(({ passwordHash, ...user }) => user) as User[];
 }
 
 export async function getTeams() {
-    await checkAdmin();
     return await prisma.team.findMany({
         orderBy: {
             name: 'asc'
@@ -33,7 +97,7 @@ export async function getTeams() {
     });
 }
 
-export async function createUser(data: Omit<User, 'id' | 'avatar' > & { password?: string }) {
+export async function createUser(data: Omit<User, 'id' | 'avatar' | 'role' | 'assignments' | 'meetings' | 'notificationPreferences' > & { password?: string, roleId: string }) {
     await checkAdmin();
     const { password, team: teamName, ...userData } = data;
     
@@ -41,8 +105,7 @@ export async function createUser(data: Omit<User, 'id' | 'avatar' > & { password
         throw new Error('Password is required for new users.');
     }
     
-    // In a real app, you would hash the password here using bcrypt
-    const passwordHash = password; // Placeholder for hashing
+    const passwordHash = password;
 
     return await prisma.$transaction(async (tx) => {
         const newUser = await tx.user.create({
@@ -79,9 +142,7 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
     return await prisma.$transaction(async (tx) => {
         const originalUser = await tx.user.findUnique({ where: { id } });
         
-        // If the team is changing
         if (data.team && originalUser?.team !== data.team) {
-            // Remove user from the old team
             if (originalUser?.team) {
                 const oldTeam = await tx.team.findFirst({ where: { name: originalUser.team } });
                 if (oldTeam) {
@@ -95,7 +156,6 @@ export async function updateUser(id: string, data: Partial<Omit<User, 'id' | 'av
                     });
                 }
             }
-            // Add user to the new team
             const newTeam = await tx.team.findFirst({ where: { name: data.team } });
             if (newTeam) {
                 await tx.team.update({
@@ -123,7 +183,6 @@ export async function deleteUser(id: string) {
     await checkAdmin();
     
     try {
-        // Use a transaction to ensure all operations succeed or none do.
         await prisma.$transaction(async (tx) => {
             const userToDelete = await tx.user.findUnique({ where: { id } });
             
@@ -141,7 +200,6 @@ export async function deleteUser(id: string) {
                 }
             }
             
-            // Set related records to null where history should be preserved
             await tx.auditLog.updateMany({
                 where: { userId: id },
                 data: { userId: null },
@@ -152,24 +210,20 @@ export async function deleteUser(id: string) {
                 data: { authorId: null },
             });
 
-            // Delete dependent records that should not be kept
             await tx.caseAssignment.deleteMany({ where: { userId: id } });
             await tx.meetingParticipant.deleteMany({ where: { userId: id }});
             await tx.notificationPreferences.deleteMany({ where: { userId: id } });
             
-            // Finally, delete the user
             await tx.user.delete({ where: { id } });
         });
 
         return { id };
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            // P2003 is the foreign key constraint violation error code
             if (error.code === 'P2003') {
                 throw new Error('Could not delete user. They may still be linked to other records in the system.');
             }
         }
-        // For any other errors, re-throw a generic message.
         console.error("Error deleting user:", error);
         throw new Error('An unexpected error occurred while deleting the user.');
     }
@@ -185,12 +239,10 @@ export async function createTeam(data: Omit<Team, 'id'>) {
         return newTeam;
     } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError) {
-            // P2002 is the error code for a unique constraint violation
             if (error.code === 'P2002' && (error.meta?.target as string[])?.includes('name')) {
                 throw new Error('A team with this name already exists.');
             }
         }
-        // Re-throw other errors
         throw error;
     }
 }
@@ -224,7 +276,6 @@ export async function archiveTeam(id: string) {
 
 export async function deleteTeam(id: string) {
     await checkAdmin();
-    // Ensure team is archived before deleting
     const team = await prisma.team.findUnique({ where: { id } });
     if (!team || team.status !== 'Archived') {
         throw new Error("Team must be archived before it can be deleted.");
