@@ -20,10 +20,7 @@ export async function getNotifications(
 
     let whereClause: any = {};
     
-    if (canViewAll) {
-        // Admin with viewAll permission sees all notifications in the system.
-        whereClause = {};
-    } else {
+    if (!canViewAll) {
         // Regular user only sees their own notifications.
         whereClause = { userId: userId };
     }
@@ -53,14 +50,13 @@ export async function getNotifications(
     return { notifications, total };
 }
 
-export async function createNotification(data: Omit<Notification, 'id' | 'read' | 'timestamp' | 'originalUserId'>) {
+export async function createNotification(data: Omit<Notification, 'id' | 'read' | 'timestamp'>) {
   const { userId, ...restData } = data;
   if (!userId) {
       console.warn("createNotification called without a userId. Notification will not be created.");
       return;
   }
   
-  // 1. Create the primary notification for the target user
   await prisma.notification.create({
     data: {
       ...restData,
@@ -69,32 +65,6 @@ export async function createNotification(data: Omit<Notification, 'id' | 'read' 
       timestamp: new Date(),
     },
   });
-
-  // 2. Also notify admins with viewAll permission
-  const adminsToNotify = await prisma.user.findMany({
-      where: {
-          id: { not: userId }, // Don't create a duplicate notification
-          role: {
-              permissions: {
-                  path: ['notifications', 'viewAll'],
-                  equals: true
-              }
-          }
-      }
-  });
-
-  // 3. Create a copy for each admin
-  for (const admin of adminsToNotify) {
-      await prisma.notification.create({
-          data: {
-              ...restData,
-              userId: admin.id,
-              read: false,
-              timestamp: new Date(),
-              originalUserId: userId, // Track who the original notification was for
-          }
-      });
-  }
 }
 
 
