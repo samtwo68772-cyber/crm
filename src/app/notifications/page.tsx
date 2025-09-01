@@ -1,16 +1,14 @@
 
-
 "use client";
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { getNotifications, markAsRead, markAllAsRead } from './actions';
 import type { Notification } from '@/lib/types';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Bell, Briefcase, ListTodo, Mail, Calendar, CheckCheck, EyeOff } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Bell, Briefcase, ListTodo, Mail, Calendar, CheckCheck, EyeOff, ArrowLeft, ArrowRight } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -27,42 +25,46 @@ const getNotificationIcon = (type: Notification['type']) => {
     }
 };
 
+const ITEMS_PER_PAGE = 15;
+
 export default function NotificationsPage() {
     const { user } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
+    
+    const page = parseInt(searchParams.get('page') || '1', 10);
+    const [currentPage, setCurrentPage] = useState(page);
     const [filter, setFilter] = useState<'all' | 'unread'>('all');
 
-    const { data: notifications = [], isLoading } = useQuery<Notification[]>({
-        queryKey: ['notifications', user?.id],
-        queryFn: () => getNotifications(user!.id),
+    useEffect(() => {
+      const pageNum = parseInt(searchParams.get('page') || '1', 10);
+      setCurrentPage(pageNum);
+    }, [searchParams]);
+
+    const { data: notificationsData = { notifications: [], total: 0 }, isLoading } = useQuery<{notifications: Notification[], total: number}>({
+        queryKey: ['notifications', user?.id, currentPage, filter],
+        queryFn: () => getNotifications(user!.id, { page: currentPage, limit: ITEMS_PER_PAGE, filter }),
         enabled: !!user,
+        placeholderData: (previousData) => previousData,
     });
+
+    const { notifications, total } = notificationsData;
+    const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
     const markAsReadMutation = useMutation({
         mutationFn: markAsRead,
         onSuccess: (updatedNotification) => {
-            queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) => 
-                oldData ? oldData.map(n => n.id === updatedNotification.id ? { ...n, read: true } : n) : []
-            );
+             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         }
     });
 
     const markAllAsReadMutation = useMutation({
         mutationFn: () => markAllAsRead(user!.id),
         onSuccess: () => {
-            queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) =>
-                oldData ? oldData.map(n => ({ ...n, read: true })) : []
-            );
+             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         }
     });
-
-    const filteredNotifications = useMemo(() => {
-        if (filter === 'unread') {
-            return notifications.filter(n => !n.read);
-        }
-        return notifications;
-    }, [notifications, filter]);
 
     const handleNotificationClick = async (notification: Notification) => {
         if (!notification.read) {
@@ -70,8 +72,41 @@ export default function NotificationsPage() {
         }
         router.push(notification.link);
     };
+    
+    const handlePageChange = (newPage: number) => {
+        setCurrentPage(newPage);
+        router.push(`/notifications?page=${newPage}`);
+    }
 
-    if(isLoading) return (
+    const PaginationControls = () => (
+        <div className="flex items-center justify-between pt-4">
+            <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages > 0 ? totalPages : 1} ({total} total notifications)
+            </div>
+            <div className="flex items-center gap-2">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage <= 1}
+                >
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Previous
+                </Button>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= totalPages}
+                >
+                    Next
+                    <ArrowRight className="h-4 w-4 ml-2" />
+                </Button>
+            </div>
+        </div>
+    );
+
+    if(isLoading && !notifications.length) return (
         <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
             <div className="flex items-center justify-between">
                 <Skeleton className="h-12 w-1/3" />
@@ -122,8 +157,8 @@ export default function NotificationsPage() {
             <Card>
                 <CardContent className="p-0">
                     <div className="space-y-0">
-                        {filteredNotifications.length > 0 ? (
-                            filteredNotifications.map(notification => (
+                        {notifications.length > 0 ? (
+                            notifications.map(notification => (
                                 <div
                                     key={notification.id}
                                     className={cn(
@@ -154,6 +189,11 @@ export default function NotificationsPage() {
                         )}
                     </div>
                 </CardContent>
+                {totalPages > 1 && (
+                     <CardContent className="p-4 border-t">
+                        <PaginationControls />
+                    </CardContent>
+                )}
             </Card>
         </div>
     );

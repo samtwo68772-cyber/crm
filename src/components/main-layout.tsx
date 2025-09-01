@@ -75,11 +75,16 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
     const queryClient = useQueryClient();
 
-    const { data: notifications = [] } = useQuery<Notification[]>({
-      queryKey: ['notifications', user?.id],
-      queryFn: () => getNotifications(user!.id),
+    const { data: notificationsData } = useQuery<{notifications: Notification[], total: number}>({
+      queryKey: ['notifications', user?.id, 1, 'unread'], // Fetch first page of unread for the dropdown
+      queryFn: () => getNotifications(user!.id, { page: 1, limit: 10, filter: 'unread' }),
       enabled: !!user,
+      refetchInterval: 60000, // Refetch every 60 seconds
     });
+    
+    const notifications = notificationsData?.notifications || [];
+    const unreadCount = notificationsData?.total || 0;
+
 
     const { data: generalSettings = { systemName: 'MinT CRM', logoUrl: '' } } = useQuery({
       queryKey: ['generalSettings'],
@@ -87,25 +92,18 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
       enabled: !!user,
     });
 
-    const unreadCount = useMemo(() => {
-        return notifications.filter(n => !n.read).length;
-    }, [notifications]);
 
     const markAsReadMutation = useMutation({
         mutationFn: markAsRead,
         onSuccess: (updatedNotification) => {
-             queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) =>
-                oldData ? oldData.map(n => n.id === updatedNotification.id ? { ...n, read: true } : n) : []
-            );
+             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         }
     })
 
     const markAllAsReadMutation = useMutation({
         mutationFn: () => markAllAsRead(user!.id),
         onSuccess: () => {
-             queryClient.setQueryData(['notifications', user?.id], (oldData: Notification[] | undefined) =>
-                oldData ? oldData.map(n => ({ ...n, read: true })) : []
-            );
+             queryClient.invalidateQueries({ queryKey: ['notifications', user?.id] });
         }
     })
     
@@ -225,8 +223,8 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                             {unreadCount > 0 && <Button variant="link" size="sm" className="p-0 h-auto" onClick={handleMarkAllAsRead}><CheckCheck className="mr-1 h-4 w-4" />Mark all as read</Button>}
                         </DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {notifications.filter(n => !n.read).length > 0 ? (
-                            notifications.filter(n => !n.read).slice(0, 10).map(notification => (
+                        {notifications.length > 0 ? (
+                            notifications.map(notification => (
                                  <DropdownMenuItem key={notification.id} className="flex items-start gap-3" onClick={() => handleNotificationClick(notification)}>
                                     {getNotificationIcon(notification.type)}
                                     <div className="flex-1">

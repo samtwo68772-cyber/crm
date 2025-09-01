@@ -5,29 +5,49 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { Notification } from '@/lib/types';
 
-export async function getNotifications(userId: string) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) return [];
+export async function getNotifications(
+    userId: string,
+    options: { page: number; limit: number; filter: 'all' | 'unread' }
+) {
+    const { page, limit, filter } = options;
+    const skip = (page - 1) * limit;
 
-    if (user.role === 'admin') {
-        return await prisma.notification.findMany({
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
+    if (!user) return { notifications: [], total: 0 };
+
+    let whereClause: any = {
+        userId: userId
+    };
+
+    // Admins can see system-wide notifications (userId is null)
+    if (user.role.name === 'Admin') {
+        whereClause = {
+            OR: [
+                { userId: null },
+                { userId: userId },
+            ]
+        };
+    }
+    
+    if (filter === 'unread') {
+        whereClause.read = false;
+    }
+
+    const [notifications, total] = await prisma.$transaction([
+        prisma.notification.findMany({
+            where: whereClause,
             orderBy: {
                 timestamp: 'desc',
             },
-        });
-    }
-
-    return await prisma.notification.findMany({
-        where: {
-            OR: [
-                { userId: null }, // System-wide notifications
-                { userId: userId },
-            ]
-        },
-        orderBy: {
-            timestamp: 'desc',
-        },
-    });
+            take: limit,
+            skip: skip,
+        }),
+        prisma.notification.count({
+            where: whereClause
+        })
+    ]);
+    
+    return { notifications, total };
 }
 
 export async function createNotification(data: Omit<Notification, 'id' | 'read' | 'timestamp'>) {
@@ -49,28 +69,27 @@ export async function markAsRead(notificationId: string) {
         where: { id: notificationId },
         data: { read: true },
     });
-    // revalidatePath('/notifications');
     return updated;
 }
 
 export async function markAllAsRead(userId: string) {
-    const user = await prisma.user.findUnique({ where: { id: userId } });
+    const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
     if (!user) return;
+    
+    let whereClause: any = { userId: userId, read: false };
 
-    if (user.role === 'admin') {
-        await prisma.notification.updateMany({
-            data: { read: true },
-        });
-    } else {
-        await prisma.notification.updateMany({
-            where: {
-                 OR: [
-                    { userId: null },
-                    { userId: userId },
-                ]
-            },
-            data: { read: true },
-        });
+    if (user.role.name === 'Admin') {
+         whereClause = {
+            OR: [
+                { userId: null },
+                { userId: userId },
+            ],
+            read: false
+        };
     }
-    // revalidatePath('/notifications');
+
+    await prisma.notification.updateMany({
+        where: whereClause,
+        data: { read: true },
+    });
 }
