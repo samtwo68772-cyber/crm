@@ -7,31 +7,29 @@ generator client {
 
 datasource db {
   provider  = "postgresql"
-  url       = env("POSTGRES_PRISMA_URL") // uses connection pooling
-  directUrl = env("POSTGRES_URL_NON_POOLING") // uses a direct connection
-  shadowDatabaseUrl = env("POSTGRES_URL_NON_POOLING") // used for migrations
+  url       = env("DATABASE_URL")
 }
 
 model User {
-  id                      String                    @id @default(cuid())
-  name                    String
-  email                   String                    @unique
-  phone                   String?
-  status                  String                    @default("Active")
-  team                    String
-  avatar                  String
-  passwordHash            String
-  createdAt               DateTime                  @default(now())
-  updatedAt               DateTime                  @updatedAt
-  roleId                  String
-  role                    Role                      @relation(fields: [roleId], references: [id])
-  assignments             CaseAssignment[]
-  meetings                MeetingParticipant[]
-  notificationPreferences NotificationPreferences[]
-  createdCases            Case[]                    @relation("CreatedBy")
-  assignedCasesBy         CaseAssignment[]          @relation("AssignedBy")
-  documents               Document[]
-  auditLogs               AuditLog[]
+  id                        String                     @id @default(cuid())
+  name                      String
+  email                     String                     @unique
+  phone                     String?
+  status                    String                     @default("Active") // e.g., Active, Inactive
+  team                      String
+  avatar                    String
+  passwordHash              String
+  roleId                    String
+  role                      Role                       @relation(fields: [roleId], references: [id])
+  assignments               CaseAssignment[]
+  meetings                  MeetingParticipant[]
+  notificationPreferences   NotificationPreferences?
+  createdCases              Case[]                     @relation("CreatedBy")
+  assignedCasesBy           CaseAssignment[]           @relation("AssignedBy")
+  documents                 Document[]
+  auditLogs                 AuditLog[]
+
+  @@index([roleId])
 }
 
 model Role {
@@ -52,25 +50,36 @@ model Case {
   status             String
   createdAt          DateTime         @default(now())
   resolvedAt         DateTime?
-  description        String?
-  communications     Json[]           @default("[]")
+  description        String
+  communications     Json[]           @default([])
   contactId          String?
   satisfactionRating Int?
   assignments        CaseAssignment[]
   createdById        String
   createdBy          User             @relation("CreatedBy", fields: [createdById], references: [id])
   documents          Document[]
+  tasks              Task[]
+  contact            Contact?         @relation(fields: [contactId], references: [id])
+
+
+  @@index([contactId])
+  @@index([createdById])
 }
 
 model CaseAssignment {
-  id               String   @id @default(cuid())
-  caseId           String
-  case             Case     @relation(fields: [caseId], references: [id])
-  userId           String
-  user             User     @relation(fields: [userId], references: [id])
-  assignedAt       DateTime @default(now())
+  id             String @id @default(cuid())
+  caseId         String
+  userId         String
+  assignedAt     DateTime @default(now())
   assignedByUserId String
-  assignedByUser   User     @relation("AssignedBy", fields: [assignedByUserId], references: [id])
+  case           Case   @relation(fields: [caseId], references: [id])
+  user           User   @relation(fields: [userId], references: [id])
+  assignedBy     User   @relation("AssignedBy", fields: [assignedByUserId], references: [id])
+
+
+  @@index([caseId])
+  @@index([userId])
+  @@index([assignedByUserId])
 }
 
 model Task {
@@ -81,8 +90,14 @@ model Task {
   dueDate     DateTime?
   priority    String
   linkedCase  String?
+  case        Case?     @relation(fields: [linkedCase], references: [id])
   assignedTo  String?
   contactId   String?
+  contact     Contact?  @relation(fields: [contactId], references: [id])
+
+  @@index([linkedCase])
+  @@index([assignedTo])
+  @@index([contactId])
 }
 
 model Contact {
@@ -92,19 +107,23 @@ model Contact {
   phone     String?
   company   String
   accountId String?
-  account   Account? @relation(fields: [accountId], references: [id])
   role      String
   notes     String?
   avatar    String
+  tasks     Task[]
+  cases     Case[]
+  account   Account? @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
 }
 
 model Team {
   id          String   @id @default(cuid())
   name        String   @unique
-  description String
-  leaderId    String
+  description String?
+  leaderId    String?
   memberIds   String[]
-  status      String   @default("Active")
+  status      String
 }
 
 model Account {
@@ -118,30 +137,32 @@ model Account {
   website          String?
   primaryContactId String?
   owner            String
-  size             String?
-  location         String?
   contacts         Contact[]
   documents        Document[]
 }
 
 model Document {
-  id           String   @id @default(cuid())
+  id           String    @id @default(cuid())
   name         String
   type         String
   size         String
-  uploadedAt   DateTime @default(now())
+  uploadedAt   DateTime  @default(now())
   uploadedBy   String
   authorId     String?
-  author       User?    @relation(fields: [authorId], references: [id])
+  author       User?     @relation(fields: [authorId], references: [id])
   category     String
   description  String?
   accountId    String?
-  account      Account? @relation(fields: [accountId], references: [id])
+  account      Account?  @relation(fields: [accountId], references: [id])
   caseId       String?
-  case         Case?    @relation(fields: [caseId], references: [id])
+  case         Case?     @relation(fields: [caseId], references: [id])
   previewUrl   String?
   linkedToId   String?
   linkedToType String?
+
+  @@index([authorId])
+  @@index([accountId])
+  @@index([caseId])
 }
 
 model Meeting {
@@ -151,8 +172,6 @@ model Meeting {
   date         DateTime
   status       String
   linkedRecord String?
-  notes        Json[]               @default("[]")
-  attachments  Json[]               @default("[]")
   contactId    String?
   participants MeetingParticipant[]
 }
@@ -160,19 +179,24 @@ model Meeting {
 model MeetingParticipant {
   id        String   @id @default(cuid())
   meetingId String
-  meeting   Meeting  @relation(fields: [meetingId], references: [id])
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
   joinedAt  DateTime @default(now())
+  meeting   Meeting  @relation(fields: [meetingId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([meetingId])
+  @@index([userId])
 }
 
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  user      User?    @relation(fields: [userId], references: [id])
   action    String
   details   String
   timestamp DateTime @default(now())
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model Email {
@@ -186,7 +210,7 @@ model Email {
   type         String
   read         Boolean
   linkedCaseId String?
-  attachments  Json[]   @default("[]")
+  attachments  Json[] @default([])
   messageId    String?
 }
 
@@ -210,26 +234,17 @@ model NotificationPreferences {
   meetings Json
 }
 
-model Workflow {
-  id        String @id @default(cuid())
-  name      String
-  trigger   String
-  condition String
-  action    String
-}
-
 model GeneralSettings {
-  id          String  @id @default(cuid())
+  id          String @id @default(cuid())
   systemName  String
   companyName String
-  logoUrl     String?
+  logoUrl     String
   timeZone    String
   language    String
 }
 
 model EmailSettings {
   id             String  @id @default(cuid())
-  configured     Boolean @default(false)
   smtpHost       String
   smtpPort       Int
   smtpUser       String
@@ -240,6 +255,7 @@ model EmailSettings {
   imapUser       String
   imapPass       String
   imapEncryption String
+  configured     Boolean
 }
 
 model GlobalNotificationPreferences {
@@ -247,4 +263,12 @@ model GlobalNotificationPreferences {
   cases    Json
   tasks    Json
   meetings Json
+}
+
+model Workflow {
+  id        String @id @default(cuid())
+  name      String
+  trigger   String
+  condition String
+  action    String
 }
