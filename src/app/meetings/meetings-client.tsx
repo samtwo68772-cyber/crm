@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -153,18 +154,14 @@ function UpcomingMeetingsView({ meetings, onMeetingClick }: { meetings: Meeting[
 }
 
 interface MeetingsPageProps {
-  initialMeetings: Meeting[];
-  initialUsers: User[];
-  initialTeams: Team[];
-  initialCases: Case[];
 }
 
-export function MeetingsPage({ initialMeetings, initialUsers, initialTeams, initialCases}: MeetingsPageProps) {
+export function MeetingsPage() {
   const queryClient = useQueryClient();
-  const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings, initialData: initialMeetings });
-  const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases, initialData: initialCases });
-  const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers, initialData: initialUsers });
-  const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams, initialData: initialTeams });
+  const { data: meetings, isLoading: meetingsLoading } = useQuery<Meeting[]>({ queryKey: ['meetings'], queryFn: getMeetings });
+  const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+  const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
 
   const isLoading = meetingsLoading || casesLoading || usersLoading || teamsLoading;
 
@@ -179,7 +176,7 @@ export function MeetingsPage({ initialMeetings, initialUsers, initialTeams, init
   
   const { user } = useAuth();
   const { toast } = useToast();
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role.name === 'Admin';
 
   useEffect(() => {
     if (searchParams.get('filter') === 'upcoming') {
@@ -381,7 +378,7 @@ export function MeetingsPage({ initialMeetings, initialUsers, initialTeams, init
 
 function MeetingDetailSheet({ open, onOpenChange, meeting, onEdit, cases }: { open: boolean, onOpenChange: (open: boolean) => void, meeting: Meeting, onEdit: () => void, cases: Case[] }) {
     const { user } = useAuth();
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role.name === 'Admin';
     const linkedCase = useMemo(() => cases.find(c => c.id === meeting.linkedRecord), [meeting, cases]);
 
     return (

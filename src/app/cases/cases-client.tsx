@@ -69,20 +69,9 @@ const staffStatusOptions: Case['status'][] = ['New', 'In Progress', 'Investigate
 
 
 interface CasesClientProps {
-    initialCases: Case[];
-    initialUsers: User[];
-    initialTeams: Team[];
-    initialTasks: Task[];
-    initialWorkflows: Workflow[];
 }
 
-export function CasesClient({
-    initialCases,
-    initialUsers,
-    initialTeams,
-    initialTasks,
-    initialWorkflows,
-}: CasesClientProps) {
+export function CasesClient() {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     
@@ -90,12 +79,11 @@ export function CasesClient({
     const { data: cases } = useQuery<any[]>({ 
         queryKey: ['cases', user?.id], 
         queryFn: getCases,
-        initialData: initialCases,
     });
-    const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers, initialData: initialUsers });
-    const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams, initialData: initialTeams });
-    const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks, initialData: initialTasks });
-    const { data: workflows } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows, initialData: initialWorkflows });
+    const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+    const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+    const { data: workflows } = useQuery<Workflow[]>({ queryKey: ['workflows'], queryFn: getWorkflows });
 
     const [selectedCase, setSelectedCase] = useState<any | null>(null);
     const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
@@ -287,7 +275,7 @@ export function CasesClient({
           <h2 className="text-3xl font-bold tracking-tight font-headline">Cases Management</h2>
           <p className="text-muted-foreground">Manage and track customer support cases.</p>
         </div>
-        {user?.role === 'admin' && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Create Case</Button>}
+        {user?.role.name === 'Admin' && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Create Case</Button>}
       </div>
       <div className="flex flex-col space-y-4">
          <div className="flex flex-col sm:flex-row items-center gap-2">
@@ -321,7 +309,7 @@ export function CasesClient({
                 <SelectItem value="Bug Report">Bug Report</SelectItem><SelectItem value="Feature Request">Feature Request</SelectItem><SelectItem value="Billing Inquiry">Billing Inquiry</SelectItem><SelectItem value="General Question">General Question</SelectItem>
             </SelectContent>
           </Select>
-          {user?.role === 'admin' && (
+          {user?.role.name === 'Admin' && (
             <AssigneePicker
                 users={users || []}
                 teams={teams || []}
@@ -423,7 +411,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
     const [isDeleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
     const [isTaskWarningOpen, setTaskWarningOpen] = useState(false);
     const [resolutionNote, setResolutionNote] = useState('');
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role.name === 'Admin';
     const isMobile = useIsMobile();
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -454,7 +442,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
     const handleAddNote = async () => {
         if (note.trim() && user) {
-            const newComm: Omit<Communication, 'id' | 'authorId'> = { type: 'Note', content: note, author: user.name, authorRole: user.role, timestamp: new Date().toISOString() };
+            const newComm: Omit<Communication, 'id' | 'authorId'> = { type: 'Note', content: note, author: user.name, authorRole: user.role.name, timestamp: new Date().toISOString() };
             addCommunicationMutation.mutate({ caseId: caseItem.id, comm: newComm as any });
             setNote('');
         }
@@ -511,7 +499,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
         const resolutionContent = `Case resolved with note: "${resolutionNote}"`;
 
         if (user) {
-            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Resolution', content: resolutionContent, author: user.name, authorId: user.id, authorRole: user.role, timestamp: resolutionTimestamp.toISOString() } as any });
+            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Resolution', content: resolutionContent, author: user.name, authorId: user.id, authorRole: user.role.name, timestamp: resolutionTimestamp.toISOString() } as any });
         }
         
         await onUpdateCase({ 
@@ -528,7 +516,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
 
         if (openTasks.length > 0 && user) {
             const taskNote = `Automatically canceled ${openTasks.length} open task(s) due to case resolution.`;
-            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Note', content: taskNote, author: user.name, authorId: user.id, authorRole: user.role, timestamp: new Date().toISOString() } as any});
+            await addCommunicationMutation.mutateAsync({ caseId: caseItem.id, comm: { type: 'Note', content: taskNote, author: user.name, authorId: user.id, authorRole: user.role.name, timestamp: new Date().toISOString() } as any});
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
         }
 
@@ -630,7 +618,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     {caseItem.status === 'Investigated' && (
                         <div className="flex gap-2">
                              <Button className="w-full" onClick={() => handleStatusChange('Resolved')}><Check className="mr-2 h-4 w-4" /> Approve Resolution</Button>
-                             <Button className="w-full" variant="outline" onClick={() => { if(user) addCommunicationMutation.mutate({ caseId: caseItem.id, comm: {type: 'Note', author: user.name, authorId: user.id, authorRole: user.role, content: 'Admin requested more work.', timestamp: new Date().toISOString() } as any })}}><ShieldQuestion className="mr-2 h-4 w-4" /> Request More Work</Button>
+                             <Button className="w-full" variant="outline" onClick={() => { if(user) addCommunicationMutation.mutate({ caseId: caseItem.id, comm: {type: 'Note', author: user.name, authorId: user.id, authorRole: user.role.name, content: 'Admin requested more work.', timestamp: new Date().toISOString() } as any })}}><ShieldQuestion className="mr-2 h-4 w-4" /> Request More Work</Button>
                         </div>
                     )}
                     {(caseItem.status === 'Resolved' || caseItem.status === 'Completed') && (
@@ -657,8 +645,8 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                                     <div className="mt-1 shrink-0">
                                       {comm.type === 'Finding' && <FileText className="h-5 w-5 text-muted-foreground" />}
                                       {comm.type === 'Resolution' && <CheckCircle className="h-5 w-5 text-green-500" />}
-                                      {comm.type === 'Note' && comm.authorRole === 'admin' && <Shield className="h-5 w-5 text-muted-foreground" />}
-                                      {comm.type === 'Note' && comm.authorRole === 'staff' && <PenSquare className="h-5 w-5 text-muted-foreground" />}
+                                      {comm.type === 'Note' && comm.authorRole === 'Admin' && <Shield className="h-5 w-5 text-muted-foreground" />}
+                                      {comm.type === 'Note' && comm.authorRole === 'Staff' && <PenSquare className="h-5 w-5 text-muted-foreground" />}
                                     </div>
                                     <div className="w-full">
                                       <p className="text-sm text-muted-foreground border-l-2 pl-4 py-1">{comm.content}</p>
@@ -836,7 +824,7 @@ function CreateCaseDialog({ open, onOpenChange, onCreate, users, cases, workflow
   
   const staffUsers = useMemo(() => {
     if (!users) return [];
-    return users.filter(u => u.role === 'staff' || u.role === 'admin')
+    return users.filter(u => u.role.name === 'Staff' || u.role.name === 'Admin')
   }, [users]);
 
   const activeTeams = useMemo(() => {

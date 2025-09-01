@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useEffect, useState, useMemo } from 'react';
@@ -129,7 +130,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
         )
     }
 
-    const navItems = user.role === 'admin' ? navItemsAdmin : navItemsStaff;
+    const navItems = user.role.name === 'Admin' ? navItemsAdmin : navItemsStaff;
     const profileNavItem = { href: '/profile', label: 'Profile & Settings', icon: User };
 
     const sidebarContent = (
@@ -266,7 +267,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
                                <User className="mr-2 h-4 w-4" />
                                <span>Profile</span>
                             </DropdownMenuItem>
-                            {user.role === 'admin' && (
+                            {user.role.name === 'Admin' && (
                                 <DropdownMenuItem onClick={() => router.push('/settings')}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 <span>Settings</span>

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -109,7 +110,7 @@ export default function SettingsPage() {
         );
     }
     
-    if (user?.role !== 'admin') {
+    if (user?.role.name !== 'Admin') {
         return (
             <div className="p-8">
                 <h2 className="text-3xl font-bold tracking-tight font-headline">System Settings</h2>

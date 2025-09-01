@@ -50,18 +50,14 @@ function getStatusIcon(status: Task['status']) {
 }
 
 interface TasksClientProps {
-    initialTasks: Task[];
-    initialUsers: User[];
-    initialTeams: Team[];
-    initialCases: Case[];
 }
 
-export function TasksClient({ initialTasks, initialUsers, initialTeams, initialCases }: TasksClientProps) {
+export function TasksClient() {
   const queryClient = useQueryClient();
-  const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks, initialData: initialTasks });
-  const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers, initialData: initialUsers });
-  const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams, initialData: initialTeams });
-  const { data: cases } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases, initialData: initialCases });
+  const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
+  const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+  const { data: teams } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+  const { data: cases } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
 
   const { user } = useAuth();
   const { toast } = useToast();
@@ -72,7 +68,7 @@ export function TasksClient({ initialTasks, initialUsers, initialTeams, initialC
   const [searchQuery, setSearchQuery] = useState('');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isCreateDialogOpen, setCreateDialogOpen] = useState(false);
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role.name === 'Admin';
 
   useEffect(() => {
     const status = searchParams.get('status') as TaskStatusFilter;
@@ -289,7 +285,7 @@ function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Ta
     const { user } = useAuth();
     const assignedUser = users.find(u => u.id === task.assignedTo);
     const linkedCase = cases.find(c => c.id === task.linkedCase);
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = user?.role.name === 'Admin';
     const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 
     const handleStatusChange = (newStatus: Task['status']) => {

@@ -217,7 +217,7 @@ function MyTeamView() {
                                 <p className="font-semibold">{member.name}</p>
                                 <p className="text-sm text-muted-foreground">{member.email}</p>
                             </div>
-                            <Badge variant="outline" className="capitalize">{member.role} {member.id === leader?.id && <span className="ml-1 font-semibold">(Leader)</span>}</Badge>
+                            <Badge variant="outline" className="capitalize">{member.role.name} {member.id === leader?.id && <span className="ml-1 font-semibold">(Leader)</span>}</Badge>
                         </div>
                     ))}
                 </div>
@@ -300,7 +300,7 @@ function ProfileSettings({ user, onSave }: { user: UserType, onSave: (data: Part
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="role">Role</Label>
-                        <Input id="role" value={user.role} disabled className="capitalize" />
+                        <Input id="role" value={user.role.name} disabled className="capitalize" />
                     </div>
                 </div>
             </CardContent>

@@ -5,13 +5,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useRouter } from 'next/navigation';
-import type { User, Team, Case } from '@/lib/types';
+import type { User, Team, Case, Role, PermissionSet } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X, ArrowLeft, ArrowRight, Eye, EyeOff } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, User as UserIcon, Briefcase, ListTodo, Trash2, Edit, X, ArrowLeft, ArrowRight, Eye, EyeOff, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -21,16 +21,16 @@ import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetClose } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from '@/components/ui/alert-dialog';
-import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams, deleteUser, deleteTeam } from './actions';
+import { createUser, updateUser, createTeam, updateTeam, archiveTeam, getUsers, getTeams, deleteUser, deleteTeam, getRoles, createRole, updateRole, deleteRole } from './actions';
 import { getCases } from '../cases/actions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ParticipantsPicker } from '@/components/ui/participants-picker';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { permissionModules } from '@/lib/permissions';
 
 interface AdminClientProps {
-    initialUsers: User[];
-    initialTeams: Team[];
-    initialCases: Case[];
 }
 
 function getStatusVariant(status: User['status']) {
@@ -38,10 +38,10 @@ function getStatusVariant(status: User['status']) {
 }
 
 function getRoleVariant(UserRole: User['role']) {
-    return UserRole === 'admin' ? 'default' : 'outline';
+    return UserRole.name === 'Admin' ? 'default' : 'outline';
 }
 
-function UserManagement({ users, teams, cases }: { users: User[], teams: Team[], cases: Case[] }) {
+function UserManagement({ users, teams, cases, roles }: { users: User[], teams: Team[], cases: Case[], roles: Role[] }) {
     const queryClient = useQueryClient();
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [isFormOpen, setIsFormOpen] = useState(false);
@@ -58,7 +58,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
         setCurrentPage(1);
         return users.filter(user => {
             const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.email.toLowerCase().includes(searchQuery.toLowerCase());
-            const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+            const matchesRole = roleFilter === 'all' || user.role.id === roleFilter;
             const matchesStatus = statusFilter === 'all' || user.status === statusFilter;
             return matchesSearch && matchesRole && matchesStatus;
         });
@@ -112,7 +112,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
     });
 
     const handleAddUser = (newUserData: Omit<User, 'id' | 'avatar'> & { password?: string }) => {
-        createUserMutation.mutate(newUserData);
+        createUserMutation.mutate(newUserData as any);
     };
 
     const handleUpdateUser = (userId: string, data: Partial<User>) => {
@@ -172,7 +172,10 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                     </div>
                      <Select value={roleFilter} onValueChange={setRoleFilter}>
                         <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filter by role" /></SelectTrigger>
-                        <SelectContent><SelectItem value="all">All Roles</SelectItem><SelectItem value="admin">Admin</SelectItem><SelectItem value="staff">Staff</SelectItem></SelectContent>
+                        <SelectContent>
+                            <SelectItem value="all">All Roles</SelectItem>
+                            {roles.map(role => <SelectItem key={role.id} value={role.id}>{role.name}</SelectItem>)}
+                        </SelectContent>
                     </Select>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Filter by status" /></SelectTrigger>
@@ -211,7 +214,7 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                                     </TableCell>
                                     <TableCell>{user.email}</TableCell>
                                     <TableCell>{user.phone}</TableCell>
-                                    <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role}</Badge></TableCell>
+                                    <TableCell><Badge variant={getRoleVariant(user.role)}>{user.role.name}</Badge></TableCell>
                                     <TableCell><Badge variant={getStatusVariant(user.status)}>{user.status}</Badge></TableCell>
                                     <TableCell>{user.team}</TableCell>
                                     <TableCell>{assignedCaseCount}</TableCell>
@@ -264,17 +267,18 @@ function UserManagement({ users, teams, cases }: { users: User[], teams: Team[],
                     }
                 }}
                 teams={teams}
+                roles={roles}
             />
         </div>
     );
 }
 
-function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boolean; onOpenChange: (open: boolean) => void; user: User | null; onSave: (data: any, isEdit: boolean) => void; teams: Team[] }) {
+function UserFormDialog({ open, onOpenChange, user, onSave, teams, roles }: { open: boolean; onOpenChange: (open: boolean) => void; user: User | null; onSave: (data: any, isEdit: boolean) => void; teams: Team[], roles: Role[] }) {
     const isEditMode = !!user;
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
-    const [role, setRole] = useState<User['role']>('staff');
+    const [roleId, setRoleId] = useState<string>('');
     const [status, setStatus] = useState<User['status']>('Active');
     const [team, setTeam] = useState('');
     const [password, setPassword] = useState('');
@@ -287,15 +291,16 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
             setName(user.name);
             setEmail(user.email);
             setPhone(user.phone || '');
-            setRole(user.role);
+            setRoleId(user.role.id);
             setStatus(user.status);
             setTeam(user.team);
             setPassword('');
         } else {
-            setName(''); setEmail(''); setPhone(''); setRole('staff'); setStatus('Active'); setTeam(''); setPassword('');
+            const defaultRole = roles.find(r => r.name === 'Staff');
+            setName(''); setEmail(''); setPhone(''); setRoleId(defaultRole?.id || ''); setStatus('Active'); setTeam(''); setPassword('');
         }
         setErrors({});
-    }, [user, open]);
+    }, [user, open, roles]);
 
     const validate = () => {
         const newErrors: { email?: string; phone?: string } = {};
@@ -315,7 +320,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
             return;
         }
 
-        const userData: Partial<User> & { password?: string } = { name, email, phone, role, status, team };
+        const userData: Partial<User> & { password?: string } = { name, email, phone, roleId, status, team };
         if (password && !isEditMode) {
             userData.password = password;
         } else if (password) {
@@ -369,7 +374,7 @@ function UserFormDialog({ open, onOpenChange, user, onSave, teams }: { open: boo
                     )}
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="role" className="text-right">Role</Label>
-                        <Select onValueChange={(v: User['role']) => setRole(v)} value={role}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="staff">Staff</SelectItem></SelectContent></Select>
+                        <Select onValueChange={setRoleId} value={roleId}><SelectTrigger className="col-span-3"><SelectValue /></SelectTrigger><SelectContent>{roles.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}</SelectContent></Select>
                     </div>
                      <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="status" className="text-right">Status</Label>
@@ -655,7 +660,7 @@ function TeamDetailSheet({ open, onOpenChange, team, users, onEdit, onArchive, o
                                             <Avatar className="h-8 w-8"><AvatarImage src={member.avatar} /><AvatarFallback>{member.name.charAt(0)}</AvatarFallback></Avatar>
                                             <div>
                                                 <div className="font-medium flex items-center gap-2">{member.name} {member.id === leader?.id && <Badge variant="secondary">Leader</Badge>}</div>
-                                                <p className="text-sm text-muted-foreground">{member.role}</p>
+                                                <p className="text-sm text-muted-foreground">{member.role.name}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -776,24 +781,25 @@ function TeamFormDialog({ open, onOpenChange, team, users, onSave }: { open: boo
     );
 }
 
-export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminClientProps) {
+export function AdminClient() {
     const { user } = useAuth();
     const router = useRouter();
-    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers, initialData: initialUsers });
-    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams, initialData: initialTeams });
-    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases, initialData: initialCases });
+    const { data: users, isLoading: usersLoading } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
+    const { data: teams, isLoading: teamsLoading } = useQuery<Team[]>({ queryKey: ['teams'], queryFn: getTeams });
+    const { data: cases, isLoading: casesLoading } = useQuery<Case[]>({ queryKey: ['cases'], queryFn: getCases });
+    const { data: roles, isLoading: rolesLoading } = useQuery<Role[]>({ queryKey: ['roles'], queryFn: getRoles });
 
     useEffect(() => {
-        if (user && user.role !== 'admin') {
+        if (user && user.role.name !== 'Admin') {
             router.push('/');
         }
     }, [user, router]);
     
-    if (!user || user.role !== 'admin') {
+    if (!user || user.role.name !== 'Admin') {
         return <div className="p-8">Access Denied. You must be an administrator to view this page.</div>;
     }
 
-    if (usersLoading || teamsLoading || casesLoading) {
+    if (usersLoading || teamsLoading || casesLoading || rolesLoading) {
         return (
              <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
                 <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>
@@ -807,17 +813,254 @@ export function AdminClient({ initialUsers, initialTeams, initialCases }: AdminC
         <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
             <h2 className="text-3xl font-bold tracking-tight font-headline">Admin Panel</h2>
             <Tabs defaultValue="users">
-                <TabsList>
+                <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="users">User Management</TabsTrigger>
                     <TabsTrigger value="teams">Team Management</TabsTrigger>
+                    <TabsTrigger value="roles">Role Management</TabsTrigger>
                 </TabsList>
                 <TabsContent value="users" className="mt-6">
-                    <UserManagement users={users || []} teams={teams.filter(t => t.name) || []} cases={cases || []} />
+                    <UserManagement users={users || []} teams={teams.filter(t => t.name) || []} cases={cases || []} roles={roles || []}/>
                 </TabsContent>
                 <TabsContent value="teams" className="mt-6">
                     <TeamManagement teams={teams.filter(t => t.name) || []} users={users || []} />
                 </TabsContent>
+                <TabsContent value="roles" className="mt-6">
+                    <RoleManagement initialRoles={roles || []} />
+                </TabsContent>
             </Tabs>
         </div>
     );
+}
+
+function RoleManagement({ initialRoles }: { initialRoles: Role[] }) {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const [isFormOpen, setIsFormOpen] = useState(false);
+    const [editingRole, setEditingRole] = useState<Role | null>(null);
+
+    const { data: roles } = useQuery<Role[]>({ queryKey: ['roles'], queryFn: getRoles, initialData: initialRoles });
+
+    const createRoleMutation = useMutation({
+        mutationFn: createRole,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['roles'] });
+            toast({ title: "Role Created", description: "The new role has been created." });
+            setIsFormOpen(false);
+        },
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: "Error Creating Role", description: error.message });
+        }
+    });
+
+     const updateRoleMutation = useMutation({
+        mutationFn: (data: { id: string; data: Partial<Role> }) => updateRole(data.id, data.data as any),
+        onSuccess: (updatedRole) => {
+            queryClient.invalidateQueries({ queryKey: ['roles'] });
+            toast({ title: "Role Updated", description: `The role "${updatedRole.name}" has been updated.` });
+            setEditingRole(null);
+            setIsFormOpen(false);
+        },
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: "Error Updating Role", description: error.message });
+        }
+    });
+
+     const deleteRoleMutation = useMutation({
+        mutationFn: deleteRole,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['roles'] });
+            toast({ title: "Role Deleted", description: "The role has been deleted." });
+        },
+        onError: (error: Error) => {
+            toast({ variant: 'destructive', title: "Error Deleting Role", description: error.message });
+        }
+    });
+
+    const handleSaveRole = (roleData: any, isEdit: boolean) => {
+        if (isEdit && editingRole) {
+            updateRoleMutation.mutate({ id: editingRole.id, data: roleData });
+        } else {
+            createRoleMutation.mutate(roleData);
+        }
+    };
+
+    const handleDeleteRole = (roleId: string) => {
+        deleteRoleMutation.mutate(roleId);
+    }
+    
+    const openCreateForm = () => {
+        setEditingRole(null);
+        setIsFormOpen(true);
+    };
+
+    const openEditForm = (role: Role) => {
+        setEditingRole(role);
+        setIsFormOpen(true);
+    };
+
+    return (
+        <div className="space-y-4">
+            <div className="flex justify-end">
+                 <Button onClick={openCreateForm}><PlusCircle className="mr-2 h-4 w-4" /> Add Role</Button>
+            </div>
+            <Card>
+                 <CardContent className="p-0">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Role Name</TableHead>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Users</TableHead>
+                                <TableHead><span className="sr-only">Actions</span></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                         <TableBody>
+                            {roles?.map(role => (
+                                <TableRow key={role.id}>
+                                    <TableCell className="font-medium">{role.name}</TableCell>
+                                    <TableCell>{role.description}</TableCell>
+                                    <TableCell>{role.users?.length || 0}</TableCell>
+                                    <TableCell className="text-right">
+                                        <Button variant="ghost" size="sm" onClick={() => openEditForm(role)}>Edit</Button>
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={(role.users?.length || 0) > 0}>Delete</Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                                    <AlertDialogDescription>This action cannot be undone. This will permanently delete the role.</AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteRole(role.id)}>Delete</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+            <RoleFormDialog
+                key={editingRole ? editingRole.id : 'create'}
+                open={isFormOpen}
+                onOpenChange={setIsFormOpen}
+                role={editingRole}
+                onSave={handleSaveRole}
+            />
+        </div>
+    )
+}
+
+
+function RoleFormDialog({ open, onOpenChange, role, onSave }: { open: boolean, onOpenChange: (open: boolean) => void, role: Role | null, onSave: (data: any, isEdit: boolean) => void }) {
+    const isEditMode = !!role;
+    const [name, setName] = useState('');
+    const [description, setDescription] = useState('');
+    const [permissions, setPermissions] = useState<PermissionSet>({});
+
+    useEffect(() => {
+        if(role) {
+            setName(role.name);
+            setDescription(role.description || '');
+            setPermissions(role.permissions);
+        } else {
+            setName('');
+            setDescription('');
+            setPermissions({});
+        }
+    }, [role, open]);
+
+    const handlePermissionChange = (module: string, permission: string, value: boolean) => {
+        setPermissions(prev => ({
+            ...prev,
+            [module]: {
+                ...prev[module],
+                [permission]: value,
+            },
+        }));
+    };
+    
+    const handleSelectAll = (module: string, value: boolean) => {
+        const modulePermissions = permissionModules[module as keyof typeof permissionModules].permissions;
+        const newModuleState = Object.keys(modulePermissions).reduce((acc, key) => {
+            acc[key] = value;
+            return acc;
+        }, {} as Record<string, boolean>);
+        
+        setPermissions(prev => ({
+            ...prev,
+            [module]: newModuleState
+        }))
+    }
+
+    const handleSubmit = () => {
+        if(!name) {
+            alert('Role name is required.');
+            return;
+        }
+        onSave({ name, description, permissions }, isEditMode);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle>{isEditMode ? 'Edit Role' : 'Create New Role'}</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+                    <div className="space-y-2">
+                        <Label htmlFor="role-name">Role Name</Label>
+                        <Input id="role-name" value={name} onChange={e => setName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="role-desc">Description</Label>
+                        <Textarea id="role-desc" value={description} onChange={e => setDescription(e.target.value)} />
+                    </div>
+                    <div className="space-y-4">
+                        <h4 className="font-semibold text-lg mt-4 border-b pb-2">Permissions</h4>
+                        {Object.entries(permissionModules).map(([moduleKey, module]) => (
+                            <Collapsible key={moduleKey} defaultOpen>
+                                <Card>
+                                    <CardHeader className="p-4 flex flex-row items-center justify-between">
+                                        <CollapsibleTrigger asChild>
+                                           <div className="flex items-center gap-2 cursor-pointer">
+                                                <h5 className="font-semibold">{module.label}</h5>
+                                                <Badge variant="secondary">{Object.values(permissions[moduleKey] || {}).filter(Boolean).length} / {Object.keys(module.permissions).length}</Badge>
+                                            </div>
+                                        </CollapsibleTrigger>
+                                        <div className="flex items-center gap-2">
+                                            <Label htmlFor={`select-all-${moduleKey}`} className="text-sm">Select All</Label>
+                                            <Checkbox id={`select-all-${moduleKey}`} onCheckedChange={(checked) => handleSelectAll(moduleKey, !!checked)}/>
+                                        </div>
+                                    </CardHeader>
+                                    <CollapsibleContent>
+                                        <CardContent className="p-4 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                            {Object.entries(module.permissions).map(([permissionKey, permissionLabel]) => (
+                                                 <div key={permissionKey} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`${moduleKey}-${permissionKey}`}
+                                                        checked={!!permissions[moduleKey]?.[permissionKey]}
+                                                        onCheckedChange={(checked) => handlePermissionChange(moduleKey, permissionKey, !!checked)}
+                                                    />
+                                                    <Label htmlFor={`${moduleKey}-${permissionKey}`} className="font-normal">{permissionLabel}</Label>
+                                                </div>
+                                            ))}
+                                        </CardContent>
+                                    </CollapsibleContent>
+                                </Card>
+                            </Collapsible>
+                        ))}
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSubmit}>{isEditMode ? 'Save Changes' : 'Create Role'}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    )
 }
