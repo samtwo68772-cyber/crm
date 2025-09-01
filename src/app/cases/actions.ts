@@ -158,7 +158,7 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
             assignments: {
                 create: userIdsToAssign.map(id => ({
                     user: { connect: { id } },
-                    assignedByUserId: session.userId,
+                    assignedBy: { connect: { id: session.userId } },
                 }))
             }
         },
@@ -223,7 +223,7 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
                 deleteMany: {}, // Clear existing assignments
                 create: userIdsToAssign.map(uid => ({ // Create new ones
                     user: { connect: { id: uid } },
-                    assignedByUserId: session.userId,
+                    assignedBy: { connect: { id: session.userId } },
                 }))
             } : undefined,
         },
