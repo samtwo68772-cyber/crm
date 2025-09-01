@@ -1,11 +1,25 @@
 
 
+export type PermissionSet = {
+  [module: string]: {
+    [permission: string]: boolean;
+  };
+};
+
+export type Role = {
+  id: string;
+  name: string;
+  description?: string;
+  permissions: PermissionSet;
+  users?: User[];
+};
+
+
 export type User = {
   id: string;
   name: string;
   email: string;
   phone?: string;
-  role: 'admin' | 'staff';
   status: 'Active' | 'Inactive';
   team: string;
   avatar: string;
@@ -13,6 +27,8 @@ export type User = {
   assignments?: CaseAssignment[];
   meetings?: MeetingParticipant[];
   notificationPreferences?: NotificationPreferences;
+  roleId: string;
+  role: Role;
 };
 
 export type Case = {
@@ -49,7 +65,7 @@ export type Communication = {
   content: string;
   author: string;
   authorId: string;
-  authorRole: 'admin' | 'staff';
+  authorRole: Role['name'];
   timestamp: string;
 };
 

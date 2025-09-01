@@ -13,25 +13,53 @@ import {
   workflows,
   auditLogs,
 } from '../src/lib/data';
+import { defaultPermissions } from '../src/lib/permissions';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('Start seeding...');
 
+  // Seed Roles
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'Admin' },
+    update: {},
+    create: {
+      name: 'Admin',
+      description: 'Has full access to all system features and settings.',
+      permissions: defaultPermissions.admin,
+    },
+  });
+
+  const staffRole = await prisma.role.upsert({
+    where: { name: 'Staff' },
+    update: {},
+    create: {
+      name: 'Staff',
+      description: 'Has standard access to daily CRM functions.',
+      permissions: defaultPermissions.staff,
+    },
+  });
+
+  console.log('Roles seeded.');
+
+
   // Seed Users and their Notification Preferences
   for (const user of users) {
-    const { id, ...rest } = user;
+    const { id, role, ...rest } = user;
+    const roleId = user.role === 'admin' ? adminRole.id : staffRole.id;
     await prisma.user.upsert({
       where: { id: user.id },
       update: {
         ...rest,
         passwordHash: user.name, // In a real app, this would be a proper hash
+        roleId: roleId,
       },
       create: {
         id,
         ...rest,
         passwordHash: user.name,
+        roleId: roleId,
         notificationPreferences: {
           create: {
             cases: {
