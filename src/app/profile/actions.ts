@@ -8,7 +8,10 @@ import type { User, NotificationPreferences } from '@/lib/types';
 export async function getUserProfile(userId: string) {
     return await prisma.user.findUnique({
         where: { id: userId },
-        include: { notificationPreferences: true }
+        include: { 
+            notificationPreferences: true,
+            role: true
+        }
     });
 }
 
