@@ -5,8 +5,10 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { Meeting } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
+import { checkPermission } from '@/lib/permissions';
 
 export async function getMeetings() {
+  await checkPermission('meetings:view');
   return await prisma.meeting.findMany({
     orderBy: {
       date: 'desc',
@@ -22,6 +24,7 @@ export async function getMeetings() {
 }
 
 export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> & { participantIds: string[]}) {
+  await checkPermission('meetings:create');
   console.log('Received payload to create meeting:', JSON.stringify(data, null, 2));
   try {
     const { participantIds, contactId, ...meetingData } = data;
@@ -95,6 +98,7 @@ export async function createMeeting(data: Omit<Meeting, 'id' | 'participants'> &
 }
 
 export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id' | 'participants'>> & { participantIds?: string[] }) {
+    await checkPermission('meetings:update');
     const { participantIds, ...meetingData } = data;
 
     let finalUserIds: string[] | undefined = undefined;
@@ -149,6 +153,7 @@ export async function updateMeeting(id: string, data: Partial<Omit<Meeting, 'id'
 }
 
 export async function deleteMeeting(id: string) {
+    await checkPermission('meetings:delete');
     await prisma.meetingParticipant.deleteMany({
         where: { meetingId: id }
     });

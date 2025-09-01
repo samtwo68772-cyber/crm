@@ -6,8 +6,10 @@ import { revalidatePath } from 'next/cache';
 import type { Task } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
 import { getSession } from '@/context/actions';
+import { checkPermission } from '@/lib/permissions';
 
 export async function getTasks() {
+  await checkPermission('tasks:view');
   const session = await getSession();
   if (!session?.userId) return [];
   
@@ -28,6 +30,7 @@ export async function getTasks() {
 }
 
 export async function createTask(data: Omit<Task, 'id' | 'status'>) {
+  await checkPermission('tasks:create');
   const newTask = await prisma.task.create({
     data: {
       ...data,
@@ -49,6 +52,7 @@ export async function createTask(data: Omit<Task, 'id' | 'status'>) {
 }
 
 export async function updateTask(id: string, data: Partial<Omit<Task, 'id'>>) {
+  await checkPermission('tasks:update');
   const updatedTask = await prisma.task.update({
     where: { id },
     data,
@@ -68,6 +72,7 @@ export async function updateTask(id: string, data: Partial<Omit<Task, 'id'>>) {
 }
 
 export async function deleteTask(id: string) {
+  await checkPermission('tasks:delete');
   const deleted = await prisma.task.delete({
     where: { id },
   });

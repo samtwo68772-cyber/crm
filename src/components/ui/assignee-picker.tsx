@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -22,9 +23,10 @@ interface AssigneePickerProps {
   onChange: (assignees: string[]) => void;
   className?: string;
   mode?: 'single' | 'multiple';
+  disabled?: boolean;
 }
 
-export function AssigneePicker({ users, teams, selectedAssignees, onChange, className, mode = 'multiple' }: AssigneePickerProps) {
+export function AssigneePicker({ users, teams, selectedAssignees, onChange, className, mode = 'multiple', disabled = false }: AssigneePickerProps) {
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [tempSelected, setTempSelected] = useState<string[]>(selectedAssignees);
   const [searchQuery, setSearchQuery] = useState('');
@@ -85,8 +87,8 @@ export function AssigneePicker({ users, teams, selectedAssignees, onChange, clas
   return (
     <>
       <div 
-        className={cn("flex flex-wrap items-center gap-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-10 cursor-pointer", className)}
-        onClick={() => setDialogOpen(true)}
+        className={cn("flex flex-wrap items-center gap-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-10", disabled ? 'cursor-not-allowed bg-muted/50' : 'cursor-pointer', className)}
+        onClick={() => !disabled && setDialogOpen(true)}
       >
         {selectedAssignees.length > 0 ? (
           selectedAssignees.map((assignee) => (
@@ -99,7 +101,8 @@ export function AssigneePicker({ users, teams, selectedAssignees, onChange, clas
               <button
                 type="button"
                 className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                onClick={(e) => handleUnselectChip(e, assignee)}
+                onClick={(e) => !disabled && handleUnselectChip(e, assignee)}
+                disabled={disabled}
               >
                 <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
               </button>
@@ -150,7 +153,7 @@ export function AssigneePicker({ users, teams, selectedAssignees, onChange, clas
                                         <p className="font-medium">{user.label}</p>
                                         <p className="text-sm text-muted-foreground">{user.email}</p>
                                     </div>
-                                    <Badge variant="outline">{user.role}</Badge>
+                                    <Badge variant="outline">{user.role?.name || 'Staff'}</Badge>
                                 </div>
                             ))}
                           </div>

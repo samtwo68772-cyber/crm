@@ -1,5 +1,7 @@
 
 import type { PermissionSet } from './types';
+import { getSession } from '@/context/actions';
+import { prisma } from './prisma';
 
 export const permissionModules = {
     cases: {
@@ -58,3 +60,23 @@ export const defaultPermissions: { [key: string]: PermissionSet } = {
         audit: { view: false },
     }
 };
+
+
+export async function checkPermission(permission: `${keyof typeof permissionModules}:${keyof (typeof permissionModules)[keyof typeof permissionModules]['permissions']}`) {
+    const session = await getSession();
+    if (!session?.userId) throw new Error('Authentication required.');
+
+    const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+        include: { role: true },
+    });
+
+    if (!user) throw new Error('User not found.');
+
+    const [module, requiredPermission] = permission.split(':');
+    const userPermissions = user.role.permissions as PermissionSet;
+
+    if (!userPermissions?.[module]?.[requiredPermission]) {
+        throw new Error('Access Denied: You do not have the required permission.');
+    }
+}

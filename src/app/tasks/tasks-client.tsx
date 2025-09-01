@@ -6,7 +6,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { getTasks, createTask, updateTask, deleteTask } from './actions';
 import { getUsers } from '../admin/actions';
 import { getCases } from '../cases/actions';
-import type { Task, User, Case, Team } from '@/lib/types';
+import type { Task, User, Case, Team, PermissionSet } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -50,9 +50,10 @@ function getStatusIcon(status: Task['status']) {
 }
 
 interface TasksClientProps {
+    permissions: PermissionSet;
 }
 
-export function TasksClient() {
+export function TasksClient({ permissions }: TasksClientProps) {
   const queryClient = useQueryClient();
   const { data: tasks } = useQuery<Task[]>({ queryKey: ['tasks'], queryFn: getTasks });
   const { data: users } = useQuery<User[]>({ queryKey: ['users'], queryFn: getUsers });
@@ -162,7 +163,7 @@ export function TasksClient() {
             <h2 className="text-3xl font-bold tracking-tight font-headline">Tasks</h2>
             <p className="text-muted-foreground">Manage all assigned tasks and track performance.</p>
         </div>
-        {isAdmin && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>}
+        {permissions?.tasks?.create && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> New Task</Button>}
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -245,7 +246,7 @@ export function TasksClient() {
                  {tasksInGroup.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                         {tasksInGroup.map(task => (
-                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} users={users || []} cases={cases || []} />
+                            <TaskItem key={task.id} task={task} onEdit={() => setEditingTask(task)} onDelete={handleDeleteTask} onUpdate={handleUpdateTask} users={users || []} cases={cases || []} permissions={permissions} />
                         ))}
                     </div>
                  ) : (
@@ -281,11 +282,10 @@ export function TasksClient() {
   );
 }
 
-function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Partial<Task> & {id: string}, oldStatus?: Task['status']) => void; users: User[], cases: Case[] }) {
+function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases, permissions }: { task: Task; onDelete: (id: string) => void; onEdit: () => void; onUpdate: (task: Partial<Task> & {id: string}, oldStatus?: Task['status']) => void; users: User[], cases: Case[], permissions: PermissionSet }) {
     const { user } = useAuth();
     const assignedUser = users.find(u => u.id === task.assignedTo);
     const linkedCase = cases.find(c => c.id === task.linkedCase);
-    const isAdmin = user?.role.name === 'Admin';
     const dueDate = task.dueDate ? new Date(task.dueDate) : null;
 
     const handleStatusChange = (newStatus: Task['status']) => {
@@ -320,23 +320,18 @@ function TaskItem({ task, onDelete, onEdit, onUpdate, users, cases }: { task: Ta
                     </div>
                 </div>
                  <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isAdmin ? (
-                        <>
-                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive" onClick={() => onDelete(task.id)}><Trash2 className="h-4 w-4" /></Button>
-                        </>
-                    ) : (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleStatusChange('To Do')}>To Do</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusChange('In Progress')}>In Progress</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleStatusChange('Done')}>Done</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            {permissions?.tasks?.update && <DropdownMenuItem onClick={onEdit}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>}
+                            <DropdownMenuItem onClick={() => handleStatusChange('To Do')}>To Do</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusChange('In Progress')}>In Progress</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleStatusChange('Done')}>Done</DropdownMenuItem>
+                            {permissions?.tasks?.delete && <DropdownMenuItem className="text-destructive" onClick={() => onDelete(task.id)}><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                  </div>
             </CardFooter>
         </Card>

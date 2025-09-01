@@ -8,6 +8,7 @@ import { createNotification } from '../notifications/actions';
 import { randomBytes } from 'crypto';
 import { getSession } from '@/context/actions';
 import { sendEmail } from '../emails/actions';
+import { checkPermission } from '@/lib/permissions';
 
 
 async function sendAssignmentNotifications(caseData: Case, user: User) {
@@ -68,6 +69,7 @@ function generateShortId() {
 }
 
 export async function getCases() {
+    await checkPermission('cases:view');
     const session = await getSession();
     if (!session?.userId) {
         // Return empty array or handle unauthenticated access as needed
@@ -112,6 +114,7 @@ export async function getCases() {
 }
 
 export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communications' | 'assignments'> & { assignedTo: string[] }) {
+    await checkPermission('cases:create');
     const session = await getSession();
     if (!session?.userId) throw new Error("Authentication required");
 
@@ -177,6 +180,7 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
 }
 
 export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'assignments'>> & { assignedTo?: string[] }) {
+    await checkPermission('cases:update');
     const session = await getSession();
     if (!session?.userId) throw new Error("Authentication required");
     
@@ -185,6 +189,7 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
     
     let userIdsToAssign: string[] | undefined = undefined;
     if (assignedTo) {
+        await checkPermission('cases:assign');
         userIdsToAssign = [];
         for (const assignee of assignedTo) {
             if (assignee.startsWith('user-')) {
@@ -261,6 +266,7 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
 }
 
 export async function addCommunicationToCase(caseId: string, comm: Omit<Communication, 'id'>) {
+    await checkPermission('cases:update');
     const session = await getSession();
     if (!session?.userId) throw new Error("Authentication required");
 
@@ -284,6 +290,7 @@ export async function addCommunicationToCase(caseId: string, comm: Omit<Communic
 }
 
 export async function deleteCommunicationFromCase(caseId: string, communicationId: string) {
+    await checkPermission('cases:update');
     const targetCase = await prisma.case.findUnique({ where: { id: caseId } });
     if (!targetCase) throw new Error('Case not found');
 
@@ -304,6 +311,7 @@ export async function deleteCommunicationFromCase(caseId: string, communicationI
 }
 
 export async function deleteCase(id: string) {
+    await checkPermission('cases:delete');
     // Need to delete assignments first due to relation
     await prisma.caseAssignment.deleteMany({
         where: { caseId: id }

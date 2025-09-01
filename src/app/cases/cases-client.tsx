@@ -9,7 +9,7 @@ import { updateTask as updateTaskAction } from '../tasks/actions';
 import { getUsers, getTeams } from '../admin/actions';
 import { getTasks } from '../tasks/actions';
 import { getWorkflows } from '../settings/actions';
-import type { Case, User, Communication, Task, Notification, Workflow, Team, Document } from '@/lib/types';
+import type { Case, User, Communication, Task, Notification, Workflow, Team, Document, PermissionSet } from '@/lib/types';
 import { useAuth } from '@/context/auth-context';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuPortal, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -69,9 +69,10 @@ const staffStatusOptions: Case['status'][] = ['New', 'In Progress', 'Investigate
 
 
 interface CasesClientProps {
+    permissions: PermissionSet;
 }
 
-export function CasesClient() {
+export function CasesClient({ permissions }: CasesClientProps) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     
@@ -275,7 +276,7 @@ export function CasesClient() {
           <h2 className="text-3xl font-bold tracking-tight font-headline">Cases Management</h2>
           <p className="text-muted-foreground">Manage and track customer support cases.</p>
         </div>
-        {user?.role.name === 'Admin' && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Create Case</Button>}
+        {permissions?.cases?.create && <Button onClick={() => setCreateDialogOpen(true)} className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> Create Case</Button>}
       </div>
       <div className="flex flex-col space-y-4">
          <div className="flex flex-col sm:flex-row items-center gap-2">
@@ -389,6 +390,7 @@ export function CasesClient() {
                     users={users || []}
                     teams={teams || []}
                     tasks={tasks || []}
+                    permissions={permissions}
                 />
             </SheetContent>
         </Sheet>
@@ -399,7 +401,7 @@ export function CasesClient() {
   );
 }
 
-function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string, assignedTo?: string[]}) => void, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[] }) {
+function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, teams, tasks, permissions }: { caseItem: Case, onUpdateCase: (data: Partial<Case> & {id: string, assignedTo?: string[]}) => void, onDeleteCase: (id: string) => Promise<void>, onBack: () => void, users: User[], teams: Team[], tasks: Task[], permissions: PermissionSet }) {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const { toast } = useToast();
@@ -575,15 +577,12 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     <h4 className="font-semibold">Details</h4>
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div><Label className="text-muted-foreground">Status</Label></div>
-                        {isAdmin ? 
+                        {permissions?.cases?.update ? 
                             (<Select onValueChange={(value: Case['status']) => handleStatusChange(value)} value={caseItem.status}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>{adminStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
+                                <SelectContent>{(isAdmin ? adminStatusOptions : staffStatusOptions).map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
                             </Select>) : 
-                            (<Select onValueChange={(value: Case['status']) => handleStatusChange(value)} value={caseItem.status}>
-                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                <SelectContent>{staffStatusOptions.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                            </Select>)
+                            (<Badge variant={getStatusVariant(caseItem.status)}>{caseItem.status}</Badge>)
                         }
                         <div><Label className="text-muted-foreground">Priority</Label></div>
                         <Badge variant={getPriorityVariant(caseItem.priority)}>{caseItem.priority}</Badge>
@@ -595,6 +594,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                             teams={teams}
                             selectedAssignees={caseItem.assignments?.map((a:any) => `user-${a.userId}`) ?? []}
                             onChange={handleAssigneeChange}
+                            disabled={!permissions?.cases?.assign}
                           />
                         </div>
                     </div>
@@ -604,10 +604,10 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
                     <Textarea 
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      disabled={!isAdmin}
+                      disabled={!permissions?.cases?.update}
                       className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-md min-h-[120px]"
                     />
-                    {hasDescriptionChanged && isAdmin && (
+                    {hasDescriptionChanged && permissions?.cases?.update && (
                         <Button size="sm" onClick={() => onUpdateCase({ id: caseItem.id, description })}>Save Description</Button>
                     )}
                 </div>
@@ -733,7 +733,7 @@ function CaseDetailPanel({ caseItem, onUpdateCase, onDeleteCase, onBack, users, 
         </div>
         <SheetFooter className="p-4 border-t mt-auto bg-background flex-shrink-0">
              <div className="flex items-center justify-between gap-2 w-full">
-                 <Button variant="destructive" size="icon" onClick={() => setDeleteConfirmOpen(true)} disabled={!isAdmin}>
+                 <Button variant="destructive" size="icon" onClick={() => setDeleteConfirmOpen(true)} disabled={!permissions?.cases?.delete}>
                     <Trash2 className="h-4 w-4" />
                     <span className="sr-only">Delete Case</span>
                  </Button>
