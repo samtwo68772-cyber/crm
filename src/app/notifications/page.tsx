@@ -25,7 +25,7 @@ const getNotificationIcon = (type: Notification['type']) => {
     }
 };
 
-const ITEMS_PER_PAGE = 15;
+const ITEMS_PER_PAGE = 10;
 
 export default function NotificationsPage() {
     const { user } = useAuth();

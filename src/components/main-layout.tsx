@@ -77,7 +77,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
 
     const { data: notificationsData } = useQuery<{notifications: Notification[], total: number}>({
       queryKey: ['notifications', user?.id, 1, 'unread'], // Fetch first page of unread for the dropdown
-      queryFn: () => getNotifications(user!.id, { page: 1, limit: 10, filter: 'unread' }),
+      queryFn: () => getNotifications(user!.id, { page: 1, limit: 5, filter: 'unread' }),
       enabled: !!user,
       refetchInterval: 60000, // Refetch every 60 seconds
     });
