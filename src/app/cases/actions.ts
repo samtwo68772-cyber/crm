@@ -3,10 +3,65 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import type { Case, Communication } from '@/lib/types';
+import type { Case, Communication, User } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
 import { randomBytes } from 'crypto';
 import { getSession } from '@/context/actions';
+import { sendEmail } from '../emails/actions';
+
+
+async function sendAssignmentNotifications(caseData: Case, user: User) {
+    const notificationPayload = {
+        userId: user.id,
+        title: 'New Case Assigned',
+        description: `Case #${caseData.id}: "${caseData.subject}" assigned to you.`,
+        link: `/cases?id=${caseData.id}`,
+        type: 'case' as const
+    };
+
+    // 1. Create in-app notification (always)
+    await createNotification(notificationPayload);
+
+    // Fetch user preferences for email/SMS
+    const userWithPrefs = await prisma.user.findUnique({
+        where: { id: user.id },
+        include: { notificationPreferences: true }
+    });
+
+    // 2. Send email notification if user has opted in
+    if (userWithPrefs?.notificationPreferences?.cases.newAssignment.email) {
+        try {
+            const emailBody = `
+                <h1>New Case Assignment</h1>
+                <p>Hello ${user.name},</p>
+                <p>You have been assigned a new case: <strong>${caseData.subject}</strong>.</p>
+                <p><strong>Customer:</strong> ${caseData.customer}</p>
+                <p><strong>Priority:</strong> ${caseData.priority}</p>
+                <p>You can view the case details here: <a href="${process.env.NEXT_PUBLIC_BASE_URL || ''}${notificationPayload.link}">View Case</a></p>
+            `;
+            await sendEmail(user.email, `New Case Assigned: ${caseData.subject}`, emailBody);
+        } catch (error) {
+            console.error(`Failed to send case assignment email to ${user.email}:`, error);
+        }
+    }
+
+    // 3. Send SMS notification if user has a phone number
+    if (user.phone) {
+        try {
+            const smsMessage = `MinT CRM: New case assigned to you - "${caseData.subject}". Priority: ${caseData.priority}.`;
+            const smsEndpoint = `http://172.31.102.19:8000/sendsms?key=WzOvYNX1uh7aJgL4&receiver=${user.phone}&msg=${encodeURIComponent(smsMessage)}`;
+            
+            // Fire-and-forget the SMS request
+            fetch(smsEndpoint).catch(smsError => {
+                console.error(`Failed to send SMS to ${user.phone}:`, smsError);
+            });
+
+        } catch (error) {
+            console.error(`Failed to construct SMS request for ${user.phone}:`, error);
+        }
+    }
+}
+
 
 function generateShortId() {
     return `CASE-${randomBytes(4).toString('hex').slice(0, 7).toUpperCase()}`;
@@ -110,14 +165,9 @@ export async function createCase(data: Omit<Case, 'id' | 'createdAt' | 'communic
     });
 
     if (userIdsToAssign.length > 0) {
-        for (const assigneeId of userIdsToAssign) {
-            await createNotification({
-                userId: assigneeId,
-                title: 'New Case Assigned',
-                description: `Case #${newCase.id}: "${newCase.subject}" assigned to you.`,
-                link: `/cases?id=${newCase.id}`,
-                type: 'case'
-            });
+        const assignedUsers = await prisma.user.findMany({ where: { id: { in: userIdsToAssign } } });
+        for (const user of assignedUsers) {
+            await sendAssignmentNotifications(newCase as Case, user);
         }
     }
     
@@ -184,14 +234,11 @@ export async function updateCase(id: string, data: Partial<Omit<Case, 'id' | 'as
 
         const addedAssignees = newAssigneeIds.filter(uid => !originalAssigneeIds.includes(uid));
         
-        for (const assigneeId of addedAssignees) {
-            await createNotification({
-                userId: assigneeId,
-                title: 'Case Reassigned',
-                description: `Case #${updatedCase.id}: "${updatedCase.subject}" has been assigned to you.`,
-                link: `/cases?id=${updatedCase.id}`,
-                type: 'case'
-            });
+        if (addedAssignees.length > 0) {
+            const assignedUsers = await prisma.user.findMany({ where: { id: { in: addedAssignees } } });
+            for (const user of assignedUsers) {
+                await sendAssignmentNotifications(updatedCase as Case, user);
+            }
         }
     }
     
