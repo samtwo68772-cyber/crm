@@ -58,15 +58,40 @@ export async function createNotification(data: Omit<Notification, 'id' | 'read' 
   }
   
   // Create the primary notification for the target user
-  await prisma.notification.create({
+  const newNotification = await prisma.notification.create({
     data: {
       ...restData,
       userId,
       read: false,
       timestamp: new Date().toISOString(),
-      isSystemWide: false,
     },
   });
+
+  // Also notify admins with viewAll permission
+  const adminsToNotify = await prisma.user.findMany({
+      where: {
+          role: {
+              permissions: {
+                  path: ['notifications', 'viewAll'],
+                  equals: true
+              }
+          },
+          // Don't create a duplicate notification if the admin is the target user
+          id: { not: userId } 
+      }
+  });
+
+  for (const admin of adminsToNotify) {
+      await prisma.notification.create({
+          data: {
+              ...restData,
+              userId: admin.id,
+              read: false,
+              timestamp: new Date().toISOString(),
+              originalUserId: userId, // Track who the original notification was for
+          }
+      });
+  }
 }
 
 
