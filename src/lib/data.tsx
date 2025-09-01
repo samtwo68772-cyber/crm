@@ -1,9 +1,17 @@
 
-import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email, Notification, Workflow } from './types';
+import type { Case, Task, Contact, User, Team, Account, Document, Meeting, AuditLog, Email, Notification, Workflow, Role } from './types';
 import { BarChart, Briefcase, Users, CheckCircle, Clock } from 'lucide-react';
 import React from 'react';
 
-export const users: User[] = [
+// This file contains static data for seeding and prototyping.
+// The `role` property on the User type here is a string ('admin' or 'staff')
+// which the seed script uses to look up the correct Role record and assign the roleId.
+// This is different from the main User type in `types.ts` where `role` is an object.
+// This is intentional to simplify the seeding process.
+
+type SeedUser = Omit<User, 'role' | 'roleId' | 'assignments' | 'meetings' | 'notificationPreferences'> & { role: 'admin' | 'staff' };
+
+export const users: SeedUser[] = [
   { id: 'user-1', name: 'Alex Johnson', email: 'alex.j@example.com', role: 'admin', team: 'Management', avatar: '/avatars/01.png', status: 'Active' },
   { id: 'user-2', name: 'Maria Garcia', email: 'maria.g@example.com', role: 'staff', team: 'Support Tier 1', avatar: '/avatars/02.png', status: 'Active' },
   { id: 'user-3', name: 'James Smith', email: 'james.s@example.com', role: 'staff', team: 'Support Tier 2', avatar: '/avatars/03.png', status: 'Active' },
@@ -28,7 +36,7 @@ export const contacts: Omit<Contact, 'tasks'>[] = [
 ];
 
 
-export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: string[] }[] = [
+export const cases: Omit<Case, 'assignments' | 'createdBy' | 'createdById'> & { assignedTo: string[] }[] = [
   { 
     id: 'case-101', 
     subject: 'Login issue on mobile', 
@@ -42,7 +50,7 @@ export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: st
     resolvedAt: '2024-05-21',
     description: 'Customer reports being unable to log in via the mobile app. Getting an "Authentication Failed" error despite using correct credentials.', 
     communications: [
-        { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorId: 'user-2', authorRole: 'staff', timestamp: '2024-05-20 10:00:00' }
+        { id: 'comm-1', type: 'Note', content: 'Initial review of the case. Suspecting an issue with the mobile authentication service.', author: 'Maria Garcia', authorId: 'user-2', authorRole: 'Staff', timestamp: '2024-05-20 10:00:00' }
     ],
     contactId: 'contact-1',
     satisfactionRating: 4,
@@ -76,7 +84,7 @@ export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: st
     resolvedAt: '2024-05-19',
     description: 'User loves the platform and would like to see a dark mode option for the UI.', 
     communications: [
-        { id: 'comm-2', type: 'Note', content: 'Feature has been added to the product backlog. Closing case.', author: 'Alex Johnson', authorId: 'user-1', authorRole: 'admin', timestamp: '2024-05-18 14:00:00' }
+        { id: 'comm-2', type: 'Note', content: 'Feature has been added to the product backlog. Closing case.', author: 'Alex Johnson', authorId: 'user-1', authorRole: 'Admin', timestamp: '2024-05-18 14:00:00' }
     ],
     contactId: 'contact-3',
     satisfactionRating: 5,
@@ -94,7 +102,7 @@ export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: st
     resolvedAt: undefined,
     description: 'The export to CSV feature is failing with a server error 500. This is blocking their monthly reporting.', 
     communications: [
-        { id: 'comm-3', type: 'Finding', content: 'The CSV export fails due to a timeout on large datasets. The query needs to be optimized.', author: 'James Smith', authorId: 'user-3', authorRole: 'staff', timestamp: '2024-05-21 11:30:00' }
+        { id: 'comm-3', type: 'Finding', content: 'The CSV export fails due to a timeout on large datasets. The query needs to be optimized.', author: 'James Smith', authorId: 'user-3', authorRole: 'Staff', timestamp: '2024-05-21 11:30:00' }
     ],
     contactId: 'contact-4',
     satisfactionRating: undefined,
@@ -143,21 +151,21 @@ export const cases: Omit<Case, 'assignments' | 'createdById'> & { assignedTo: st
     resolvedAt: '2024-05-21',
     description: 'Requesting API access for a custom integration, which is not supported on their current plan.', 
     communications: [
-      { id: 'comm-4', type: 'Note', content: 'Customer plan does not include API access. Declined request.', author: 'Alex Johnson', authorId: 'user-1', authorRole: 'admin', timestamp: '2024-05-21 16:00:00' }
+      { id: 'comm-4', type: 'Note', content: 'Customer plan does not include API access. Declined request.', author: 'Alex Johnson', authorId: 'user-1', authorRole: 'Admin', timestamp: '2024-05-21 16:00:00' }
     ],
     satisfactionRating: 2,
   },
 ];
 
 export const tasks: Task[] = [
-  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: new Date(new Date().setDate(new Date().getDate() + 1)), priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2', contactId: 'contact-1' },
-  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: new Date(), priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3', contactId: 'contact-4' },
-  { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 7)), priority: 'Medium', assignedTo: 'user-1' },
-  { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 14)), priority: 'Low', assignedTo: 'user-1' },
-  { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: new Date(new Date().setDate(new Date().getDate() - 7)), priority: 'Medium', assignedTo: 'user-1' },
-  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 2)), priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3', contactId: 'contact-2' },
-  { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 3)), priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
-  { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: new Date(new Date().setDate(new Date().getDate() - 4)), priority: 'High', assignedTo: 'user-1' }
+  { id: 'task-1', title: 'Follow up with John Doe re: login issue', status: 'In Progress', dueDate: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2', contactId: 'contact-1' },
+  { id: 'task-2', title: 'Investigate CSV export error', status: 'In Progress', dueDate: new Date().toISOString(), priority: 'High', linkedCase: 'case-104', assignedTo: 'user-3', contactId: 'contact-4' },
+  { id: 'task-3', title: 'Prepare monthly support summary', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 7)).toISOString(), priority: 'Medium', assignedTo: 'user-1' },
+  { id: 'task-4', title: 'Review feature request backlog', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 14)).toISOString(), priority: 'Low', assignedTo: 'user-1' },
+  { id: 'task-5', title: 'Onboard new Tier 1 support agent', status: 'Done', dueDate: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), priority: 'Medium', assignedTo: 'user-1' },
+  { id: 'task-6', title: 'Pull invoice for Jane Roe', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 2)).toISOString(), priority: 'Medium', linkedCase: 'case-102', assignedTo: 'user-3', contactId: 'contact-2' },
+  { id: 'task-7', title: 'Deploy patch for mobile auth service', status: 'To Do', dueDate: new Date(new Date().setDate(new Date().getDate() + 3)).toISOString(), priority: 'High', linkedCase: 'case-101', assignedTo: 'user-2' },
+  { id: 'task-8', title: 'Finalize Q2 report', status: 'Done', dueDate: new Date(new Date().setDate(new Date().getDate() - 4)).toISOString(), priority: 'High', assignedTo: 'user-1' }
 ];
 
 
@@ -169,21 +177,20 @@ export const teams: Team[] = [
 ];
 
 export const documents: Document[] = [
-  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: new Date('2024-05-18'), uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101', authorId: 'user-1' },
-  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: new Date('2024-05-19'), uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2', authorId: 'user-2' },
-  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: new Date('2024-05-20'), uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104', authorId: 'user-3' },
-  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: new Date('2024-05-20'), uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png', authorId: 'user-2' },
-  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: new Date('2023-02-20'), uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2', authorId: 'user-1' }
+  { id: 'doc-1', name: 'Onboarding Checklist.pdf', type: 'PDF', size: '2.5 MB', uploadedAt: new Date('2024-05-18').toISOString(), uploadedBy: 'Alex Johnson', category: 'Case File', description: 'Initial onboarding checklist for the Acme Inc. account.', caseId: 'case-101', authorId: 'user-1' },
+  { id: 'doc-2', name: 'Invoice_Q2_2024.pdf', type: 'PDF', size: '780 KB', uploadedAt: new Date('2024-05-19').toISOString(), uploadedBy: 'Maria Garcia', category: 'Contract', description: 'Q2 2024 invoice for Stark Industries.', accountId: 'acc-2', authorId: 'user-2' },
+  { id: 'doc-3', name: 'Usage_Data_May.xlsx', type: 'Spreadsheet', size: '1.2 MB', uploadedAt: new Date('2024-05-20').toISOString(), uploadedBy: 'James Smith', category: 'Report', description: 'Monthly usage data export for analysis.', caseId: 'case-104', authorId: 'user-3' },
+  { id: 'doc-4', name: 'login_error_screenshot.png', type: 'Image', size: '350 KB', uploadedAt: new Date('2024-05-20').toISOString(), uploadedBy: 'Maria Garcia', category: 'Case File', description: 'Screenshot provided by the customer showing the login error.', caseId: 'case-101', previewUrl: 'https://placehold.co/600x400.png', authorId: 'user-2' },
+  { id: 'doc-6', name: 'Stark_Industries_MSA.pdf', type: 'PDF', size: '5.1 MB', uploadedAt: new Date('2023-02-20').toISOString(), uploadedBy: 'Alex Johnson', category: 'Contract', description: 'Master Service Agreement for Stark Industries.', accountId: 'acc-2', authorId: 'user-1' }
 ];
 
-export const meetings: Meeting[] = [
+export const meetings: Omit<Meeting, 'participants'>[] = [
   { 
     id: 'meet-1', 
     title: 'Q2 Review with Acme Inc.', 
     description: 'Quarterly business review and planning for next quarter.',
-    date: new Date(new Date().setDate(new Date().getDate() + 5)), 
+    date: new Date(new Date().setDate(new Date().getDate() + 5)).toISOString(), 
     status: 'Upcoming', 
-    participants: [],
     linkedRecord: 'case-101',
     contactId: 'contact-1'
   },
@@ -191,25 +198,22 @@ export const meetings: Meeting[] = [
     id: 'meet-2', 
     title: 'Internal Project Kickoff', 
     description: 'Kickoff meeting for the new mobile app redesign project.',
-    date: new Date(new Date().setDate(new Date().getDate() - 2)), 
+    date: new Date(new Date().setDate(new Date().getDate() - 2)).toISOString(), 
     status: 'Completed', 
-    participants: [],
   },
   { 
     id: 'meet-3', 
     title: 'Support Team Sync', 
     description: 'Weekly sync to discuss high-priority cases.',
-    date: new Date(new Date().setDate(new Date().getDate() - 7)), 
+    date: new Date(new Date().setDate(new Date().getDate() - 7)).toISOString(), 
     status: 'Completed', 
-    participants: [],
   },
    { 
     id: 'meet-4', 
     title: 'Client Demo', 
     description: 'Demo of the new features for Stark Industries.',
-    date: new Date(new Date().setDate(new Date().getDate() + 10)), 
+    date: new Date(new Date().setDate(new Date().getDate() + 10)).toISOString(), 
     status: 'Upcoming', 
-    participants: [],
     linkedRecord: 'case-102',
     contactId: 'contact-2'
   },
@@ -217,9 +221,8 @@ export const meetings: Meeting[] = [
     id: 'meet-5', 
     title: 'On-site Maintenance', 
     description: 'Scheduled maintenance at the client\'s office.',
-    date: new Date(new Date().setDate(new Date().getDate() + 1)), 
+    date: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString(), 
     status: 'Canceled', 
-    participants: [],
   },
 ];
 
@@ -281,16 +284,16 @@ export const adminStats: { title: string; value: string; change: string; icon: R
     { title: "Avg. Resolution Time", value: "2.1 days", change: "-0.2 days from last month", icon: <Clock className="h-4 w-4 text-muted-foreground" /> },
 ];
 
-export const auditLogs: AuditLog[] = [
-  { id: 'log-1', userId: 'user-1', action: 'User Login', details: 'Alex Johnson logged in.', timestamp: new Date('2024-05-23T10:00:00Z') },
-  { id: 'log-2', userId: 'user-1', action: 'Update Settings', details: 'Updated General Settings: System Name to "MinT CRM Pro"', timestamp: new Date('2024-05-23T10:05:00Z') },
-  { id: 'log-3', userId: 'user-2', action: 'Update Case', details: 'Updated status of Case #case-102 to "In Progress"', timestamp: new Date('2024-05-23T11:20:00Z') },
-  { id: 'log-4', userId: 'user-1', action: 'Create User', details: 'Created new user: Patricia Williams (staff)', timestamp: new Date('2024-05-22T14:15:00Z') },
-  { id: 'log-5', userId: 'user-3', action: 'Delete Task', details: 'Deleted task: "Review old tickets"', timestamp: new Date('2024-05-22T09:45:00Z') },
-  { id: 'log-6', userId: 'user-1', action: 'Revoke API Key', details: 'Revoked API key "sk_...w456"', timestamp: new Date('2024-05-21T18:00:00Z') },
+export const auditLogs: Omit<AuditLog, 'timestamp'> & { timestamp: string }[] = [
+  { id: 'log-1', userId: 'user-1', action: 'User Login', details: 'Alex Johnson logged in.', timestamp: new Date('2024-05-23T10:00:00Z').toISOString() },
+  { id: 'log-2', userId: 'user-1', action: 'Update Settings', details: 'Updated General Settings: System Name to "MinT CRM Pro"', timestamp: new Date('2024-05-23T10:05:00Z').toISOString() },
+  { id: 'log-3', userId: 'user-2', action: 'Update Case', details: 'Updated status of Case #case-102 to "In Progress"', timestamp: new Date('2024-05-23T11:20:00Z').toISOString() },
+  { id: 'log-4', userId: 'user-1', action: 'Create User', details: 'Created new user: Patricia Williams (staff)', timestamp: new Date('2024-05-22T14:15:00Z').toISOString() },
+  { id: 'log-5', userId: 'user-3', action: 'Delete Task', details: 'Deleted task: "Review old tickets"', timestamp: new Date('2024-05-22T09:45:00Z').toISOString() },
+  { id: 'log-6', userId: 'user-1', action: 'Revoke API Key', details: 'Revoked API key "sk_...w456"', timestamp: new Date('2024-05-21T18:00:00Z').toISOString() },
 ];
 
-export const emails: Email[] = [
+export const emails: Omit<Email, 'date'> & { date: string }[] = [
     {
         id: 'email-1',
         from: { name: 'John Doe', email: 'john.d@customer.com' },
