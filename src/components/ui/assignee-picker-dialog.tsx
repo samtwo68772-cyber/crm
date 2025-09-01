@@ -113,7 +113,7 @@ export function AssigneePickerDialog({ open, onOpenChange, users, teams, selecte
                                   <p className="font-medium">{user.label}</p>
                                   <p className="text-sm text-muted-foreground">{user.email}</p>
                               </div>
-                              <Badge variant="outline">{user.role}</Badge>
+                              <Badge variant="outline">{user.role?.name}</Badge>
                           </div>
                       ))}
                     </div>
