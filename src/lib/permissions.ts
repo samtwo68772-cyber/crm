@@ -20,6 +20,10 @@ export const permissionModules = {
         label: 'Emails',
         permissions: { view: 'View', send: 'Send', delete: 'Delete' }
     },
+    notifications: {
+        label: 'Notifications',
+        permissions: { viewAll: 'View All System Notifications' }
+    },
     teams: {
         label: 'Teams',
         permissions: { create: 'Create', update: 'Update', archive: 'Archive', delete: 'Delete', assignMembers: 'Assign Members' }
@@ -44,6 +48,7 @@ export const defaultPermissions: { [key: string]: PermissionSet } = {
         tasks: { create: true, view: true, update: true, delete: true, assign: true },
         meetings: { create: true, view: true, update: true, delete: true, invite: true },
         emails: { view: true, send: true, delete: true },
+        notifications: { viewAll: true },
         teams: { create: true, update: true, archive: true, delete: true, assignMembers: true },
         users: { create: true, update: true, delete: true, manageRoles: true },
         settings: { updateSystem: true, manageIntegrations: true },
@@ -54,6 +59,7 @@ export const defaultPermissions: { [key: string]: PermissionSet } = {
         tasks: { create: true, view: true, update: true, delete: false, assign: true },
         meetings: { create: true, view: true, update: true, delete: false, invite: true },
         emails: { view: true, send: true, delete: false },
+        notifications: { viewAll: false },
         teams: { create: false, update: false, archive: false, delete: false, assignMembers: false },
         users: { create: false, update: false, delete: false, manageRoles: false },
         settings: { updateSystem: false, manageIntegrations: false },

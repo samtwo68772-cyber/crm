@@ -3,7 +3,8 @@
 
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import type { Notification } from '@/lib/types';
+import type { Notification, PermissionSet } from '@/lib/types';
+import { getSession } from '@/context/actions';
 
 export async function getNotifications(
     userId: string,
@@ -14,19 +15,21 @@ export async function getNotifications(
 
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
     if (!user) return { notifications: [], total: 0 };
+    
+    const userPermissions = user.role.permissions as PermissionSet;
+    const canViewAll = userPermissions?.notifications?.viewAll;
 
     let whereClause: any = {
-        userId: userId
+      userId: userId,
     };
-
-    // Admins can see system-wide notifications (userId is null)
-    if (user.role.name === 'Admin') {
+    
+    if (canViewAll) {
         whereClause = {
             OR: [
-                { userId: null },
-                { userId: userId },
+                { userId: userId }, // Notifications for me
+                { isSystemWide: true } // All system-wide notifications
             ]
-        };
+        }
     }
     
     if (filter === 'unread') {
@@ -51,18 +54,45 @@ export async function getNotifications(
 }
 
 export async function createNotification(data: Omit<Notification, 'id' | 'read' | 'timestamp'>) {
-    const newNotification = await prisma.notification.create({
-        data: {
-            ...data,
-            read: false,
-            timestamp: new Date().toISOString(),
-        }
+  // Create the primary notification for the target user
+  await prisma.notification.create({
+    data: {
+      ...data,
+      read: false,
+      timestamp: new Date().toISOString(),
+      isSystemWide: false,
+    },
+  });
+
+  // Find all users with the 'viewAll' permission for notifications.
+  const adminsWithViewAll = await prisma.user.findMany({
+    where: {
+      role: {
+        permissions: {
+          path: ['notifications', 'viewAll'],
+          equals: true,
+        },
+      },
+      // Exclude the original recipient to avoid duplicate notifications
+      id: { not: data.userId },
+    },
+  });
+
+  // Create a system-wide copy for each of them.
+  for (const admin of adminsWithViewAll) {
+    await prisma.notification.create({
+      data: {
+        ...data,
+        userId: admin.id, // Target this specific admin
+        read: false,
+        timestamp: new Date().toISOString(),
+        isSystemWide: true, // Mark it as a system-wide notification
+        originalUserId: data.userId, // Optionally store who the original notification was for
+      },
     });
-    // This revalidation is tricky because it's for the layout, not a specific page.
-    // A more advanced solution might use websockets. For now, we rely on polling/re-fetching.
-    // revalidatePath('/'); 
-    return newNotification;
+  }
 }
+
 
 export async function markAsRead(notificationId: string) {
     const updated = await prisma.notification.update({
@@ -76,13 +106,16 @@ export async function markAllAsRead(userId: string) {
     const user = await prisma.user.findUnique({ where: { id: userId }, include: { role: true } });
     if (!user) return;
     
+    const userPermissions = user.role.permissions as PermissionSet;
+    const canViewAll = userPermissions?.notifications?.viewAll;
+    
     let whereClause: any = { userId: userId, read: false };
 
-    if (user.role.name === 'Admin') {
+    if (canViewAll) {
          whereClause = {
             OR: [
-                { userId: null },
                 { userId: userId },
+                { isSystemWide: true }
             ],
             read: false
         };

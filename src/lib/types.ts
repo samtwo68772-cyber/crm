@@ -202,8 +202,10 @@ export type Notification = {
   description: string;
   timestamp: string;
   read: boolean;
-  userId?: string | null; // To whom the notification belongs. Can be undefined for system-wide (admin) notifications.
-  link: string; // The URL to navigate to when clicked
+  userId: string;
+  link: string;
+  isSystemWide?: boolean;
+  originalUserId?: string;
 };
 
 export type NotificationChannel = {

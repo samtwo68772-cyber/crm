@@ -30,6 +30,7 @@ import { getGeneralSettings, updateGeneralSettings, getEmailSettings, updateEmai
 import { getUsers, getTeams } from '../admin/actions';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
+import { permissionModules } from '@/lib/permissions';
 
 
 type SecuritySettingsType = {
@@ -559,33 +560,6 @@ function EmailSettingsDialog({ open, onOpenChange, settings }: { open: boolean, 
     )
 }
 
-const notificationConfig = {
-    cases: {
-        title: 'Cases',
-        events: {
-            newAssignment: 'New case assigned to me',
-            statusChange: 'Status changes on my cases',
-            newComment: 'New comment on my cases',
-        },
-    },
-    tasks: {
-        title: 'Tasks',
-        events: {
-            newAssignment: 'New task assigned to me',
-            statusChange: 'Task status changes',
-            dueSoon: 'Task is due soon',
-        },
-    },
-    meetings: {
-        title: 'Meetings',
-        events: {
-            newInvite: 'New meeting invitation',
-            update: 'Meeting details are updated',
-            cancellation: 'Meeting is canceled',
-        },
-    },
-};
-
 function AlertsSettings({ preferences }: { preferences: NotificationPreferences; }) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
@@ -647,11 +621,11 @@ function AlertsSettings({ preferences }: { preferences: NotificationPreferences;
                 </div>
             </CardHeader>
             <CardContent className="space-y-8">
-                {Object.entries(notificationConfig).map(([categoryKey, categoryValue]) => (
+                {Object.entries(permissionModules).filter(([key]) => key in currentPreferences).map(([categoryKey, categoryValue]) => (
                     <div key={categoryKey}>
-                        <h4 className="font-medium text-lg mb-4">{categoryValue.title}</h4>
+                        <h4 className="font-medium text-lg mb-4">{categoryValue.label}</h4>
                         <div className="space-y-4">
-                            {Object.entries(categoryValue.events).map(([eventKey, eventLabel]) => {
+                            {Object.entries(categoryValue.permissions).filter(([key]) => key in currentPreferences[categoryKey as keyof NotificationPreferences]).map(([eventKey, eventLabel]) => {
                                 const pref = currentPreferences[categoryKey as keyof NotificationPreferences][eventKey as keyof NotificationPreferences[typeof category]];
                                 return (
                                 <div key={eventKey} className="border rounded-lg p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
