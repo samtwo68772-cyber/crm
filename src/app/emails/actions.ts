@@ -66,7 +66,7 @@ export async function processIncomingEmails() {
         const results = await connection.search(searchCriteria, fetchOptions);
         console.log(`Found ${results.length} emails in INBOX.`);
 
-        const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
+        const defaultUser = await prisma.user.findFirst({ where: { role: { name: 'Admin' } } });
         if (!defaultUser) {
             console.error("No default admin user found to assign cases to.");
             throw new Error("No default admin user found to assign cases to.");
@@ -424,7 +424,7 @@ export async function createCaseFromEmail(emailId: string) {
     const email = await prisma.email.findUnique({ where: { id: emailId } });
     if (!email) throw new Error('Email not found');
     
-    const defaultUser = await prisma.user.findFirst({ where: { role: 'admin' } });
+    const defaultUser = await prisma.user.findFirst({ where: { role: { name: 'Admin' } } });
     if (!defaultUser) {
         throw new Error("No default admin user found to assign cases to.");
     }
