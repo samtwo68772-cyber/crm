@@ -26,11 +26,7 @@ export async function getNotifications(
     }
     
     if (filter === 'unread') {
-        if (whereClause.AND) {
-            whereClause.AND.push({ read: false });
-        } else {
-            whereClause.read = false;
-        }
+        whereClause.read = false;
     }
 
     const [notifications, total] = await prisma.$transaction([
