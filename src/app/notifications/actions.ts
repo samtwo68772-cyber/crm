@@ -22,7 +22,7 @@ export async function getNotifications(
     
     if (!canViewAll) {
         // Regular user only sees their own notifications.
-        whereClause = { userId: userId };
+        whereClause.userId = userId;
     }
     
     if (filter === 'unread') {
