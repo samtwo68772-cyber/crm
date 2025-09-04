@@ -1,8 +1,6 @@
 
 'use server'
 
-import 'server-only'
-
 import { cookies } from 'next/headers'
 import { SessionPayload } from '@/lib/types'
 import { prisma } from '@/lib/prisma';
@@ -29,7 +27,7 @@ export async function login(email: string, password: string) {
   const session = await encrypt({ userId: user.id, expires })
 
   // Save the session in a cookie
-  cookies().set('session', session, { expires, httpOnly: true })
+  ;(await cookies()).set('session', session, { expires, httpOnly: true })
   
   const { passwordHash, ...userWithoutPassword } = user;
   return userWithoutPassword as User;
@@ -37,7 +35,7 @@ export async function login(email: string, password: string) {
 
 export async function logout() {
   // Destroy the session
-  cookies().set('session', '', { expires: new Date(0) })
+  ;(await cookies()).set('session', '', { expires: new Date(0) })
 }
 
 export async function getSession() {
