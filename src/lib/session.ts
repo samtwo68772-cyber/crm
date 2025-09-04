@@ -5,6 +5,7 @@ import 'server-only'
 
 import { SignJWT, jwtVerify } from 'jose'
 import { SessionPayload } from '@/lib/types'
+import { cookies } from 'next/headers'
 
 // In a real app, this would be a secret from an environment variable
 const secretKey = process.env.SESSION_SECRET || 'your-super-secret-key-that-is-long-enough'
@@ -28,4 +29,10 @@ export async function decrypt(input: string): Promise<any> {
     console.error('JWT verification failed:', error);
     return null
   }
+}
+
+export async function getSession() {
+  const session = (await cookies()).get('session')?.value
+  if (!session) return null
+  return await decrypt(session) as SessionPayload | null
 }

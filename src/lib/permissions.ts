@@ -1,6 +1,6 @@
 
 import type { PermissionSet } from './types';
-import { getSession } from '@/context/actions';
+import { getSession } from './session';
 import { prisma } from './prisma';
 
 export const permissionModules = {

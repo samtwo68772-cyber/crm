@@ -4,7 +4,8 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import type { User } from '@/lib/types';
-import { login as loginAction, logout as logoutAction, getSession, getUserById } from './actions';
+import { login as loginAction, logout as logoutAction, getUserById } from './actions';
+import { getSession } from '@/lib/session';
 import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthContextType {
