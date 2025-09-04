@@ -50,6 +50,7 @@ async function sendAssignmentNotifications(caseData: Case, user: User) {
     if (user.phone) {
         try {
             const smsMessage = `MinT CRM: New case assigned to you - "${caseData.subject}". Priority: ${caseData.priority}.`;
+            // NOTE: This uses an example local service URL. Replace with a real SMS gateway in production.
             const smsEndpoint = `http://172.31.102.19:8000/sendsms?key=WzOvYNX1uh7aJgL4&receiver=${user.phone}&msg=${encodeURIComponent(smsMessage)}`;
             
             // Fire-and-forget the SMS request
