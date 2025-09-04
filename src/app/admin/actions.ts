@@ -113,7 +113,26 @@ export async function createUser(data: Omit<User, 'id' | 'avatar' | 'role' | 'as
                 ...userData,
                 team: teamName,
                 passwordHash,
-                avatar: `https://placehold.co/40x40.png?text=${data.name.charAt(0)}`
+                avatar: `https://placehold.co/40x40.png?text=${data.name.charAt(0)}`,
+                notificationPreferences: {
+                    create: {
+                        cases: {
+                            newAssignment: { inApp: true, email: true, mandatory: true },
+                            statusChange: { inApp: true, email: false, mandatory: false },
+                            newComment: { inApp: true, email: false, mandatory: false },
+                        },
+                        tasks: {
+                            newAssignment: { inApp: true, email: true, mandatory: true },
+                            statusChange: { inApp: false, email: false, mandatory: false },
+                            dueSoon: { inApp: true, email: true, mandatory: false },
+                        },
+                        meetings: {
+                            newInvite: { inApp: true, email: true, mandatory: true },
+                            update: { inApp: true, email: true, mandatory: false },
+                            cancellation: { inApp: true, email: true, mandatory: true },
+                        }
+                    }
+                }
             },
         });
 
