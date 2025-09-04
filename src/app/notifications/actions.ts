@@ -3,7 +3,7 @@
 
 import { prisma } from '@/lib/prisma';
 import type { Notification, PermissionSet } from '@/lib/types';
-import { getSession } from '@/context/actions';
+import { getSession } from '@/lib/session';
 
 export async function getNotifications(
     userId: string,

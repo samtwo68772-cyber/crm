@@ -4,7 +4,7 @@ import { getCases } from '../cases/actions';
 import { getTeams, getUsers } from '../admin/actions';
 import { getTasks } from './actions';
 import type { PermissionSet } from '@/lib/types';
-import { getSession } from '@/context/actions';
+import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 
