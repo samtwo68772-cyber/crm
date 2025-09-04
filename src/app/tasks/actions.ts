@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import type { Task } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
-import { getSession } from '@/context/actions';
+import { getSession } from '@/lib/session';
 import { checkPermission } from '@/lib/permissions';
 
 export async function getTasks() {

@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import type { User, Team, Role, PermissionSet } from '@/lib/types';
-import { getSession } from '@/context/actions';
+import { getSession } from '@/lib/session';
 import { defaultPermissions, permissionModules } from '@/lib/permissions';
 
 async function checkAdmin() {

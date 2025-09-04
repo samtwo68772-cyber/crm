@@ -6,7 +6,7 @@ import { revalidatePath } from 'next/cache';
 import type { Case, Communication, User } from '@/lib/types';
 import { createNotification } from '../notifications/actions';
 import { randomBytes } from 'crypto';
-import { getSession } from '@/context/actions';
+import { getSession } from '@/lib/session';
 import { sendEmail } from '../emails/actions';
 import { checkPermission } from '@/lib/permissions';
 
