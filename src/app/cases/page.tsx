@@ -1,7 +1,7 @@
 
 import { CasesClient } from './cases-client';
 import type { PermissionSet } from '@/lib/types';
-import { getSession } from '@/context/actions';
+import { getSession } from '@/lib/session';
 import { prisma } from '@/lib/prisma';
 
 export default async function CasesPage() {
